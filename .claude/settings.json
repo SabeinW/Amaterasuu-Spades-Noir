@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la public/)",
+      "Bash(ls -la public/sounds/)"
+    ]
+  }
+}
