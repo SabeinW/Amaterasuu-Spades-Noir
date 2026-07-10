@@ -9,7 +9,16 @@
       "Bash(node ./scripts/responsive-check.mjs)",
       "Bash(node ./scripts/responsive-check2.mjs)",
       "Bash(node ./scripts/responsive-check3.mjs)",
-      "Bash(node ./scripts/responsive-check4.mjs)"
+      "Bash(node ./scripts/responsive-check4.mjs)",
+      "Bash(node scripts/test-multiplayer.mjs)",
+      "Bash(node scripts/create-test-users.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(python c:/Users/rahee/Downloads/ui-ux-pro-max-skill-main/ui-ux-pro-max-skill-main/.claude/skills/ui-ux-pro-max/scripts/search.py 'premium dark casino card game gaming luxury' --design-system -p 'Amaterasuu Noir Spades')",
+      "Bash(python c:/Users/rahee/Downloads/ui-ux-pro-max-skill-main/ui-ux-pro-max-skill-main/.claude/skills/ui-ux-pro-max/scripts/search.py 'card fan float hero animation' --domain motion)",
+      "Bash(python c:/Users/rahee/Downloads/ui-ux-pro-max-skill-main/ui-ux-pro-max-skill-main/.claude/skills/ui-ux-pro-max/scripts/search.py 'hero float stagger entrance reduced-motion' --domain ux)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/check-landing.mjs)",
+      "Bash(node scripts/check-theme-in-game.mjs)"
     ]
   }
 }

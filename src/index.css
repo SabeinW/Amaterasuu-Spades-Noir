@@ -157,6 +157,15 @@ h4,
     background-position: 200% 0;
   }
 }
+@keyframes heroCardFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
 
 .animate-fadeUp {
   animation: fadeUp 0.5s ease both;
@@ -172,4 +181,16 @@ h4,
 }
 .animate-pulseGlow {
   animation: pulseGlow 2.2s ease-in-out infinite;
+}
+.hero-card-float {
+  animation: heroCardFloat 3.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-cardFloat,
+  .animate-pulseGlow,
+  .hero-card-float {
+    animation: none !important;
+  }
 }

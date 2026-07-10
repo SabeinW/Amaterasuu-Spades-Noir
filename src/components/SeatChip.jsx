@@ -1,3 +1,5 @@
+import { Bot } from 'lucide-react'
+
 const POSITION_STYLE = {
   top: 'top-2 left-1/2 -translate-x-1/2',
   left: 'left-2 top-1/2 -translate-y-1/2',
@@ -19,7 +21,7 @@ export default function SeatChip({ position, player, bid, tricks, isActive, acce
         className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{ background: `${accentColor}33`, color: accentColor }}
       >
-        {player?.isBot ? '🤖' : (player?.username?.[0] ?? '?').toUpperCase()}
+        {player?.isBot ? <Bot className="w-3.5 h-3.5" /> : (player?.username?.[0] ?? '?').toUpperCase()}
       </div>
       {!compact && (
         <div className="flex flex-col leading-tight">

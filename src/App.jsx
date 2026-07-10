@@ -96,6 +96,7 @@ export default function App() {
           onOpenDeckThemes={() => setModal('deckThemes')}
           onOpenTableThemes={() => setModal('tableThemes')}
           onOpenRules={() => setModal('rules')}
+          onOpenChallenges={() => setModal('challenges')}
         />
       )}
 

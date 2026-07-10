@@ -4,8 +4,8 @@ import fs from 'node:fs'
 const shotDir = new URL('./shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]):/, '$1:')
 fs.mkdirSync(shotDir, { recursive: true })
 
-const HOST = { email: 'mptest1783420099677@gmail.com', password: 'Test1234!' }
-const GUEST = { email: 'mp-guest-1783420192@gmail.com', password: 'Test1234!' }
+const HOST = { email: 'mp-host-1783659279864@gmail.com', password: 'Test1234!' }
+const GUEST = { email: 'mp-guest-1783659279864@gmail.com', password: 'Test1234!' }
 
 const browser = await chromium.launch()
 const hostCtx = await browser.newContext({ viewport: { width: 420, height: 860 } })
@@ -24,7 +24,7 @@ for (const [name, page] of [['host', host], ['guest', guest]]) {
 
 async function signIn(page, creds) {
   await page.goto('http://localhost:5173', { waitUntil: 'networkidle' })
-  await page.click('text=Sign In')
+  await page.click('button[aria-label="Sign In"]')
   await page.fill('input[type="email"]', creds.email)
   await page.fill('input[type="password"]', creds.password)
   await page.click('button:has-text("Enter the Game")')
@@ -64,6 +64,18 @@ await host.screenshot({ path: `${shotDir}mp-06-host-game-started.png` })
 
 await guest.waitForSelector('[data-testid="hand-row"]', { timeout: 10000 })
 await guest.screenshot({ path: `${shotDir}mp-07-guest-game-started.png` })
+
+await host.waitForTimeout(2000)
+await host.screenshot({ path: `${shotDir}mp-06b-host-pre-bid.png` })
+await guest.screenshot({ path: `${shotDir}mp-06c-guest-pre-bid.png` })
+
+// Blind Nil is on by default — decline it to reveal the hand and reach the normal bid panel.
+async function skipBlindNil(page) {
+  const seeHand = page.getByText('See My Hand First')
+  if (await seeHand.count()) await seeHand.click()
+}
+await skipBlindNil(host)
+await skipBlindNil(guest)
 
 // Both real players bid (bots bid on their own timers)
 await host.waitForSelector('text=How many tricks?', { timeout: 8000 })

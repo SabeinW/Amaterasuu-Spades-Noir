@@ -1,16 +1,33 @@
-import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, BarChart3, Globe, History, User } from 'lucide-react'
+import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User } from 'lucide-react'
+import PlayingCard from './PlayingCard'
 
-const PILLS = [
-  { icon: Trophy, label: 'Ranked Matches' },
-  { icon: Bot, label: 'AI Bots' },
-  { icon: CreditCard, label: '13 Deck Themes' },
-  { icon: Settings2, label: 'Custom Rules' },
-  { icon: BarChart3, label: 'Scoreboard' },
-  { icon: Globe, label: 'Multiplayer' },
-  { icon: History, label: 'History' },
+const FAN_CARDS = [
+  { suit: 'S', value: 'A', rotate: -22, x: -66, delay: '0s' },
+  { suit: 'H', value: 'K', rotate: -11, x: -34, delay: '0.12s' },
+  { suit: 'S', value: 'Q', rotate: 0, x: 0, delay: '0.24s' },
+  { suit: 'D', value: 'J', rotate: 11, x: 34, delay: '0.36s' },
+  { suit: 'S', value: '10', rotate: 22, x: 66, delay: '0.48s' },
 ]
 
-export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, onOpenDeckThemes, onOpenTableThemes, onOpenRules }) {
+export default function Landing({
+  user,
+  onPlayOnline,
+  onQuickGame,
+  onOpenAuth,
+  onOpenDeckThemes,
+  onOpenTableThemes,
+  onOpenRules,
+  onOpenChallenges,
+}) {
+  const PILLS = [
+    { icon: Trophy, label: 'Ranked Matches', onClick: onPlayOnline },
+    { icon: Bot, label: 'AI Bots', onClick: onQuickGame },
+    { icon: CreditCard, label: '13 Deck Themes', onClick: onOpenDeckThemes },
+    { icon: Settings2, label: 'Custom Rules', onClick: onOpenRules },
+    { icon: Flame, label: 'Challenges', onClick: onOpenChallenges },
+    { icon: Globe, label: 'Multiplayer', onClick: onPlayOnline },
+    { icon: Palette, label: 'Table Themes', onClick: onOpenTableThemes },
+  ]
   return (
     <div className="min-h-full flex flex-col items-center px-6 py-6 text-center relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(167,139,250,0.18), transparent 60%)' }} />
@@ -23,13 +40,13 @@ export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, o
           Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-          <button onClick={onOpenDeckThemes} title="Deck Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
+          <button onClick={onOpenDeckThemes} title="Deck Themes" aria-label="Deck Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Layers className="w-4 h-4" />
           </button>
-          <button onClick={onOpenTableThemes} title="Table Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
+          <button onClick={onOpenTableThemes} title="Table Themes" aria-label="Table Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Palette className="w-4 h-4" />
           </button>
-          <button onClick={onOpenRules} title="Game Rules" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
+          <button onClick={onOpenRules} title="Game Rules" aria-label="Game Rules" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Sliders className="w-4 h-4" />
           </button>
           {user ? (
@@ -40,6 +57,7 @@ export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, o
             <button
               onClick={onOpenAuth}
               title="Sign In"
+              aria-label="Sign In"
               className="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 text-xs font-semibold whitespace-nowrap shrink-0"
               style={{ background: 'linear-gradient(90deg,#a78bfa,#38bdf8)', color: '#0a0812' }}
             >
@@ -50,8 +68,26 @@ export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, o
       </div>
 
       <div className="relative z-10 flex flex-col items-center max-w-md mt-4">
+        <div className="relative w-full flex items-end justify-center" style={{ height: 116 }} aria-hidden="true">
+          {FAN_CARDS.map((c, i) => (
+            <div
+              key={`${c.suit}${c.value}`}
+              className="absolute bottom-2 left-1/2 animate-fadeIn"
+              style={{
+                transform: `translateX(-50%) translateX(${c.x}px) rotate(${c.rotate}deg)`,
+                transformOrigin: 'bottom center',
+                animationDelay: c.delay,
+                zIndex: i,
+              }}
+            >
+              <div className="hero-card-float" style={{ animationDelay: c.delay }}>
+                <PlayingCard suit={c.suit} value={c.value} size="md" />
+              </div>
+            </div>
+          ))}
+        </div>
         <div
-          className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl mb-6 animate-float"
+          className="w-20 h-20 -mt-2 rounded-3xl flex items-center justify-center text-3xl mb-6 relative z-10 animate-float"
           style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', boxShadow: '0 0 60px rgba(167,139,250,0.5)' }}
         >
           ♠
@@ -76,17 +112,22 @@ export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, o
             className="rounded-2xl py-3.5 font-semibold text-sm flex items-center justify-center gap-2"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(56,189,248,0.4)' }}
           >
-            ⚙️ Quick Game vs AI
+            <Sparkles className="w-4 h-4" /> Quick Game vs AI
           </button>
         </div>
 
         {!user && <p className="text-white/25 text-xs mt-4">Sign in to save progress</p>}
 
         <div className="flex flex-wrap justify-center gap-2 mt-8 max-w-sm">
-          {PILLS.map(({ icon: Icon, label }) => (
-            <span key={label} className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-white/50">
+          {PILLS.map(({ icon: Icon, label, onClick }) => (
+            <button
+              key={label}
+              onClick={onClick}
+              disabled={!onClick}
+              className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-white/50 transition-colors hover:bg-white/10 hover:text-white/75 disabled:cursor-default disabled:hover:bg-white/5 disabled:hover:text-white/50"
+            >
               <Icon className="w-3 h-3" /> {label}
-            </span>
+            </button>
           ))}
         </div>
       </div>
