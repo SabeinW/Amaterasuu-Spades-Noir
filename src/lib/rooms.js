@@ -113,6 +113,14 @@ export async function mergeGameState(roomId, patch) {
   if (error) throw error
 }
 
+export async function replacePlayerWithBot(roomId, seat) {
+  if (!supabaseEnabled) return
+  const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  if (!room) return
+  const updated = room.players.map((p) => (p.seat === seat ? { ...p, isBot: true, name: p.name?.endsWith(' (Bot)') ? p.name : `${p.name} (Bot)` } : p))
+  await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
+}
+
 export async function leaveRoom(roomId, playerId) {
   if (!supabaseEnabled) return
   const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()

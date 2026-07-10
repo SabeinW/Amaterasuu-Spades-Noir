@@ -74,9 +74,9 @@ export function evaluateTrick(trick, useJD = false) {
   return winner.pos
 }
 
-export function isPlayable(card, hand, currentTrick, spadesBroken, useJD = false) {
+export function isPlayable(card, hand, currentTrick, spadesBroken, useJD = false, spadesBreakRule = true) {
   if (currentTrick.length === 0) {
-    if (card.suit === 'S' && !spadesBroken && hand.some((c) => c.suit !== 'S')) return false
+    if (spadesBreakRule && card.suit === 'S' && !spadesBroken && hand.some((c) => c.suit !== 'S')) return false
     return true
   }
   const ledSuit = currentTrick[0].card.suit === 'JOKER' ? 'S' : currentTrick[0].card.suit
@@ -88,8 +88,8 @@ export function isPlayable(card, hand, currentTrick, spadesBroken, useJD = false
   return true
 }
 
-export function scoreRound(bids, tricks, bags, settings = {}) {
-  const nilBonus = settings.nilBonus ?? 100
+export function scoreRound(bids, tricks, bags, settings = {}, blindNilFlags = {}) {
+  const baseNilBonus = settings.nilBonus ?? 100
   const bagLimit = settings.bagLimit ?? 10
   const result = {}
   for (const pos of POSITIONS) {
@@ -98,6 +98,7 @@ export function scoreRound(bids, tricks, bags, settings = {}) {
     let score = 0
     let bagsEarned = 0
     if (bid === 0) {
+      const nilBonus = blindNilFlags[pos] ? baseNilBonus * 2 : baseNilBonus
       score = taken === 0 ? nilBonus : -nilBonus
     } else {
       if (taken >= bid) {
@@ -130,8 +131,8 @@ export function estimateBotBid(hand, nilEnabled = true) {
   return bid
 }
 
-export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD = false) {
-  const playable = hand.filter((c) => isPlayable(c, hand, currentTrick, spadesBroken, useJD))
+export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD = false, spadesBreakRule = true) {
+  const playable = hand.filter((c) => isPlayable(c, hand, currentTrick, spadesBroken, useJD, spadesBreakRule))
   if (currentTrick.length === 0) {
     const nonSpades = playable.filter((c) => c.suit !== 'S')
     const pool = nonSpades.length ? nonSpades : playable

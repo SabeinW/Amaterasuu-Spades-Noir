@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(ls -la public/)",
-      "Bash(ls -la public/sounds/)"
+      "Bash(ls -la public/sounds/)",
+      "Bash(npx playwright *)",
+      "Bash(node \"C:/Users/rahee/AppData/Local/Temp/claude/c--Users-rahee-Downloads-amaterasuu-noir-spades/c82645b3-4403-44c2-b282-ced0cf38aa5c/scratchpad/responsive-check.mjs\")",
+      "Bash(cp \"C:/Users/rahee/AppData/Local/Temp/claude/c--Users-rahee-Downloads-amaterasuu-noir-spades/c82645b3-4403-44c2-b282-ced0cf38aa5c/scratchpad/responsive-check.mjs\" ./scripts/responsive-check.mjs)",
+      "Bash(node ./scripts/responsive-check.mjs)",
+      "Bash(node ./scripts/responsive-check2.mjs)",
+      "Bash(node ./scripts/responsive-check3.mjs)",
+      "Bash(node ./scripts/responsive-check4.mjs)"
     ]
   }
 }

@@ -7,7 +7,7 @@ import {
   estimateBotBid,
   botCardChoice,
 } from '../lib/cards'
-import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom } from '../lib/rooms'
+import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel } from '../lib/rooms'
 import PlayerHand from './PlayerHand'
 import BidPanel from './BidPanel'
 import SeatChip from './SeatChip'
@@ -18,8 +18,10 @@ import PlayingCard from './PlayingCard'
 import DealingAnimationV2 from './DealingAnimationV2'
 import RoundOverModal from './RoundOverModal'
 import MatchWinnerModal from './MatchWinnerModal'
+import PlayerLeftModal from './PlayerLeftModal'
 import EmojiReactions from './EmojiReactions'
 import GameChat from './GameChat'
+import BlindNilPrompt from './BlindNilPrompt'
 import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
 
 const NEXT_TURN = { bottom: 'left', left: 'top', top: 'right', right: 'bottom' }
@@ -36,6 +38,9 @@ function blankBids() {
 }
 function blankTricks() {
   return { bottom: 0, left: 0, top: 0, right: 0 }
+}
+function blankBlind() {
+  return { bottom: false, left: false, top: false, right: false }
 }
 function initialRunningScores() {
   return POSITIONS.reduce((acc, p) => ({ ...acc, [p]: { total: 0, bags: 0 } }), {})
@@ -67,6 +72,7 @@ export default function GameTable({
   const accentColor = tableTheme?.accentColor ?? '#a78bfa'
   const winScore = settings.winScore ?? 500
   const useJD = !!settings.jokersWild
+  const spadesBreakRule = settings.spadesBreakRule !== false
   const isMultiplayer = mode === 'multiplayer' && !!room
   const isHost = !isMultiplayer || room.host_id === myUserId
   const MY_POS = seatToDataPos(mySeat)
@@ -89,12 +95,29 @@ export default function GameTable({
   const [chatMessages, setChatMessages] = useState([])
   const [dealNonce, setDealNonce] = useState(0)
   const [muted, setMuted] = useState(isSoundMuted())
+  const [blindNil, setBlindNil] = useState(blankBlind())
+  const [revealed, setRevealed] = useState({})
+  const [livePlayers, setLivePlayers] = useState(players)
+  const [leftPlayerPos, setLeftPlayerPos] = useState(null)
+  const knownPlayerIdsRef = useRef(null)
+  const livePlayersRef = useRef(players)
+  useEffect(() => {
+    livePlayersRef.current = livePlayers
+  }, [livePlayers])
+  const [errorToast, setErrorToast] = useState(null)
+
+  function showError(message) {
+    playError()
+    setErrorToast(message)
+    setTimeout(() => setErrorToast((cur) => (cur === message ? null : cur)), 6000)
+  }
 
   const playShuffle = useSound('shuffle')
   const playBid = useSound('bid')
   const playCardSfx = useSound('cardPlay')
   const playTrickWin = useSound('trickWin')
   const playFanfare = useSound('fanfare')
+  const playError = useSound('error')
 
   const pendingTrickRef = useRef(false)
   const roomIdRef = useRef(room?.id)
@@ -121,8 +144,23 @@ export default function GameTable({
       if (dbPatchState.phase && dbPatchState.phase !== 'dealing' && room.status === 'waiting') {
         updateRoom(roomIdRef.current, { status: 'playing' }).catch(() => {})
       }
-      writeQueueRef.current = writeQueueRef.current.then(() => mergeGameState(roomIdRef.current, dbPatchState).catch(() => {}))
+      writeQueueRef.current = writeQueueRef.current.then(() => persistWithRetry(dbPatchState))
     }
+  }
+
+  // A failed write gets one silent retry after 3s (DB hiccup / flaky
+  // connection); only a second failure surfaces to the player, since most
+  // transient errors resolve on their own before the retry even fires.
+  function persistWithRetry(dbPatchState, isRetry = false) {
+    return mergeGameState(roomIdRef.current, dbPatchState).catch(() => {
+      if (isRetry) {
+        showError('Connection issue — some moves may not have synced. Retrying…')
+        return
+      }
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(persistWithRetry(dbPatchState, true)), 3000)
+      })
+    })
   }
 
   const startDeal = useCallback(() => {
@@ -139,6 +177,8 @@ export default function GameTable({
     setRoundDetail(null)
     setPhase('dealing')
     setDealNonce((n) => n + 1)
+    setBlindNil(blankBlind())
+    setRevealed({})
     if (!isMultiplayer || isHost) {
       persist({
         hands: nextHands,
@@ -149,6 +189,7 @@ export default function GameTable({
         led_suit: null,
         spades_broken: false,
         round_detail: null,
+        blind_nil: blankBlind(),
         phase: 'dealing',
         round: (gameStateRef.current.round ?? 0) + 1,
       })
@@ -164,6 +205,13 @@ export default function GameTable({
     } else if (room.game_state) {
       hydrate(room.game_state)
     }
+    if (isMultiplayer && room?.players) {
+      const ids = {}
+      room.players.forEach((p) => {
+        ids[seatToDataPos(p.seat)] = p.id
+      })
+      knownPlayerIdsRef.current = ids
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -176,6 +224,7 @@ export default function GameTable({
     setTurn(gs.current_turn ?? 'bottom')
     setLedSuit(gs.led_suit ?? null)
     setSpadesBroken(!!gs.spades_broken)
+    if (gs.blind_nil) setBlindNil(gs.blind_nil)
     setRoundDetail(gs.round_detail ?? null)
     if (gs.running_scores) setRunningScores(gs.running_scores)
     if (gs.phase) setPhase(DB_TO_LOCAL_PHASE[gs.phase] ?? gs.phase)
@@ -187,8 +236,66 @@ export default function GameTable({
     if (!isMultiplayer || !room?.id) return
     const sub = subscribeToRoom(room.id, (updatedRoom) => {
       if (updatedRoom.game_state) hydrate(updatedRoom.game_state)
+      if (updatedRoom.players) {
+        const newIds = {}
+        updatedRoom.players.forEach((p) => {
+          newIds[seatToDataPos(p.seat)] = p.id
+        })
+        const prevIds = knownPlayerIdsRef.current
+        if (prevIds) {
+          for (const pos of POSITIONS) {
+            const wasHuman = prevIds[pos] && !livePlayersRef.current[pos]?.isBot
+            if (wasHuman && !newIds[pos]) {
+              setLeftPlayerPos((cur) => cur ?? pos)
+            }
+          }
+        }
+        knownPlayerIdsRef.current = newIds
+        setLivePlayers((prev) => {
+          const next = { ...prev }
+          updatedRoom.players.forEach((p) => {
+            const pos = seatToDataPos(p.seat)
+            next[pos] = { ...next[pos], username: p.name, isBot: !!p.isBot }
+          })
+          return next
+        })
+      }
     })
     return () => sub.unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiplayer, room?.id])
+
+  // Auto-dismiss the "player left" prompt once that seat has been replaced with a bot.
+  useEffect(() => {
+    if (leftPlayerPos && livePlayers[leftPlayerPos]?.isBot) {
+      setLeftPlayerPos(null)
+    }
+  }, [livePlayers, leftPlayerPos])
+
+  function handleReplaceBot() {
+    if (!leftPlayerPos) return
+    const pos = leftPlayerPos
+    setLivePlayers((prev) => ({ ...prev, [pos]: { ...prev[pos], isBot: true } }))
+    if (isMultiplayer && room?.id) {
+      replacePlayerWithBot(room.id, POSITIONS.indexOf(pos)).catch(() => {})
+    }
+    setLeftPlayerPos(null)
+  }
+
+  // Low-latency fan-out for taunts/chat so other clients see them without
+  // waiting on a postgres_changes round-trip (these never touch game_state).
+  const gameChannelRef = useRef(null)
+  useEffect(() => {
+    if (!isMultiplayer || !room?.id) return
+    const channel = openGameChannel(room.id, {
+      EMOTE: ({ pos, emoji }) => showEmote(pos, emoji),
+      CHAT: ({ author, text }) => setChatMessages((prev) => [...prev, { author, text }]),
+    })
+    gameChannelRef.current = channel
+    return () => {
+      gameChannelRef.current = null
+      channel.unsubscribe()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMultiplayer, room?.id])
 
@@ -205,7 +312,7 @@ export default function GameTable({
     const nilEnabled = settings.standardNil !== false
     const timers = []
     for (const pos of POSITIONS) {
-      const player = players[pos]
+      const player = livePlayers[pos]
       if (player?.isBot && bids[pos] === null) {
         const t = setTimeout(() => {
           setBids((prev) => {
@@ -221,7 +328,7 @@ export default function GameTable({
     }
     return () => timers.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, hands, players, settings.standardNil, isMultiplayer, isHost])
+  }, [phase, hands, livePlayers, settings.standardNil, isMultiplayer, isHost])
 
   // Transition bidding -> playing once all bids in (host-only in multiplayer).
   useEffect(() => {
@@ -238,6 +345,21 @@ export default function GameTable({
   }, [phase, bids, isMultiplayer, isHost])
 
   const isMyTurn = phase === 'playing' && turn === MY_POS
+  const blindNilEnabled = !!settings.blindNil
+  const myRevealed = !blindNilEnabled || !!revealed[MY_POS]
+  const awaitingBlindDecision = phase === 'bidding' && blindNilEnabled && bids[MY_POS] === null && !revealed[MY_POS]
+
+  function chooseBlindNil() {
+    setBlindNil((prev) => ({ ...prev, [MY_POS]: true }))
+    setRevealed((prev) => ({ ...prev, [MY_POS]: true }))
+    setBids((prev) => ({ ...prev, [MY_POS]: 0 }))
+    persist({ blind_nil: { [MY_POS]: true }, bids: { [MY_POS]: 0 } })
+    playBid()
+  }
+
+  function revealHand() {
+    setRevealed((prev) => ({ ...prev, [MY_POS]: true }))
+  }
 
   function playCard(pos, card) {
     playCardSfx()
@@ -273,13 +395,13 @@ export default function GameTable({
   useEffect(() => {
     if (phase !== 'playing') return
     if (isMultiplayer && !isHost) return
-    const player = players[turn]
+    const player = livePlayers[turn]
     if (!player?.isBot) return
     if (currentTrick.length === 4) return
     const t = setTimeout(() => {
       const hand = hands[turn] ?? []
       if (!hand.length) return
-      const card = botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD)
+      const card = botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD, spadesBreakRule)
       if (card) playCard(turn, card)
     }, 600 + Math.random() * 600)
     return () => clearTimeout(t)
@@ -319,7 +441,7 @@ export default function GameTable({
     const total = POSITIONS.reduce((sum, p) => sum + tricks[p], 0)
     if (total !== 13) return
     if (currentTrick.length !== 0) return
-    const detail = scoreRound(bids, tricks, bags, settings)
+    const detail = scoreRound(bids, tricks, bags, settings, blindNil)
     setRoundDetail(detail)
     setBags((prev) => {
       const next = { ...prev }
@@ -337,13 +459,27 @@ export default function GameTable({
       return nextRunning
     })
     playFanfare()
-    setPhase('result')
-    persist({
-      phase: 'result',
+
+    // Moon Shot: a partnership sweeping all 13 tricks in one hand wins instantly.
+    let moonShotWinner = null
+    if (settings.moonShot && settings.partnershipMode !== false) {
+      if (tricks.bottom + tricks.top === 13) moonShotWinner = 'You & Partner'
+      else if (tricks.left + tricks.right === 13) moonShotWinner = 'Opponents'
+    }
+
+    const roundPatch = {
       round_detail: detail,
       round_scores: POSITIONS.reduce((acc, p) => ({ ...acc, [p]: detail[p].score }), {}),
       running_scores: nextRunning,
-    })
+    }
+    if (moonShotWinner) {
+      setMatchWinner(moonShotWinner)
+      setPhase('game_over')
+      persist({ ...roundPatch, phase: 'game_over' })
+    } else {
+      setPhase('result')
+      persist({ ...roundPatch, phase: 'result' })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, tricks, currentTrick, isMultiplayer, isHost])
 
@@ -363,7 +499,7 @@ export default function GameTable({
     } else {
       const winnerPos = POSITIONS.find((p) => runningScores[p].total >= winScore)
       if (winnerPos) {
-        setMatchWinner(players[winnerPos]?.username ?? winnerPos)
+        setMatchWinner(livePlayers[winnerPos]?.username ?? winnerPos)
         setPhase('game_over')
         persist({ phase: 'game_over' })
         playFanfare()
@@ -373,12 +509,23 @@ export default function GameTable({
   }, [phase, isMultiplayer, isHost])
 
   function getSeatLabel(pos) {
-    return players[pos]?.username ?? pos
+    return livePlayers[pos]?.username ?? pos
   }
 
-  function fireEmote(pos, emoji) {
+  function showEmote(pos, emoji) {
     setEmotes((prev) => ({ ...prev, [pos]: emoji }))
     setTimeout(() => setEmotes((prev) => ({ ...prev, [pos]: null })), 1400)
+  }
+
+  function sendEmote(emoji) {
+    showEmote(MY_POS, emoji)
+    gameChannelRef.current?.send('EMOTE', { pos: MY_POS, emoji })
+  }
+
+  function sendChat(text) {
+    const author = livePlayers[MY_POS]?.username ?? 'You'
+    setChatMessages((prev) => [...prev, { author, text }])
+    gameChannelRef.current?.send('CHAT', { author, text })
   }
 
   function handleExit() {
@@ -400,6 +547,15 @@ export default function GameTable({
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden relative" style={{ background: '#0a0812' }}>
+      {errorToast && (
+        <div
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] max-w-[90%] rounded-xl px-4 py-2.5 text-xs font-semibold text-white text-center shadow-lg"
+          style={{ background: '#dc2626', animation: 'fadeUp 0.25s ease both' }}
+        >
+          {errorToast}
+        </div>
+      )}
+
       <ScoreBar
         leftLabel="You & Partner"
         rightLabel="Opponents"
@@ -425,7 +581,7 @@ export default function GameTable({
           <SeatChip
             key={pos}
             position={toScreenSlot(pos, mySeat)}
-            player={players[pos]}
+            player={livePlayers[pos]}
             bid={bids[pos]}
             tricks={tricks[pos]}
             isActive={phase === 'playing' && turn === pos}
@@ -464,7 +620,11 @@ export default function GameTable({
 
         {phase === 'dealing' && <DealingAnimationV2 key={dealNonce} onComplete={handleDealComplete} accentColor={accentColor} />}
 
-        {phase === 'bidding' && bids[MY_POS] === null && (
+        {awaitingBlindDecision && (
+          <BlindNilPrompt accentColor={accentColor} onGoBlind={chooseBlindNil} onReveal={revealHand} />
+        )}
+
+        {phase === 'bidding' && bids[MY_POS] === null && myRevealed && (
           <BidPanel
             accentColor={accentColor}
             onConfirm={(n) => {
@@ -479,7 +639,7 @@ export default function GameTable({
       <div className="shrink-0 z-40">
         {phase === 'bidding' && bids[MY_POS] !== null && (
           <div className="mx-4 mb-3 rounded-xl px-4 py-3 text-center text-sm" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            Bid submitted: {bids[MY_POS] === 0 ? 'Nil' : bids[MY_POS]} — waiting for other players to bid…
+            Bid submitted: {bids[MY_POS] === 0 ? (blindNil[MY_POS] ? 'Blind Nil (2x)' : 'Nil') : bids[MY_POS]} — waiting for other players to bid…
           </div>
         )}
 
@@ -489,11 +649,11 @@ export default function GameTable({
               Leave Match
             </button>
             <span>
-              Bid {bids[MY_POS] === 0 ? 'Nil' : bids[MY_POS]} · Tricks {tricks[MY_POS]} · Score {runningScores[MY_POS].total}
+              Bid {bids[MY_POS] === 0 ? (blindNil[MY_POS] ? 'Blind Nil' : 'Nil') : bids[MY_POS]} · Tricks {tricks[MY_POS]} · Score {runningScores[MY_POS].total}
             </span>
             <div className="flex items-center gap-2">
-              <EmojiReactions onReact={(e) => fireEmote(MY_POS, e)} />
-              <GameChat messages={chatMessages} onSend={(text) => setChatMessages((prev) => [...prev, { author: 'You', text }])} accentColor={accentColor} />
+              <EmojiReactions onReact={sendEmote} />
+              <GameChat messages={chatMessages} onSend={sendChat} accentColor={accentColor} />
             </div>
           </div>
         )}
@@ -505,9 +665,11 @@ export default function GameTable({
           currentTrick={currentTrick}
           spadesBroken={spadesBroken}
           useJD={useJD}
+          spadesBreakRule={spadesBreakRule}
           onCardClick={handleMyCardClick}
           accentColor={accentColor}
           deckTheme={deckTheme}
+          masked={awaitingBlindDecision}
         />
       </div>
 
@@ -525,6 +687,16 @@ export default function GameTable({
 
       {phase === 'game_over' && matchWinner && (
         <MatchWinnerModal winnerLabel={matchWinner} finalScores={runningScores} onQuit={handleExit} accentColor={accentColor} />
+      )}
+
+      {leftPlayerPos && (
+        <PlayerLeftModal
+          playerName={getSeatLabel(leftPlayerPos)}
+          isHost={isHost}
+          onReplaceBot={handleReplaceBot}
+          onLeave={handleExit}
+          accentColor={accentColor}
+        />
       )}
     </div>
   )

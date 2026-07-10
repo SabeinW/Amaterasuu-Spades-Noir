@@ -15,30 +15,35 @@ export default function Landing({ user, onPlayOnline, onQuickGame, onOpenAuth, o
     <div className="min-h-full flex flex-col items-center px-6 py-6 text-center relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(167,139,250,0.18), transparent 60%)' }} />
 
-      <div className="w-full flex items-center justify-between max-w-3xl mb-10 relative z-10">
-        <div className="flex items-center gap-2 font-display font-bold">
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)' }}>
+      <div className="w-full flex items-center justify-between flex-wrap gap-y-2 max-w-3xl mb-10 relative z-10">
+        <div className="flex items-center gap-2 font-display font-bold text-sm sm:text-base whitespace-nowrap shrink-0">
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)' }}>
             ♠
           </span>
           Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onOpenDeckThemes} title="Deck Themes" className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+          <button onClick={onOpenDeckThemes} title="Deck Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Layers className="w-4 h-4" />
           </button>
-          <button onClick={onOpenTableThemes} title="Table Themes" className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60">
+          <button onClick={onOpenTableThemes} title="Table Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Palette className="w-4 h-4" />
           </button>
-          <button onClick={onOpenRules} title="Game Rules" className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60">
+          <button onClick={onOpenRules} title="Game Rules" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
             <Sliders className="w-4 h-4" />
           </button>
           {user ? (
-            <div className="w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center text-white/80">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-500/30 flex items-center justify-center text-white/80 shrink-0">
               <User className="w-4 h-4" />
             </div>
           ) : (
-            <button onClick={onOpenAuth} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: 'linear-gradient(90deg,#a78bfa,#38bdf8)', color: '#0a0812' }}>
-              <User className="w-3.5 h-3.5" /> Sign In
+            <button
+              onClick={onOpenAuth}
+              title="Sign In"
+              className="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 text-xs font-semibold whitespace-nowrap shrink-0"
+              style={{ background: 'linear-gradient(90deg,#a78bfa,#38bdf8)', color: '#0a0812' }}
+            >
+              <User className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Sign In</span>
             </button>
           )}
         </div>
