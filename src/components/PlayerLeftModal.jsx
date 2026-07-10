@@ -1,7 +1,7 @@
 export default function PlayerLeftModal({ playerName, isHost, onReplaceBot, onLeave, accentColor = '#a78bfa' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-xs rounded-2xl p-6 text-center animate-fadeUp" style={{ background: 'rgba(14,11,22,0.95)', border: `1px solid ${accentColor}55` }}>
+      <div className="w-full max-w-xs rounded-2xl p-6 text-center animate-fadeUp bg-slate-900/80 backdrop-blur-md border border-white/10 shadow-2xl">
         <p className="text-3xl mb-3">🚪</p>
         <h3 className="font-display font-bold mb-1">{playerName ?? 'A player'} left</h3>
         <p className="text-white/40 text-xs mb-6">You can replace them with a bot to keep playing, or leave the match.</p>

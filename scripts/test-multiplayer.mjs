@@ -4,8 +4,8 @@ import fs from 'node:fs'
 const shotDir = new URL('./shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]):/, '$1:')
 fs.mkdirSync(shotDir, { recursive: true })
 
-const HOST = { email: 'mp-host-1783659279864@gmail.com', password: 'Test1234!' }
-const GUEST = { email: 'mp-guest-1783659279864@gmail.com', password: 'Test1234!' }
+const HOST = { email: 'mp-host-1783660504547@gmail.com', password: 'Test1234!' }
+const GUEST = { email: 'mp-guest-1783660504547@gmail.com', password: 'Test1234!' }
 
 const browser = await chromium.launch()
 const hostCtx = await browser.newContext({ viewport: { width: 420, height: 860 } })
@@ -65,17 +65,21 @@ await host.screenshot({ path: `${shotDir}mp-06-host-game-started.png` })
 await guest.waitForSelector('[data-testid="hand-row"]', { timeout: 10000 })
 await guest.screenshot({ path: `${shotDir}mp-07-guest-game-started.png` })
 
-await host.waitForTimeout(2000)
-await host.screenshot({ path: `${shotDir}mp-06b-host-pre-bid.png` })
-await guest.screenshot({ path: `${shotDir}mp-06c-guest-pre-bid.png` })
-
-// Blind Nil is on by default — decline it to reveal the hand and reach the normal bid panel.
-async function skipBlindNil(page) {
+// Blind Nil is on by default — wait out the dealing animation, then decline it
+// to reveal the hand and reach the normal bid panel. Race both possible next
+// states since either could appear first depending on per-client timing.
+async function passDealingAndBlindNil(page) {
+  await Promise.race([
+    page.waitForSelector('text=See My Hand First', { timeout: 12000 }).catch(() => {}),
+    page.waitForSelector('text=How many tricks?', { timeout: 12000 }).catch(() => {}),
+  ])
   const seeHand = page.getByText('See My Hand First')
   if (await seeHand.count()) await seeHand.click()
 }
-await skipBlindNil(host)
-await skipBlindNil(guest)
+await passDealingAndBlindNil(host)
+await passDealingAndBlindNil(guest)
+await host.screenshot({ path: `${shotDir}mp-06b-host-pre-bid.png` })
+await guest.screenshot({ path: `${shotDir}mp-06c-guest-pre-bid.png` })
 
 // Both real players bid (bots bid on their own timers)
 await host.waitForSelector('text=How many tricks?', { timeout: 8000 })

@@ -10,12 +10,7 @@ const POSITION_STYLE = {
 export default function SeatChip({ position, player, bid, tricks, isActive, accentColor = '#a78bfa', compact = false }) {
   return (
     <div
-      className={`absolute z-10 flex items-center gap-2 rounded-full pl-1 pr-3 py-1 transition-all ${POSITION_STYLE[position]}`}
-      style={{
-        background: isActive ? `${accentColor}22` : 'rgba(10,8,18,0.7)',
-        border: isActive ? `1.5px solid ${accentColor}` : '1px solid rgba(255,255,255,0.1)',
-        boxShadow: isActive ? `0 0 18px ${accentColor}55` : 'none',
-      }}
+      className={`absolute z-10 flex items-center gap-2 rounded-full pl-1 pr-3 py-1 border transition-all ${isActive ? 'bg-amber-500/15 border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.5)]' : 'bg-slate-900/70 border-white/10'} ${POSITION_STYLE[position]}`}
     >
       <div
         className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"

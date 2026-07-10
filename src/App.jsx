@@ -114,6 +114,8 @@ export default function App() {
           settings={fromDbSettings(activeRoom.settings)}
           tableTheme={tableTheme}
           deckTheme={deckTheme}
+          onChangeTableTheme={setTableTheme}
+          onChangeDeckTheme={setDeckTheme}
           onExit={exitToLanding}
         />
       )}
@@ -125,6 +127,8 @@ export default function App() {
           settings={gameSettings}
           tableTheme={tableTheme}
           deckTheme={deckTheme}
+          onChangeTableTheme={setTableTheme}
+          onChangeDeckTheme={setDeckTheme}
           onExit={exitToLanding}
         />
       )}

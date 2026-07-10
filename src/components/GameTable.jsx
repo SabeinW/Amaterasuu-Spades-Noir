@@ -22,6 +22,9 @@ import PlayerLeftModal from './PlayerLeftModal'
 import EmojiReactions from './EmojiReactions'
 import GameChat from './GameChat'
 import BlindNilPrompt from './BlindNilPrompt'
+import GameSettingsSheet from './GameSettingsSheet'
+import DeckThemesModal from './DeckThemesModal'
+import TableThemesModal from './TableThemesModal'
 import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
 
 const NEXT_TURN = { bottom: 'left', left: 'top', top: 'right', right: 'bottom' }
@@ -64,6 +67,8 @@ export default function GameTable({
   settings = {},
   tableTheme,
   deckTheme,
+  onChangeTableTheme,
+  onChangeDeckTheme,
   room,
   myUserId,
   mySeat = 0,
@@ -95,6 +100,9 @@ export default function GameTable({
   const [chatMessages, setChatMessages] = useState([])
   const [dealNonce, setDealNonce] = useState(0)
   const [muted, setMuted] = useState(isSoundMuted())
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deckPickerOpen, setDeckPickerOpen] = useState(false)
+  const [tablePickerOpen, setTablePickerOpen] = useState(false)
   const [blindNil, setBlindNil] = useState(blankBlind())
   const [revealed, setRevealed] = useState({})
   const [livePlayers, setLivePlayers] = useState(players)
@@ -512,6 +520,13 @@ export default function GameTable({
     return livePlayers[pos]?.username ?? pos
   }
 
+  function toggleMute() {
+    setMuted((m) => {
+      setSoundMuted(!m)
+      return !m
+    })
+  }
+
   function showEmote(pos, emoji) {
     setEmotes((prev) => ({ ...prev, [pos]: emoji }))
     setTimeout(() => setEmotes((prev) => ({ ...prev, [pos]: null })), 1400)
@@ -546,7 +561,7 @@ export default function GameTable({
   const teamBScore = runningScores.left.total + runningScores.right.total
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden relative" style={{ background: '#0a0812' }}>
+    <div className="flex flex-col h-full w-full overflow-hidden relative gap-2 p-2 sm:p-3 bg-gradient-to-b from-[#0B0C10] via-[#1F2833] to-[#0B0C10]">
       {errorToast && (
         <div
           className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] max-w-[90%] rounded-xl px-4 py-2.5 text-xs font-semibold text-white text-center shadow-lg"
@@ -562,18 +577,15 @@ export default function GameTable({
         leftScore={teamAScore}
         rightScore={teamBScore}
         target={winScore}
-        muted={muted}
-        onToggleMute={() => {
-          setMuted((m) => {
-            setSoundMuted(!m)
-            return !m
-          })
-        }}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <div
-        className="flex-1 relative mx-3 mb-3 rounded-2xl overflow-hidden"
-        style={{ ...(tableTheme?.tableStyle ?? {}), }}
+        className="flex-1 relative rounded-[40px] overflow-hidden shadow-[inset_0_0_60px_rgba(0,0,0,0.85)]"
+        style={{
+          background: tableTheme?.tableStyle?.background ?? 'radial-gradient(ellipse at center, #0B1A10 0%, #050705 100%)',
+          border: `4px solid ${accentColor}40`,
+        }}
       >
         <div className="absolute inset-0 pointer-events-none" style={{ background: tableTheme?.centerGlow, opacity: 0.8 }} />
 
@@ -636,15 +648,17 @@ export default function GameTable({
         )}
       </div>
 
-      <div className="shrink-0 z-40">
+      <div className="shrink-0 z-[200]">
         {phase === 'bidding' && bids[MY_POS] !== null && (
-          <div className="mx-4 mb-3 rounded-xl px-4 py-3 text-center text-sm" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div
+            className="mx-2 mb-3 rounded-xl px-4 py-3 text-center text-sm bg-slate-900/80 backdrop-blur-md border border-white/10 shadow-2xl"
+          >
             Bid submitted: {bids[MY_POS] === 0 ? (blindNil[MY_POS] ? 'Blind Nil (2x)' : 'Nil') : bids[MY_POS]} — waiting for other players to bid…
           </div>
         )}
 
         {phase === 'playing' && (
-          <div className="flex items-center justify-between px-4 pb-2 text-xs text-white/50">
+          <div className="flex items-center justify-between mx-2 mb-2 px-4 py-2 text-xs text-white/60 rounded-xl bg-slate-900/60 backdrop-blur-md border border-white/10">
             <button onClick={handleExit} className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-300 text-xs font-semibold">
               Leave Match
             </button>
@@ -696,6 +710,47 @@ export default function GameTable({
           onReplaceBot={handleReplaceBot}
           onLeave={handleExit}
           accentColor={accentColor}
+        />
+      )}
+
+      {settingsOpen && (
+        <GameSettingsSheet
+          deckTheme={deckTheme}
+          tableTheme={tableTheme}
+          muted={muted}
+          onToggleMute={toggleMute}
+          onChangeDeck={() => {
+            setSettingsOpen(false)
+            setDeckPickerOpen(true)
+          }}
+          onChangeTable={() => {
+            setSettingsOpen(false)
+            setTablePickerOpen(true)
+          }}
+          onLeave={handleExit}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {deckPickerOpen && (
+        <DeckThemesModal
+          selectedId={deckTheme?.id}
+          onSelect={(t) => {
+            onChangeDeckTheme?.(t)
+            setDeckPickerOpen(false)
+          }}
+          onClose={() => setDeckPickerOpen(false)}
+        />
+      )}
+
+      {tablePickerOpen && (
+        <TableThemesModal
+          selectedId={tableTheme?.id}
+          onSelect={(t) => {
+            onChangeTableTheme?.(t)
+            setTablePickerOpen(false)
+          }}
+          onClose={() => setTablePickerOpen(false)}
         />
       )}
     </div>

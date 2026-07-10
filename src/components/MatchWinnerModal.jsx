@@ -5,8 +5,8 @@ export default function MatchWinnerModal({ winnerLabel, finalScores, onQuit, acc
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-hidden">
       <ConfettiCanvas active color={accentColor} />
       <div
-        className="relative z-10 w-full max-w-sm rounded-2xl p-8 text-center animate-fadeUp"
-        style={{ background: 'rgba(14,11,22,0.95)', border: `1px solid ${accentColor}88`, boxShadow: `0 0 60px ${accentColor}44` }}
+        className="relative z-10 w-full max-w-sm rounded-2xl p-8 text-center animate-fadeUp bg-slate-900/80 backdrop-blur-md"
+        style={{ border: `1px solid ${accentColor}88`, boxShadow: `0 0 60px ${accentColor}44` }}
       >
         <p className="text-4xl mb-2">🏆</p>
         <h2 className="font-display text-2xl font-extrabold mb-1" style={{ color: accentColor }}>

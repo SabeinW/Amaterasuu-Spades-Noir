@@ -2,10 +2,7 @@ export default function RoundOverModal({ roundDetail, runningScores, getSeatLabe
   const positions = ['bottom', 'left', 'top', 'right']
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div
-        className="w-full max-w-sm rounded-2xl p-6 animate-fadeUp"
-        style={{ background: 'rgba(14,11,22,0.95)', border: `1px solid ${accentColor}55`, boxShadow: `0 0 40px ${accentColor}22` }}
-      >
+      <div className="w-full max-w-sm rounded-2xl p-6 animate-fadeUp bg-slate-900/80 backdrop-blur-md border border-white/10 shadow-2xl">
         <h3 className="font-display text-lg font-bold text-center mb-1">Round Complete</h3>
         <p className="text-center text-white/40 text-xs mb-5">Here's how everyone did</p>
         <div className="flex flex-col gap-2 mb-5">

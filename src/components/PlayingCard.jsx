@@ -41,9 +41,12 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
       style={{
         width: w,
         height: h,
-        background: faceBg,
-        border: selected ? `2px solid ${accentColor}` : '1px solid rgba(0,0,0,0.15)',
-        boxShadow: selected ? `0 12px 24px -8px ${accentColor}aa, 0 0 0 1px ${accentColor}` : '0 3px 8px rgba(0,0,0,0.35)',
+        backgroundColor: faceBg,
+        backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%)',
+        border: selected ? `2px solid ${accentColor}` : '1px solid rgba(0,0,0,0.18)',
+        boxShadow: selected
+          ? `0 12px 24px -8px ${accentColor}aa, 0 0 0 1px ${accentColor}, inset 0 1px 0 rgba(255,255,255,0.6)`
+          : '0 1px 0 rgba(255,255,255,0.5) inset, 0 3px 10px rgba(0,0,0,0.45)',
         transform: selected ? 'translateY(-16px)' : 'translateY(0)',
         opacity: disabled ? 0.35 : 1,
         cursor: disabled ? 'default' : onClick ? 'pointer' : 'default',

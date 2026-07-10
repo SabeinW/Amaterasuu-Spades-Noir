@@ -16,6 +16,15 @@ export default function PlayerHand({
 }) {
   if (!cards?.length) return null
 
+  const mid = (cards.length - 1) / 2
+
+  function arcTransform(i) {
+    const offset = i - mid
+    const rotate = Math.max(-16, Math.min(16, offset * 2.5))
+    const lift = Math.abs(offset) ** 1.3 * 2.6
+    return { transform: `rotate(${rotate}deg) translateY(${lift}px)`, transformOrigin: 'bottom center' }
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between px-4 pt-2 pb-1">
@@ -24,24 +33,29 @@ export default function PlayerHand({
           {masked ? 'Hidden until you decide' : `${cards.length} cards — swipe to scroll`}
         </p>
       </div>
-      <div data-testid="hand-row" className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-4">
+      <div data-testid="hand-row" className="flex items-end gap-2 overflow-x-auto overflow-y-visible no-scrollbar px-4 pb-4">
         {masked
-          ? cards.map((card) => <PlayingCard key={card.id} faceDown deckTheme={deckTheme} accentColor={accentColor} size="md" />)
-          : cards.map((card) => {
+          ? cards.map((card, i) => (
+              <div key={card.id} className="shrink-0" style={arcTransform(i)}>
+                <PlayingCard faceDown deckTheme={deckTheme} accentColor={accentColor} size="md" />
+              </div>
+            ))
+          : cards.map((card, i) => {
               const playable = isMyTurn && isPlayable(card, cards, currentTrick, spadesBroken, useJD, spadesBreakRule)
               const selected = selectedCard?.id === card.id
               return (
-                <PlayingCard
-                  key={card.id}
-                  suit={card.suit}
-                  value={card.value}
-                  selected={selected}
-                  disabled={!isMyTurn || !playable}
-                  accentColor={accentColor}
-                  deckTheme={deckTheme}
-                  onClick={() => onCardClick(card)}
-                  style={{ animation: 'cardSlideIn 0.3s ease both' }}
-                />
+                <div key={card.id} className="shrink-0" style={arcTransform(i)}>
+                  <PlayingCard
+                    suit={card.suit}
+                    value={card.value}
+                    selected={selected}
+                    disabled={!isMyTurn || !playable}
+                    accentColor={accentColor}
+                    deckTheme={deckTheme}
+                    onClick={() => onCardClick(card)}
+                    style={{ animation: 'cardSlideIn 0.3s ease both' }}
+                  />
+                </div>
               )
             })}
       </div>

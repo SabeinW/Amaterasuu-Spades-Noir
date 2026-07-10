@@ -7,12 +7,7 @@ export default function BidPanel({ onConfirm, accentColor = '#fbbf24' }) {
 
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 top-16 md:top-20 z-30 w-[92%] max-w-sm rounded-2xl p-5 backdrop-blur-xl"
-      style={{
-        background: 'rgba(10,8,18,0.82)',
-        border: `1px solid ${accentColor}88`,
-        boxShadow: `0 0 30px ${accentColor}33`,
-      }}
+      className="absolute left-1/2 -translate-x-1/2 top-16 md:top-20 z-30 w-[92%] max-w-sm rounded-2xl p-5 bg-slate-900/80 backdrop-blur-md border border-amber-500/30 shadow-2xl"
     >
       <p className="text-center font-display font-semibold mb-4" style={{ color: accentColor }}>
         ♠ How many tricks?

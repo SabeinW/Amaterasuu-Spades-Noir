@@ -18,7 +18,10 @@
       "Bash(python c:/Users/rahee/Downloads/ui-ux-pro-max-skill-main/ui-ux-pro-max-skill-main/.claude/skills/ui-ux-pro-max/scripts/search.py 'hero float stagger entrance reduced-motion' --domain ux)",
       "Bash(node -e ' *)",
       "Bash(node scripts/check-landing.mjs)",
-      "Bash(node scripts/check-theme-in-game.mjs)"
+      "Bash(node scripts/check-theme-in-game.mjs)",
+      "Bash(node scripts/check-midgame-settings.mjs)",
+      "Bash(node scripts/check-noir-overhaul.mjs)",
+      "Bash(node scripts/check-noir-modals.mjs)"
     ]
   }
 }

@@ -1,12 +1,7 @@
 export default function BlindNilPrompt({ onGoBlind, onReveal, accentColor = '#fbbf24' }) {
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 top-16 md:top-20 z-30 w-[92%] max-w-sm rounded-2xl p-5 backdrop-blur-xl text-center"
-      style={{
-        background: 'rgba(10,8,18,0.88)',
-        border: `1px solid ${accentColor}88`,
-        boxShadow: `0 0 30px ${accentColor}33`,
-      }}
+      className="absolute left-1/2 -translate-x-1/2 top-16 md:top-20 z-30 w-[92%] max-w-sm rounded-2xl p-5 text-center bg-slate-900/80 backdrop-blur-md border border-amber-500/30 shadow-2xl"
     >
       <p className="font-display font-semibold mb-1" style={{ color: accentColor }}>
         ♠ Bid Blind Nil?
