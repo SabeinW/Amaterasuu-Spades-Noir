@@ -59,10 +59,16 @@ export default function Landing({
               onClick={onOpenProfile}
               title="Profile"
               aria-label="Profile"
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0"
-              style={avatar ? { background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` } : { background: 'rgba(99,102,241,0.3)' }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+              style={avatar?.kind === 'emoji' ? { background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` } : { background: 'rgba(99,102,241,0.3)' }}
             >
-              {avatar ? <span className="text-sm">{avatar.emoji}</span> : <User className="w-4 h-4 text-white/80" />}
+              {avatar?.kind === 'photo' ? (
+                <img src={avatar.url} alt="" className="w-full h-full object-cover" />
+              ) : avatar ? (
+                <span className="text-sm">{avatar.emoji}</span>
+              ) : (
+                <User className="w-4 h-4 text-white/80" />
+              )}
             </button>
           ) : (
             <button

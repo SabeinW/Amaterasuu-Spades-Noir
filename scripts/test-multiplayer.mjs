@@ -4,8 +4,8 @@ import fs from 'node:fs'
 const shotDir = new URL('./shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]):/, '$1:')
 fs.mkdirSync(shotDir, { recursive: true })
 
-const HOST = { email: 'mp-host-1783666067962@gmail.com', password: 'Test1234!' }
-const GUEST = { email: 'mp-guest-1783666067962@gmail.com', password: 'Test1234!' }
+const HOST = { email: 'mp-host-1783700945888@gmail.com', password: 'Test1234!' }
+const GUEST = { email: 'mp-guest-1783700945888@gmail.com', password: 'Test1234!' }
 
 const browser = await chromium.launch()
 const hostCtx = await browser.newContext({ viewport: { width: 420, height: 860 } })
@@ -52,9 +52,19 @@ await guest.waitForTimeout(300)
 await guest.fill('input[placeholder="Code"]', code)
 await guest.click('button:has-text("Join")')
 await guest.waitForSelector('text=Room Code', { timeout: 8000 })
+
+// Joining the room lobby doesn't seat you — you must explicitly tap an open
+// seat ("Tap an open seat to choose your team — seatmates are partners").
+// Without this, the host's "Start Game" fills every remaining seat with
+// bots and the guest never becomes a real player in the game at all.
+await guest.getByText('Sit Here').first().click()
+await guest.waitForTimeout(500)
 await guest.screenshot({ path: `${shotDir}mp-04-guest-room-waiting.png` })
 
-await host.waitForTimeout(1500)
+// Wait for the host's client to actually receive the realtime update showing
+// the guest seated — starting before that arrives fills the guest's own seat
+// with a bot too.
+await host.waitForSelector('text=mp-guest-', { timeout: 15000 })
 await host.screenshot({ path: `${shotDir}mp-05-host-sees-guest.png` })
 
 // Host starts the game (fills remaining seats with bots)
@@ -100,6 +110,33 @@ await host.locator('[data-testid="hand-row"] button:not([disabled])').first().cl
 await host.waitForTimeout(1500)
 await host.screenshot({ path: `${shotDir}mp-10-host-after-lead.png` })
 await guest.screenshot({ path: `${shotDir}mp-11-guest-sees-lead.png` })
+
+// Play through several full tricks alternating between whichever real player's
+// turn it is, on both clients, to confirm tricks actually resolve and clear
+// under real host/guest realtime sync (not just solo mode).
+async function playIfMyTurn(page) {
+  const count = await page.locator('[data-testid="hand-row"] button:not([disabled])').count()
+  if (count > 0) {
+    await page.locator('[data-testid="hand-row"] button:not([disabled])').first().click({ timeout: 5000 })
+    return true
+  }
+  return false
+}
+
+let totalPlays = 0
+for (let i = 0; i < 30 && totalPlays < 8; i++) {
+  const hostPlayed = await playIfMyTurn(host)
+  if (hostPlayed) totalPlays++
+  const guestPlayed = await playIfMyTurn(guest)
+  if (guestPlayed) totalPlays++
+  await host.waitForTimeout(700)
+}
+
+const hostStatus = await host.getByText(/Tricks \d/).textContent().catch(() => 'N/A')
+const guestStatus = await guest.getByText(/Tricks \d/).textContent().catch(() => 'N/A')
+console.log(`after ${totalPlays} real-player plays: host status="${hostStatus}" guest status="${guestStatus}"`)
+await host.screenshot({ path: `${shotDir}mp-12-host-after-tricks.png` })
+await guest.screenshot({ path: `${shotDir}mp-13-guest-after-tricks.png` })
 
 console.log('ERRORS:', JSON.stringify(errors, null, 2))
 await browser.close()

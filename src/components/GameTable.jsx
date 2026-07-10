@@ -8,7 +8,7 @@ import {
   botCardChoice,
   effectiveSuit,
 } from '../lib/cards'
-import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel } from '../lib/rooms'
+import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel, updatePlayerInfo } from '../lib/rooms'
 import PlayerHand from './PlayerHand'
 import BidPanel from './BidPanel'
 import SeatChip from './SeatChip'
@@ -26,6 +26,7 @@ import BlindNilPrompt from './BlindNilPrompt'
 import GameSettingsSheet from './GameSettingsSheet'
 import DeckThemesModal from './DeckThemesModal'
 import TableThemesModal from './TableThemesModal'
+import ProfileModal from './ProfileModal'
 import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
 import { recordMatchResult } from '../lib/auth'
 import { checkAndUnlockAchievements } from '../lib/social'
@@ -74,6 +75,10 @@ export default function GameTable({
   onChangeDeckTheme,
   room,
   myUserId,
+  authUser,
+  profile,
+  onProfileUpdate,
+  onSignOut,
   mySeat = 0,
   onExit,
 }) {
@@ -110,6 +115,7 @@ export default function GameTable({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [deckPickerOpen, setDeckPickerOpen] = useState(false)
   const [tablePickerOpen, setTablePickerOpen] = useState(false)
+  const [profilePickerOpen, setProfilePickerOpen] = useState(false)
   const [blindNil, setBlindNil] = useState(blankBlind())
   const [revealed, setRevealed] = useState({})
   const [livePlayers, setLivePlayers] = useState(players)
@@ -120,6 +126,7 @@ export default function GameTable({
     livePlayersRef.current = livePlayers
   }, [livePlayers])
   const [errorToast, setErrorToast] = useState(null)
+  const [boardNotice, setBoardNotice] = useState(null)
 
   function showError(message) {
     playError()
@@ -143,6 +150,14 @@ export default function GameTable({
   const playError = useSound('error')
 
   const pendingTrickRef = useRef(false)
+  // Guards against a rapid double-tap/double-click playing two cards for the
+  // same turn: playCard reads currentTrick/ledSuit/spadesBroken from the
+  // render closure rather than a functional update, so two calls firing
+  // before React re-renders between them would both see the same stale
+  // currentTrick and could both append to it — corrupting the trick (e.g. a
+  // duplicate seat entry) in a way evaluateTrick can't cleanly resolve,
+  // stalling the game. Cleared once `turn` actually changes.
+  const playingCardRef = useRef(false)
   const roomIdRef = useRef(room?.id)
   roomIdRef.current = room?.id
 
@@ -354,16 +369,38 @@ export default function GameTable({
   }, [phase, hands, livePlayers, settings.standardNil, isMultiplayer, isHost])
 
   // Transition bidding -> playing once all bids in (host-only in multiplayer).
+  // "Board rule": a partnership's combined bid must reach the minimum
+  // (classically 4) — if not, both partners' bids are cleared and they must
+  // rebid, rather than silently starting play under the minimum.
   useEffect(() => {
     if (phase !== 'bidding') return
     if (isMultiplayer && !isHost) return
-    if (POSITIONS.every((p) => bids[p] !== null)) {
-      const t = setTimeout(() => {
-        setPhase('playing')
-        persist({ phase: 'playing' })
-      }, 500)
-      return () => clearTimeout(t)
+    if (!POSITIONS.every((p) => bids[p] !== null)) return
+
+    const boardRuleOn = settings.boardRule !== false && settings.partnershipMode !== false
+    if (boardRuleOn) {
+      const boardMin = settings.boardMinimum ?? 4
+      const teams = [
+        { pos: ['bottom', 'top'], total: bids.bottom + bids.top },
+        { pos: ['left', 'right'], total: bids.left + bids.right },
+      ]
+      const short = teams.find((t) => t.total < boardMin)
+      if (short) {
+        const mine = short.pos.includes(MY_POS)
+        setBoardNotice(`${mine ? 'Your team' : 'Opponents'} bid only ${short.total} combined — must bid at least ${boardMin}. Rebidding…`)
+        setTimeout(() => setBoardNotice(null), 4500)
+        const clearedBids = { ...bids, [short.pos[0]]: null, [short.pos[1]]: null }
+        setBids(clearedBids)
+        persist({ bids: { [short.pos[0]]: null, [short.pos[1]]: null } })
+        return
+      }
     }
+
+    const t = setTimeout(() => {
+      setPhase('playing')
+      persist({ phase: 'playing' })
+    }, 500)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, bids, isMultiplayer, isHost])
 
@@ -385,29 +422,57 @@ export default function GameTable({
   }
 
   function playCard(pos, card) {
+    if (playingCardRef.current) return
+    playingCardRef.current = true
+    // Belt-and-suspenders: the [turn] effect below clears this in the
+    // normal case, but if anything unexpected prevents turn from changing,
+    // this guarantees the guard can't wedge the game open indefinitely.
+    setTimeout(() => {
+      playingCardRef.current = false
+    }, 3000)
     playCardSfx()
-    setHands((prev) => {
-      const nextHands = { ...prev, [pos]: prev[pos].filter((c) => c.id !== card.id) }
-      let nextLedSuit = ledSuit
-      const nextTrick = [...currentTrick, { pos, card }]
-      if (nextTrick.length === 1) nextLedSuit = effectiveSuit(card, useJD)
-      const nextSpadesBroken = spadesBroken || effectiveSuit(card, useJD) === 'S'
-      const nextTurn = NEXT_TURN[pos]
-      setCurrentTrick(nextTrick)
-      setLedSuit(nextLedSuit)
-      setSpadesBroken(nextSpadesBroken)
-      setTurn(nextTurn)
-      persist({
-        hands: { [pos]: nextHands[pos] },
-        current_trick: nextTrick,
-        led_suit: nextLedSuit,
-        spades_broken: nextSpadesBroken,
-        current_turn: nextTurn,
-      })
-      return nextHands
+
+    // Compute all derived state up front from the render closure (playingCardRef
+    // already guards re-entrancy) instead of inside a setHands(prev => ...)
+    // updater. React Strict Mode intentionally invokes updater functions twice
+    // in dev to catch impure updaters — an updater that calls other setters and
+    // persist() as side effects (as this used to) fires those side effects
+    // twice per card play, double-persisting and double-appending to the trick.
+    const nextHands = { ...hands, [pos]: hands[pos].filter((c) => c.id !== card.id) }
+    const nextTrick = [...currentTrick, { pos, card }]
+    const nextLedSuit = nextTrick.length === 1 ? effectiveSuit(card, useJD) : ledSuit
+    const nextSpadesBroken = spadesBroken || effectiveSuit(card, useJD) === 'S'
+    // When this card completes the trick, don't hand the turn to the fixed
+    // rotation's next seat yet — the trick-evaluation effect below decides
+    // the real next turn (the trick winner) ~1200ms later, once the card
+    // animation and evaluateTrick() have run. Advancing turn immediately via
+    // NEXT_TURN[pos] here made that seat's hand briefly (and wrongly) play-
+    // able while the trick still visually held 4 cards; a real tap in that
+    // window let a 5th card get appended to an already-complete trick, which
+    // the trick-evaluation effect's `currentTrick.length !== 4` guard can
+    // never match again — freezing the game with cards stuck on the table.
+    const nextTurn = nextTrick.length === 4 ? null : NEXT_TURN[pos]
+
+    setHands(nextHands)
+    setCurrentTrick(nextTrick)
+    setLedSuit(nextLedSuit)
+    setSpadesBroken(nextSpadesBroken)
+    setTurn(nextTurn)
+    persist({
+      hands: { [pos]: nextHands[pos] },
+      current_trick: nextTrick,
+      led_suit: nextLedSuit,
+      spades_broken: nextSpadesBroken,
+      current_turn: nextTurn,
     })
     setSelectedCard(null)
   }
+
+  // Releases the double-play guard once the turn has actually advanced —
+  // covers both a successful play and a hydrate() from a remote update.
+  useEffect(() => {
+    playingCardRef.current = false
+  }, [turn])
 
   function handleMyCardClick(card) {
     if (!isMyTurn) return
@@ -453,7 +518,17 @@ export default function GameTable({
       pendingTrickRef.current = false
       setTimeout(() => setTrickWinnerFlash(null), 700)
     }, 1200)
-    return () => clearTimeout(t)
+    // If this effect re-runs (e.g. React Strict Mode's dev-only double-invoke
+    // of a fresh effect, or any other dep change) before the timeout above
+    // fires, the cleanup must release the guard too — otherwise the pending
+    // timer gets cancelled but pendingTrickRef.current is left permanently
+    // true, so this effect's own `if (pendingTrickRef.current) return` bails
+    // out on every future run and the trick can never be evaluated again
+    // (cards stuck on the table, turn never advances, game freezes).
+    return () => {
+      clearTimeout(t)
+      pendingTrickRef.current = false
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentTrick, useJD, isMultiplayer, isHost])
 
@@ -577,6 +652,18 @@ export default function GameTable({
     })
   }
 
+  // A username/avatar edit made mid-game needs to reach every other player's
+  // screen immediately, not just take effect the next time this player joins
+  // a room — so in addition to updating the shared profile record, push the
+  // change straight into this room's live players[] too.
+  function handleProfileUpdate(updatedProfile) {
+    onProfileUpdate?.(updatedProfile)
+    if (isMultiplayer && room?.id && myUserId) {
+      updatePlayerInfo(room.id, myUserId, { name: updatedProfile.username, avatar_url: updatedProfile.avatar_url }).catch(() => {})
+      setLivePlayers((prev) => ({ ...prev, [MY_POS]: { ...prev[MY_POS], username: updatedProfile.username, avatar_url: updatedProfile.avatar_url } }))
+    }
+  }
+
   function showEmote(pos, emoji) {
     setEmotes((prev) => ({ ...prev, [pos]: emoji }))
     setTimeout(() => setEmotes((prev) => ({ ...prev, [pos]: null })), 1400)
@@ -618,6 +705,15 @@ export default function GameTable({
           style={{ background: '#dc2626', animation: 'fadeUp 0.25s ease both' }}
         >
           {errorToast}
+        </div>
+      )}
+
+      {boardNotice && (
+        <div
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] max-w-[90%] rounded-xl px-4 py-2.5 text-xs font-semibold text-center shadow-lg bg-slate-900/90 backdrop-blur-md border"
+          style={{ borderColor: '#fbbf2488', color: '#fde68a', animation: 'fadeUp 0.25s ease both' }}
+        >
+          {boardNotice}
         </div>
       )}
 
@@ -761,11 +857,20 @@ export default function GameTable({
           onNextRound={startDeal}
           onQuit={handleExit}
           accentColor={accentColor}
+          chatMessages={chatMessages}
+          onSendChat={sendChat}
         />
       )}
 
       {phase === 'game_over' && matchWinner && (
-        <MatchWinnerModal winnerLabel={matchWinner} finalScores={runningScores} onQuit={handleExit} accentColor={accentColor} />
+        <MatchWinnerModal
+          winnerLabel={matchWinner}
+          finalScores={runningScores}
+          onQuit={handleExit}
+          accentColor={accentColor}
+          chatMessages={chatMessages}
+          onSendChat={sendChat}
+        />
       )}
 
       {leftPlayerPos && (
@@ -792,8 +897,29 @@ export default function GameTable({
             setSettingsOpen(false)
             setTablePickerOpen(true)
           }}
+          onEditProfile={
+            authUser
+              ? () => {
+                  setSettingsOpen(false)
+                  setProfilePickerOpen(true)
+                }
+              : undefined
+          }
           onLeave={handleExit}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {profilePickerOpen && authUser && (
+        <ProfileModal
+          user={authUser}
+          profile={profile}
+          onClose={() => setProfilePickerOpen(false)}
+          onProfileUpdate={handleProfileUpdate}
+          onSignOut={() => {
+            setProfilePickerOpen(false)
+            onSignOut?.()
+          }}
         />
       )}
 

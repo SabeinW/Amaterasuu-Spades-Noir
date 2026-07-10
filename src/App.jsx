@@ -10,14 +10,15 @@ import ProfileModal from './components/ProfileModal'
 import LeaderboardModal from './components/LeaderboardModal'
 import GameTable from './components/GameTable'
 import RoomWaitingScreen from './components/RoomWaitingScreen'
-import { onAuthStateChange, getSession, signOut, fetchProfile } from './lib/auth'
+import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
 import { supabaseEnabled } from './lib/supabase'
 import { fromDbSettings } from './lib/rooms'
 import { POSITIONS } from './lib/cards'
-import { TABLE_THEMES, DECK_THEMES } from './data/tableThemes'
+import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
 
 const BOT_NAMES = ['Nyx', 'Kestrel', 'Osiris']
+const PREFS_KEY = 'amaterasuu-noir-spades:preferences'
 
 function seatToDataPos(seat) {
   return POSITIONS[((seat % 4) + 4) % 4]
@@ -31,14 +32,39 @@ function buildPlayersMap(players) {
   return map
 }
 
+// Rule/theme choices are local device preferences (not tied to the signed-in
+// account), so they're persisted to localStorage rather than Supabase —
+// without this, "Save Rules" only lived in memory and reset on every reload.
+function loadStoredPreferences() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function savePreferences(patch) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadStoredPreferences(), ...patch }))
+  } catch {
+    // localStorage unavailable (private browsing, storage full, etc.) — the
+    // choice still applies for this session, it just won't persist.
+  }
+}
+
+const storedPrefs = loadStoredPreferences()
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('landing') // landing | room-waiting | game
   const [modal, setModal] = useState(null) // auth | lobby | challenges | rules | tableThemes | deckThemes | profile | leaderboard
-  const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_RULES)
-  const [tableTheme, setTableTheme] = useState(TABLE_THEMES[0])
-  const [deckTheme, setDeckTheme] = useState(DECK_THEMES[0])
+  const [gameSettings, setGameSettings] = useState({ ...DEFAULT_GAME_RULES, ...storedPrefs.gameSettings })
+  const [tableTheme, setTableTheme] = useState(
+    [...TABLE_THEMES, ...MASTER_THEMES].find((t) => t.id === storedPrefs.tableThemeId) ?? TABLE_THEMES[0]
+  )
+  const [deckTheme, setDeckTheme] = useState(DECK_THEMES.find((d) => d.id === storedPrefs.deckThemeId) ?? DECK_THEMES[0])
   const [activeRoom, setActiveRoom] = useState(null)
 
   useEffect(() => {
@@ -53,12 +79,28 @@ export default function App() {
       setProfile(null)
       return
     }
-    fetchProfile(user.id).then(setProfile)
+    fetchOrCreateProfile(user).then(setProfile)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   function startQuickGame() {
     setActiveRoom(null)
     setView('game')
+  }
+
+  function handleSaveRules(rules) {
+    setGameSettings(rules)
+    savePreferences({ gameSettings: rules })
+  }
+
+  function handleSetTableTheme(theme) {
+    setTableTheme(theme)
+    savePreferences({ tableThemeId: theme.id })
+  }
+
+  function handleSetDeckTheme(theme) {
+    setDeckTheme(theme)
+    savePreferences({ deckThemeId: theme.id })
   }
 
   function handleAuthed(authedUser) {
@@ -125,13 +167,17 @@ export default function App() {
           mode="multiplayer"
           room={activeRoom}
           myUserId={user?.id}
+          authUser={user}
+          profile={profile}
+          onProfileUpdate={setProfile}
+          onSignOut={handleSignOut}
           mySeat={mySeat}
           players={buildPlayersMap(activeRoom.players)}
           settings={fromDbSettings(activeRoom.settings)}
           tableTheme={tableTheme}
           deckTheme={deckTheme}
-          onChangeTableTheme={setTableTheme}
-          onChangeDeckTheme={setDeckTheme}
+          onChangeTableTheme={handleSetTableTheme}
+          onChangeDeckTheme={handleSetDeckTheme}
           onExit={exitToLanding}
         />
       )}
@@ -140,12 +186,16 @@ export default function App() {
         <GameTable
           mode="solo"
           myUserId={user?.id}
+          authUser={user}
+          profile={profile}
+          onProfileUpdate={setProfile}
+          onSignOut={handleSignOut}
           players={quickGamePlayers}
           settings={gameSettings}
           tableTheme={tableTheme}
           deckTheme={deckTheme}
-          onChangeTableTheme={setTableTheme}
-          onChangeDeckTheme={setDeckTheme}
+          onChangeTableTheme={handleSetTableTheme}
+          onChangeDeckTheme={handleSetDeckTheme}
           onExit={exitToLanding}
         />
       )}
@@ -188,7 +238,7 @@ export default function App() {
           initialRules={gameSettings}
           onClose={() => setModal(null)}
           onSave={(rules) => {
-            setGameSettings(rules)
+            handleSaveRules(rules)
             setModal(null)
           }}
         />
@@ -198,7 +248,7 @@ export default function App() {
         <TableThemesModal
           selectedId={tableTheme.id}
           onSelect={(t) => {
-            setTableTheme(t)
+            handleSetTableTheme(t)
             setModal(null)
           }}
           onClose={() => setModal(null)}
@@ -209,7 +259,7 @@ export default function App() {
         <DeckThemesModal
           selectedId={deckTheme.id}
           onSelect={(d) => {
-            setDeckTheme(d)
+            handleSetDeckTheme(d)
             setModal(null)
           }}
           onClose={() => setModal(null)}

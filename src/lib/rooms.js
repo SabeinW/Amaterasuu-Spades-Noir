@@ -21,6 +21,9 @@ export function toDbSettings(rules) {
     bagPenalty: rules.bagPenalty !== false,
     spadesBreak: rules.spadesBreakRule !== false,
     penaltyAmount: String(rules.nilBonus ?? 100),
+    boardRule: rules.boardRule !== false,
+    boardMinimum: String(rules.boardMinimum ?? 4),
+    moonShot: !!rules.moonShot,
   }
 }
 
@@ -35,6 +38,9 @@ export function fromDbSettings(dbSettings = {}) {
     bagPenalty: dbSettings.bagPenalty !== false,
     spadesBreakRule: dbSettings.spadesBreak !== false,
     nilBonus: Number(dbSettings.penaltyAmount ?? 100),
+    boardRule: dbSettings.boardRule !== false,
+    boardMinimum: Number(dbSettings.boardMinimum ?? 4),
+    moonShot: !!dbSettings.moonShot,
     partnershipMode: true,
   }
 }
@@ -125,6 +131,19 @@ export async function movePlayerToSeat(roomId, playerId, newSeat) {
   const updated = room.players.map((p) => (p.id === playerId ? { ...p, seat: newSeat } : p))
   const { error: updateError } = await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
   if (updateError) throw updateError
+}
+
+// Pushes a live username/avatar change into a room this player is already
+// sitting in, so every other player's realtime subscription picks it up
+// immediately — without this, a name/avatar edit only takes effect the next
+// time the player creates or joins a room, since room.players is a snapshot
+// taken at join time, not a live join against profiles.
+export async function updatePlayerInfo(roomId, playerId, { name, avatar_url }) {
+  if (!supabaseEnabled) return
+  const { data: room, error } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  if (error || !room) return
+  const updated = room.players.map((p) => (p.id === playerId ? { ...p, name: name ?? p.name, avatar_url: avatar_url ?? p.avatar_url } : p))
+  await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
 }
 
 export async function replacePlayerWithBot(roomId, seat) {

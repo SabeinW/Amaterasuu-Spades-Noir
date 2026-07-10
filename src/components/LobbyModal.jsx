@@ -118,9 +118,13 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
                     style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)' }}
                   >
                     <span className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0" style={{ background: `${avatar.color}33` }}>
-                        {avatar.emoji}
-                      </span>
+                      {avatar.kind === 'photo' ? (
+                        <img src={avatar.url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0" style={{ background: `${avatar.color}33` }}>
+                          {avatar.emoji}
+                        </span>
+                      )}
                       {r.code} · {r.host_name}
                     </span>
                     <span className="text-white/40 text-xs">{r.players?.length ?? 0}/4</span>

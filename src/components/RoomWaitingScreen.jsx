@@ -17,11 +17,13 @@ function SeatSlot({ seat, player, isHost, isMe, canSit, onSit, color }) {
       style={{ background: isMe ? `${color}22` : 'rgba(255,255,255,0.05)', border: isMe ? `1px solid ${color}88` : '1px solid transparent' }}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        {avatar && (
+        {avatar?.kind === 'photo' ? (
+          <img src={avatar.url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+        ) : avatar ? (
           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}>
             <span className="text-sm">{avatar.emoji}</span>
           </div>
-        )}
+        ) : null}
         <span className="text-sm font-medium truncate">{player ? player.name : `Seat ${seat + 1} — open`}</span>
         {isHost && <span className="text-[10px] text-amber-300 font-semibold shrink-0">HOST</span>}
       </div>

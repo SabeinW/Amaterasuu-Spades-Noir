@@ -81,6 +81,14 @@ export default function RulesModal({ onClose, onSave, initialRules }) {
           <Row title="Nil Bonus">
             <Select value={rules.nilBonus} options={[{ value: 50, label: '50 pts' }, { value: 100, label: '100 pts' }, { value: 150, label: '150 pts' }]} onChange={(v) => set({ nilBonus: Number(v) })} />
           </Row>
+          <Row title="Board Rule" desc="Partnership must bid at least the minimum combined — otherwise both partners rebid">
+            <Toggle checked={rules.boardRule} onChange={(v) => set({ boardRule: v })} />
+          </Row>
+          {rules.boardRule && (
+            <Row title="Board Minimum">
+              <Select value={rules.boardMinimum} options={[{ value: 3, label: '3 tricks' }, { value: 4, label: '4 tricks (Classic)' }, { value: 5, label: '5 tricks' }]} onChange={(v) => set({ boardMinimum: Number(v) })} />
+            </Row>
+          )}
         </Section>
 
         <Section title="Bags &amp; Penalties">

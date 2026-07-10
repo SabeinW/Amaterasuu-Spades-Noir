@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { X, Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock } from 'lucide-react'
-import { AVATAR_EMOJIS, AVATAR_COLORS, parseAvatar, serializeAvatar } from '../data/avatars'
+import { useEffect, useRef, useState } from 'react'
+import { X, Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw } from 'lucide-react'
+import { AVATAR_EMOJIS, AVATAR_COLORS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, DEFAULT_AVATAR } from '../data/avatars'
 import { ACHIEVEMENTS } from '../data/achievements'
 import { updateProfile } from '../lib/auth'
 import {
@@ -15,6 +15,16 @@ import {
 const TABS = ['Overview', 'Achievements', 'Friends']
 
 function AvatarBadge({ avatar, size = 16 }) {
+  if (avatar.kind === 'photo') {
+    return (
+      <img
+        src={avatar.url}
+        alt=""
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size * 4, height: size * 4 }}
+      />
+    )
+  }
   return (
     <div
       className="rounded-full flex items-center justify-center shrink-0"
@@ -40,6 +50,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
   const [searching, setSearching] = useState(false)
 
   const avatar = parseAvatar(profile?.avatar_url)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (!user?.id) return
@@ -47,16 +58,35 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
     listFriends(user.id).then(setFriendsData)
   }, [user?.id])
 
-  async function saveAvatar(nextAvatar) {
+  async function saveAvatarUrl(avatarUrl) {
     setSaving(true)
     setError(null)
     try {
-      const updated = await updateProfile(user.id, { avatar_url: serializeAvatar(nextAvatar) })
+      const updated = await updateProfile(user.id, { avatar_url: avatarUrl })
       onProfileUpdate?.(updated)
       setPickerOpen(false)
     } catch (err) {
       setError(err.message)
     } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveAvatar(nextAvatar) {
+    await saveAvatarUrl(serializeAvatar(nextAvatar))
+  }
+
+  async function handlePhotoSelect(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setSaving(true)
+    setError(null)
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file)
+      await saveAvatarUrl(dataUrl)
+    } catch (err) {
+      setError(err.message)
       setSaving(false)
     }
   }
@@ -163,29 +193,57 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
 
         {pickerOpen && (
           <div className="mb-4 rounded-xl bg-white/5 p-3">
-            <p className="text-[10px] tracking-widest text-white/40 font-semibold uppercase mb-2">Choose Avatar</p>
-            <div className="grid grid-cols-8 gap-1.5 mb-3">
-              {AVATAR_EMOJIS.map((emoji) => (
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+            <div className="flex gap-1.5 mb-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold bg-white/5 hover:bg-white/10 disabled:opacity-50"
+              >
+                <Camera className="w-3.5 h-3.5" /> Upload Photo
+              </button>
+              {avatar.kind === 'photo' && (
                 <button
-                  key={emoji}
-                  onClick={() => saveAvatar({ ...avatar, emoji })}
-                  className="aspect-square rounded-lg flex items-center justify-center text-lg"
-                  style={{ background: emoji === avatar.emoji ? `${avatar.color}44` : 'rgba(255,255,255,0.05)', border: emoji === avatar.emoji ? `1px solid ${avatar.color}` : '1px solid transparent' }}
+                  onClick={() => saveAvatar(DEFAULT_AVATAR)}
+                  disabled={saving}
+                  title="Remove photo"
+                  aria-label="Remove photo"
+                  className="rounded-lg px-3 bg-white/5 hover:bg-white/10 disabled:opacity-50"
                 >
-                  {emoji}
+                  <RotateCcw className="w-3.5 h-3.5 text-white/60" />
                 </button>
-              ))}
+              )}
+            </div>
+            <p className="text-[10px] tracking-widest text-white/40 font-semibold uppercase mb-2">Or Pick an Emoji</p>
+            <div className="grid grid-cols-8 gap-1.5 mb-3">
+              {AVATAR_EMOJIS.map((emoji) => {
+                const base = avatar.kind === 'emoji' ? avatar : DEFAULT_AVATAR
+                const active = avatar.kind === 'emoji' && emoji === avatar.emoji
+                return (
+                  <button
+                    key={emoji}
+                    onClick={() => saveAvatar({ ...base, emoji })}
+                    className="aspect-square rounded-lg flex items-center justify-center text-lg"
+                    style={{ background: active ? `${base.color}44` : 'rgba(255,255,255,0.05)', border: active ? `1px solid ${base.color}` : '1px solid transparent' }}
+                  >
+                    {emoji}
+                  </button>
+                )
+              })}
             </div>
             <div className="flex gap-1.5">
-              {AVATAR_COLORS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => saveAvatar({ ...avatar, color })}
-                  className="w-6 h-6 rounded-full shrink-0"
-                  style={{ background: color, border: color === avatar.color ? '2px solid white' : '2px solid transparent' }}
-                  aria-label={`Avatar color ${color}`}
-                />
-              ))}
+              {AVATAR_COLORS.map((color) => {
+                const base = avatar.kind === 'emoji' ? avatar : DEFAULT_AVATAR
+                return (
+                  <button
+                    key={color}
+                    onClick={() => saveAvatar({ ...base, color })}
+                    className="w-6 h-6 rounded-full shrink-0"
+                    style={{ background: color, border: avatar.kind === 'emoji' && color === avatar.color ? '2px solid white' : '2px solid transparent' }}
+                    aria-label={`Avatar color ${color}`}
+                  />
+                )
+              })}
             </div>
           </div>
         )}

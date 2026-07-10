@@ -54,12 +54,16 @@ export default function LeaderboardModal({ onClose, currentUserId }) {
                   <span className="w-6 text-center text-sm font-bold" style={{ color: RANK_COLORS[rank] ?? 'rgba(255,255,255,0.4)' }}>
                     {rank}
                   </span>
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}
-                  >
-                    <span className="text-sm">{avatar.emoji}</span>
-                  </div>
+                  {avatar.kind === 'photo' ? (
+                    <img src={avatar.url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                      style={{ background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}
+                    >
+                      <span className="text-sm">{avatar.emoji}</span>
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{r.username ?? 'Player'}{isMe ? ' (You)' : ''}</p>
                     <p className="text-[10px] text-white/40">{r.wins ?? 0}W · {r.losses ?? 0}L · {winRate}% win rate</p>

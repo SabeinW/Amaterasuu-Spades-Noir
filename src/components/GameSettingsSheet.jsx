@@ -1,4 +1,4 @@
-import { X, Layers, Palette, Volume2, VolumeX, LogOut, ChevronRight } from 'lucide-react'
+import { X, Layers, Palette, Volume2, VolumeX, LogOut, ChevronRight, UserCircle2 } from 'lucide-react'
 
 export default function GameSettingsSheet({
   deckTheme,
@@ -7,6 +7,7 @@ export default function GameSettingsSheet({
   onToggleMute,
   onChangeDeck,
   onChangeTable,
+  onEditProfile,
   onLeave,
   onClose,
 }) {
@@ -24,6 +25,22 @@ export default function GameSettingsSheet({
         </div>
 
         <div className="flex flex-col gap-2 mb-4">
+          {onEditProfile && (
+            <button
+              onClick={onEditProfile}
+              className="flex items-center gap-3 rounded-xl p-3 text-left bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <UserCircle2 className="w-4 h-4 text-white/80" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Edit Profile</p>
+                <p className="text-[11px] text-white/40 truncate">Username, avatar & stats</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
+            </button>
+          )}
+
           <button
             onClick={onChangeDeck}
             className="flex items-center gap-3 rounded-xl p-3 text-left bg-white/5 hover:bg-white/10 transition-colors"

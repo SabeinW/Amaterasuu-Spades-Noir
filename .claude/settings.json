@@ -37,7 +37,27 @@
       "Bash(node scripts/check-settings-bug.mjs)",
       "Bash(node scripts/check-neon-cards.mjs)",
       "Bash(node scripts/check-final-features.mjs)",
-      "Bash(node scripts/check-friend-rooms.mjs)"
+      "Bash(node scripts/check-friend-rooms.mjs)",
+      "Bash(node scripts/repro-username-bug.mjs)",
+      "Bash(node scripts/test-profile-fix.mjs)",
+      "Bash(node scripts/test-profile-fix2.mjs)",
+      "Bash(node scripts/test-storage.mjs)",
+      "Bash(node scripts/create-profileless-user.mjs)",
+      "Bash(node scripts/check-profile-fix-live.mjs)",
+      "Bash(node scripts/check-midgame-profile-sync.mjs)",
+      "Bash(node scripts/debug-midgame-rename.mjs)",
+      "Bash(sed -i \"s/mp-host-1783667700180@gmail.com/mp-host-1783667974536@gmail.com/; s/mp-guest-1783667700180@gmail.com/mp-guest-1783667974536@gmail.com/\" scripts/check-midgame-profile-sync.mjs)",
+      "Bash(node scripts/repro-trick-freeze.mjs)",
+      "Bash(node scripts/repro-trick-freeze2.mjs)",
+      "Bash(node scripts/repro-trick-freeze3.mjs)",
+      "Bash(node scripts/repro-trick-freeze4.mjs)",
+      "Bash(node scripts/repro-mp-freeze.mjs)",
+      "Bash(node scripts/check-chat.mjs)",
+      "Bash(node scripts/check-defaults-persist.mjs)",
+      "Bash(node scripts/check-board-rule.mjs)",
+      "Bash(node scripts/check-roundover-chat.mjs)",
+      "Bash(node scripts/debug-trick1.mjs)",
+      "Bash(node scripts/check-matchwinner-chat.mjs)"
     ]
   }
 }
