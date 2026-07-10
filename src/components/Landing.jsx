@@ -34,7 +34,7 @@ export default function Landing({
 
       <div className="w-full flex items-center justify-between flex-wrap gap-y-2 max-w-3xl mb-10 relative z-10">
         <div className="flex items-center gap-2 font-display font-bold text-sm sm:text-base whitespace-nowrap shrink-0">
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)' }}>
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', color: '#000' }}>
             ♠
           </span>
           Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span>
@@ -88,7 +88,7 @@ export default function Landing({
         </div>
         <div
           className="w-20 h-20 -mt-2 rounded-3xl flex items-center justify-center text-3xl mb-6 relative z-10 animate-float"
-          style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', boxShadow: '0 0 60px rgba(167,139,250,0.5)' }}
+          style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', boxShadow: '0 0 60px rgba(167,139,250,0.5)', color: '#000' }}
         >
           ♠
         </div>

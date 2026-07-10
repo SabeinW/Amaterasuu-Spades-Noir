@@ -12,7 +12,8 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
   const isJoker = suit === 'JOKER'
   const isRed = RED_SUITS.has(suit)
   const back = deckTheme?.back ?? { from: `${accentColor}`, to: '#0b0715', border: `${accentColor}66` }
-  const faceBg = deckTheme?.faceBg ?? '#f5f3ee'
+  const faceBg = deckTheme?.faceBg ?? '#EDE9FE'
+  const faceAccent = back.from
 
   if (faceDown) {
     return (
@@ -42,11 +43,11 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
         width: w,
         height: h,
         backgroundColor: faceBg,
-        backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%)',
-        border: selected ? `2px solid ${accentColor}` : '1px solid rgba(0,0,0,0.18)',
+        backgroundImage: `radial-gradient(circle at 12% 12%, ${faceAccent}55, transparent 42%), radial-gradient(circle at 88% 88%, ${faceAccent}40, transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%)`,
+        border: selected ? `2px solid ${accentColor}` : `2px solid ${faceAccent}`,
         boxShadow: selected
           ? `0 12px 24px -8px ${accentColor}aa, 0 0 0 1px ${accentColor}, inset 0 1px 0 rgba(255,255,255,0.6)`
-          : '0 1px 0 rgba(255,255,255,0.5) inset, 0 3px 10px rgba(0,0,0,0.45)',
+          : `0 1px 0 rgba(255,255,255,0.5) inset, 0 3px 10px rgba(0,0,0,0.45)`,
         transform: selected ? 'translateY(-16px)' : 'translateY(0)',
         opacity: disabled ? 0.35 : 1,
         cursor: disabled ? 'default' : onClick ? 'pointer' : 'default',
@@ -54,9 +55,11 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
       }}
     >
       {isJoker ? (
-        <div className="flex flex-1 flex-col items-center justify-center text-black">
-          <span style={{ fontSize: font }}>🃏</span>
-          <span className="text-[8px] font-bold tracking-wide">{value === 'BIG' ? 'BIG' : 'SM'}</span>
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <span style={{ fontSize: font * 1.3 }}>🃏</span>
+          <span className="text-[8px] font-extrabold tracking-wide text-center leading-tight" style={{ color: faceAccent }}>
+            {value === 'BIG' ? 'BIG' : 'LITTLE'}
+          </span>
         </div>
       ) : (
         <>

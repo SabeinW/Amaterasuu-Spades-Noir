@@ -21,7 +21,13 @@
       "Bash(node scripts/check-theme-in-game.mjs)",
       "Bash(node scripts/check-midgame-settings.mjs)",
       "Bash(node scripts/check-noir-overhaul.mjs)",
-      "Bash(node scripts/check-noir-modals.mjs)"
+      "Bash(node scripts/check-noir-modals.mjs)",
+      "Bash(node scripts/test-logic.mjs)",
+      "Bash(node scripts/test-jd-logic.mjs)",
+      "Bash(node scripts/check-deck-themes.mjs)",
+      "Bash(node scripts/check-jd-live.mjs)",
+      "Bash(node scripts/generate-icons.mjs)",
+      "Bash(node scripts/check-logo.mjs)"
     ]
   }
 }

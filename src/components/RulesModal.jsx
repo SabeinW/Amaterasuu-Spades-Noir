@@ -102,7 +102,7 @@ export default function RulesModal({ onClose, onSave, initialRules }) {
           <Row title="Spades Break Rule" desc="Must have a spade led before breaking">
             <Toggle checked={rules.spadesBreakRule} onChange={(v) => set({ spadesBreakRule: v })} />
           </Row>
-          <Row title="Jokers Wild" desc="Include two jokers as top trumps">
+          <Row title="Jokers & Deuces" desc="Big Joker, Little Joker, 2♦, 2♠ become the top trumps, in that order">
             <Toggle checked={rules.jokersWild} onChange={(v) => set({ jokersWild: v })} />
           </Row>
         </Section>

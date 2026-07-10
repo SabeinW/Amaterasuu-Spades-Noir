@@ -16,8 +16,13 @@ export function buildDeck() {
   return deck
 }
 
+// Jokers & Deuces variant: Big Joker, Little Joker, 2♦, and 2♠ are pulled out
+// of the normal suits to form the top of the trump ladder (in that order),
+// ranking above every other card including the Ace of Spades. The 2♣ and 2♥
+// are dropped entirely so the deck stays at 52 cards (13 per player) — only
+// 2♦ and 2♠ survive, promoted into the trump suit alongside the jokers.
 export function buildDeckJD() {
-  const deck = buildDeck().filter((c) => !(c.suit !== 'S' && c.value === '2'))
+  const deck = buildDeck().filter((c) => !(c.value === '2' && (c.suit === 'C' || c.suit === 'H')))
   deck.push({ suit: 'JOKER', value: 'BIG', id: 'JOKER_BIG' })
   deck.push({ suit: 'JOKER', value: 'SMALL', id: 'JOKER_SMALL' })
   return deck
@@ -50,24 +55,46 @@ export function dealHands(useJD = false) {
   return hands
 }
 
+// True for any card that has been promoted into the trump ladder: the two
+// jokers, 2♦, and 2♠. In JD mode these always play as trump regardless of
+// what was led, exactly like a regular spade.
+export function isTopTrump(card, useJD) {
+  if (!useJD) return false
+  if (card.suit === 'JOKER') return true
+  return card.value === '2' && (card.suit === 'D' || card.suit === 'S')
+}
+
+// The suit a card effectively belongs to for follow-suit/trump purposes.
+// Top-trump cards (jokers, 2♦, 2♠) count as spades even though 2♦ is
+// printed as a diamond.
+export function effectiveSuit(card, useJD) {
+  if (isTopTrump(card, useJD)) return 'S'
+  return card.suit
+}
+
 function cardRank(card, useJD) {
-  if (card.suit === 'JOKER') return card.value === 'BIG' ? 1000 : 999
+  if (useJD) {
+    if (card.suit === 'JOKER') return card.value === 'BIG' ? 1006 : 1005
+    if (card.suit === 'D' && card.value === '2') return 1004
+    if (card.suit === 'S' && card.value === '2') return 1003
+  }
   return VALUE_RANK[card.value]
 }
 
 export function beats(card, winnerCard, ledSuit, useJD = false) {
-  if (useJD && card.suit === 'JOKER') return true
-  if (useJD && winnerCard.suit === 'JOKER') return false
+  const cardTrump = effectiveSuit(card, useJD) === 'S'
+  const winnerTrump = effectiveSuit(winnerCard, useJD) === 'S'
+  if (cardTrump && winnerTrump) return cardRank(card, useJD) > cardRank(winnerCard, useJD)
+  if (cardTrump && !winnerTrump) return true
+  if (!cardTrump && winnerTrump) return false
   if (card.suit === winnerCard.suit) return cardRank(card, useJD) > cardRank(winnerCard, useJD)
-  if (card.suit === 'S' && winnerCard.suit !== 'S') return true
-  if (card.suit !== 'S' && winnerCard.suit === 'S') return false
   if (card.suit === ledSuit && winnerCard.suit !== ledSuit) return true
   return false
 }
 
 export function evaluateTrick(trick, useJD = false) {
   let winner = trick[0]
-  const ledSuit = trick[0].card.suit === 'JOKER' ? 'S' : trick[0].card.suit
+  const ledSuit = effectiveSuit(trick[0].card, useJD)
   for (const entry of trick.slice(1)) {
     if (beats(entry.card, winner.card, ledSuit, useJD)) winner = entry
   }
@@ -76,15 +103,12 @@ export function evaluateTrick(trick, useJD = false) {
 
 export function isPlayable(card, hand, currentTrick, spadesBroken, useJD = false, spadesBreakRule = true) {
   if (currentTrick.length === 0) {
-    if (spadesBreakRule && card.suit === 'S' && !spadesBroken && hand.some((c) => c.suit !== 'S')) return false
+    if (spadesBreakRule && effectiveSuit(card, useJD) === 'S' && !spadesBroken && hand.some((c) => effectiveSuit(c, useJD) !== 'S')) return false
     return true
   }
-  const ledSuit = currentTrick[0].card.suit === 'JOKER' ? 'S' : currentTrick[0].card.suit
-  const hasLedSuit = hand.some((c) => (c.suit === 'JOKER' ? ledSuit === 'S' : c.suit === ledSuit))
-  if (hasLedSuit) {
-    if (card.suit === 'JOKER') return ledSuit === 'S'
-    return card.suit === ledSuit
-  }
+  const ledSuit = effectiveSuit(currentTrick[0].card, useJD)
+  const hasLedSuit = hand.some((c) => effectiveSuit(c, useJD) === ledSuit)
+  if (hasLedSuit) return effectiveSuit(card, useJD) === ledSuit
   return true
 }
 
@@ -119,13 +143,14 @@ export function scoreRound(bids, tricks, bags, settings = {}, blindNilFlags = {}
   return result
 }
 
-export function estimateBotBid(hand, nilEnabled = true) {
-  const spadesCount = hand.filter((c) => c.suit === 'S').length
-  const highCards = hand.filter((c) => VALUE_RANK[c.value] >= VALUE_RANK['A'] || (c.suit === 'S' && VALUE_RANK[c.value] >= VALUE_RANK['J'])).length
-  const nonSpades = hand.length - spadesCount
-  let estimate = Math.round(spadesCount * 0.8 + highCards * 0.3 + nonSpades * 0.12)
+export function estimateBotBid(hand, nilEnabled = true, useJD = false) {
+  const trumpCount = hand.filter((c) => effectiveSuit(c, useJD) === 'S').length
+  const topTrumpCount = hand.filter((c) => isTopTrump(c, useJD)).length
+  const highCards = hand.filter((c) => VALUE_RANK[c.value] >= VALUE_RANK['A'] || (effectiveSuit(c, useJD) === 'S' && VALUE_RANK[c.value] >= VALUE_RANK['J'])).length
+  const nonTrump = hand.length - trumpCount
+  let estimate = Math.round(trumpCount * 0.8 + topTrumpCount * 0.5 + highCards * 0.3 + nonTrump * 0.12)
   let bid = Math.max(1, Math.min(9, estimate))
-  if (nilEnabled && spadesCount <= 1 && highCards === 0 && Math.random() < 0.35) {
+  if (nilEnabled && trumpCount <= 1 && highCards === 0 && Math.random() < 0.35) {
     bid = 0
   }
   return bid
@@ -134,13 +159,12 @@ export function estimateBotBid(hand, nilEnabled = true) {
 export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD = false, spadesBreakRule = true) {
   const playable = hand.filter((c) => isPlayable(c, hand, currentTrick, spadesBroken, useJD, spadesBreakRule))
   if (currentTrick.length === 0) {
-    const nonSpades = playable.filter((c) => c.suit !== 'S')
-    const pool = nonSpades.length ? nonSpades : playable
+    const nonTrump = playable.filter((c) => effectiveSuit(c, useJD) !== 'S')
+    const pool = nonTrump.length ? nonTrump : playable
     return sortHand(pool)[0]
   }
-  const winningNow = currentTrick.length ? evaluateTrick(currentTrick, useJD) : null
-  const canFollow = playable.some((c) => (ledSuit ? c.suit === ledSuit : true))
-  const followers = canFollow ? playable.filter((c) => c.suit === ledSuit) : playable
+  const canFollow = playable.some((c) => (ledSuit ? effectiveSuit(c, useJD) === ledSuit : true))
+  const followers = canFollow ? playable.filter((c) => effectiveSuit(c, useJD) === ledSuit) : playable
   const sorted = sortHand(followers)
   const isLastToPlay = currentTrick.length === 3
   if (isLastToPlay) {

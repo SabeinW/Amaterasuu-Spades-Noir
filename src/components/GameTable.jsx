@@ -6,6 +6,7 @@ import {
   scoreRound,
   estimateBotBid,
   botCardChoice,
+  effectiveSuit,
 } from '../lib/cards'
 import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel } from '../lib/rooms'
 import PlayerHand from './PlayerHand'
@@ -325,7 +326,7 @@ export default function GameTable({
         const t = setTimeout(() => {
           setBids((prev) => {
             if (prev[pos] !== null) return prev
-            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled)
+            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled, useJD)
             persist({ bids: { [pos]: bid } })
             playBid()
             return { ...prev, [pos]: bid }
@@ -375,8 +376,8 @@ export default function GameTable({
       const nextHands = { ...prev, [pos]: prev[pos].filter((c) => c.id !== card.id) }
       let nextLedSuit = ledSuit
       const nextTrick = [...currentTrick, { pos, card }]
-      if (nextTrick.length === 1) nextLedSuit = card.suit === 'JOKER' ? 'S' : card.suit
-      const nextSpadesBroken = spadesBroken || card.suit === 'S'
+      if (nextTrick.length === 1) nextLedSuit = effectiveSuit(card, useJD)
+      const nextSpadesBroken = spadesBroken || effectiveSuit(card, useJD) === 'S'
       const nextTurn = NEXT_TURN[pos]
       setCurrentTrick(nextTrick)
       setLedSuit(nextLedSuit)
