@@ -1,13 +1,13 @@
+import { useState } from 'react'
 import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User } from 'lucide-react'
 import PlayingCard from './PlayingCard'
 import { parseAvatar } from '../data/avatars'
 
 const FAN_CARDS = [
-  { suit: 'S', value: 'A', rotate: -22, x: -66, delay: '0s' },
-  { suit: 'H', value: 'K', rotate: -11, x: -34, delay: '0.12s' },
-  { suit: 'JOKER', value: 'BIG', rotate: 0, x: 0, delay: '0.24s' },
-  { suit: 'D', value: 'J', rotate: 11, x: 34, delay: '0.36s' },
-  { suit: 'S', value: '10', rotate: 22, x: 66, delay: '0.48s' },
+  { suit: 'S', value: 'A', rotate: -24, x: -78, accentColor: '#a78bfa', delay: '0s' },
+  { suit: 'H', value: 'K', rotate: -8, x: -26, accentColor: '#fb4f6f', delay: '0.12s' },
+  { suit: 'JOKER', value: 'BIG', rotate: 8, x: 26, accentColor: '#f5d90a', delay: '0.24s' },
+  { suit: 'D', value: 'Q', rotate: 24, x: 78, accentColor: '#38bdf8', delay: '0.36s' },
 ]
 
 export default function Landing({
@@ -24,6 +24,8 @@ export default function Landing({
   onOpenLeaderboard,
 }) {
   const avatar = profile ? parseAvatar(profile.avatar_url) : null
+  const [hoveredCard, setHoveredCard] = useState(null)
+  const [pinnedCard, setPinnedCard] = useState(null)
   const PILLS = [
     { icon: Trophy, label: 'Leaderboard', onClick: onOpenLeaderboard },
     { icon: Bot, label: 'AI Bots', onClick: onQuickGame },
@@ -42,7 +44,7 @@ export default function Landing({
           <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', color: '#000' }}>
             ♠
           </span>
-          Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span>
+          Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span> Spades
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
           <button onClick={onOpenDeckThemes} title="Deck Themes" aria-label="Deck Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
@@ -85,23 +87,35 @@ export default function Landing({
       </div>
 
       <div className="relative z-10 flex flex-col items-center max-w-md mt-4">
-        <div className="relative w-full flex items-end justify-center" style={{ height: 116 }} aria-hidden="true">
-          {FAN_CARDS.map((c, i) => (
-            <div
-              key={`${c.suit}${c.value}`}
-              className="absolute bottom-2 left-1/2 animate-fadeIn"
-              style={{
-                transform: `translateX(-50%) translateX(${c.x}px) rotate(${c.rotate}deg)`,
-                transformOrigin: 'bottom center',
-                animationDelay: c.delay,
-                zIndex: i,
-              }}
-            >
-              <div className="hero-card-float" style={{ animationDelay: c.delay }}>
-                <PlayingCard suit={c.suit} value={c.value} size="md" />
+        <div className="relative w-full flex items-end justify-center" style={{ height: 150 }}>
+          {FAN_CARDS.map((c, i) => {
+            const isUp = hoveredCard === i || pinnedCard === i
+            return (
+              <div
+                key={`${c.suit}${c.value}`}
+                className="absolute bottom-4 left-1/2 animate-fadeIn transition-transform duration-200 ease-out"
+                style={{
+                  transform: `translateX(-50%) translateX(${c.x}px) rotate(${isUp ? c.rotate * 0.4 : c.rotate}deg) translateY(${isUp ? -14 : 0}px) scale(${isUp ? 1.12 : 1})`,
+                  transformOrigin: 'bottom center',
+                  animationDelay: c.delay,
+                  zIndex: isUp ? 40 : i,
+                }}
+                onMouseEnter={() => setHoveredCard(i)}
+                onMouseLeave={() => setHoveredCard((prev) => (prev === i ? null : prev))}
+              >
+                <div className="hero-card-float" style={{ animationDelay: c.delay }}>
+                  <PlayingCard
+                    suit={c.suit}
+                    value={c.value}
+                    size="lg"
+                    accentColor={c.accentColor}
+                    selected={isUp}
+                    onClick={() => setPinnedCard((prev) => (prev === i ? null : i))}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <div
           className="w-20 h-20 -mt-2 rounded-3xl flex items-center justify-center text-3xl mb-6 relative z-10 animate-float"

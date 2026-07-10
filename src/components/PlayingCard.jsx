@@ -57,16 +57,27 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
       }}
     >
       {isJoker ? (
-        <div className="relative flex flex-1 flex-col items-center justify-center w-full">
-          <div
-            className="absolute inset-1 rounded-md"
-            style={{ background: 'conic-gradient(from 180deg, #a78bfa, #38bdf8, #4ade80, #f5d90a, #fb4f6f, #a78bfa)', opacity: 0.35, filter: 'blur(3px)' }}
-          />
-          <span className="relative" style={{ fontSize: font * 1.35, filter: `drop-shadow(0 0 4px ${neon})` }}>🃏</span>
-          <span className="relative text-[8px] font-extrabold tracking-wide text-center leading-tight" style={{ color: '#f5d90a', textShadow: '0 0 6px #f5d90aaa' }}>
-            {value === 'BIG' ? 'BIG' : 'LITTLE'}
+        <>
+          <span
+            className="self-start font-extrabold text-[8px] leading-none tracking-wide"
+            style={{ color: '#f5d90a', textShadow: '0 0 6px #f5d90aaa' }}
+          >
+            {value === 'BIG' ? 'BIG' : 'LTL'}
           </span>
-        </div>
+          <div className="relative flex flex-1 flex-col items-center justify-center w-full">
+            <div
+              className="absolute inset-1 rounded-md"
+              style={{ background: 'conic-gradient(from 180deg, #a78bfa, #38bdf8, #4ade80, #f5d90a, #fb4f6f, #a78bfa)', opacity: 0.55, filter: 'blur(2px)' }}
+            />
+            <span className="relative" style={{ fontSize: font * 1.35, filter: `drop-shadow(0 0 4px ${neon})` }}>🃏</span>
+          </div>
+          <span
+            className="self-end font-extrabold text-[8px] leading-none tracking-wide rotate-180"
+            style={{ color: '#f5d90a', textShadow: '0 0 6px #f5d90aaa' }}
+          >
+            {value === 'BIG' ? 'BIG' : 'LTL'}
+          </span>
+        </>
       ) : (
         <>
           <span

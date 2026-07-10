@@ -57,7 +57,8 @@
       "Bash(node scripts/check-board-rule.mjs)",
       "Bash(node scripts/check-roundover-chat.mjs)",
       "Bash(node scripts/debug-trick1.mjs)",
-      "Bash(node scripts/check-matchwinner-chat.mjs)"
+      "Bash(node scripts/check-matchwinner-chat.mjs)",
+      "Bash(node scripts/check-landing-cards.mjs)"
     ]
   }
 }
