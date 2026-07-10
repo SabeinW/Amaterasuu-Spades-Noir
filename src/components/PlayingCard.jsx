@@ -1,6 +1,7 @@
 import { SUIT_SYMBOL } from '../lib/cards'
 
-const RED_SUITS = new Set(['H', 'D'])
+const NEON_RED = '#fb4f6f'
+const NEON_GREEN = '#4ade80'
 
 export default function PlayingCard({ suit, value, selected = false, faceDown = false, disabled = false, size = 'md', accentColor = '#a78bfa', deckTheme, style, onClick }) {
   const sizes = {
@@ -10,10 +11,11 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
   }
   const { w, h, font } = sizes[size] ?? sizes.md
   const isJoker = suit === 'JOKER'
-  const isRed = RED_SUITS.has(suit)
   const back = deckTheme?.back ?? { from: `${accentColor}`, to: '#0b0715', border: `${accentColor}66` }
-  const faceBg = deckTheme?.faceBg ?? '#EDE9FE'
-  const faceAccent = back.from
+  const neon = back.from
+  // Hearts/clubs keep their traditional red/green so suits stay instantly
+  // recognizable — only spades/diamonds pick up the deck's neon accent.
+  const suitColor = isJoker ? neon : suit === 'H' ? NEON_RED : suit === 'C' ? NEON_GREEN : neon
 
   if (faceDown) {
     return (
@@ -38,16 +40,16 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="rounded-lg shrink-0 select-none flex flex-col items-center justify-between p-1.5 transition-transform duration-150"
+      className="relative rounded-lg shrink-0 select-none flex flex-col items-center justify-between p-1.5 overflow-hidden transition-transform duration-150"
       style={{
         width: w,
         height: h,
-        backgroundColor: faceBg,
-        backgroundImage: `radial-gradient(circle at 12% 12%, ${faceAccent}55, transparent 42%), radial-gradient(circle at 88% 88%, ${faceAccent}40, transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%)`,
-        border: selected ? `2px solid ${accentColor}` : `2px solid ${faceAccent}`,
+        background: `linear-gradient(160deg, ${neon}3d 0%, #0c0d16 52%, #050509 100%)`,
+        backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 45%)`,
+        border: selected ? `2px solid ${accentColor}` : `1.5px solid ${neon}`,
         boxShadow: selected
-          ? `0 12px 24px -8px ${accentColor}aa, 0 0 0 1px ${accentColor}, inset 0 1px 0 rgba(255,255,255,0.6)`
-          : `0 1px 0 rgba(255,255,255,0.5) inset, 0 3px 10px rgba(0,0,0,0.45)`,
+          ? `0 12px 26px -8px ${accentColor}cc, 0 0 0 1px ${accentColor}, 0 0 16px ${accentColor}99`
+          : `0 0 10px ${neon}66, 0 3px 10px rgba(0,0,0,0.55), inset 0 0 14px ${neon}22`,
         transform: selected ? 'translateY(-16px)' : 'translateY(0)',
         opacity: disabled ? 0.35 : 1,
         cursor: disabled ? 'default' : onClick ? 'pointer' : 'default',
@@ -55,9 +57,13 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
       }}
     >
       {isJoker ? (
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <span style={{ fontSize: font * 1.3 }}>🃏</span>
-          <span className="text-[8px] font-extrabold tracking-wide text-center leading-tight" style={{ color: faceAccent }}>
+        <div className="relative flex flex-1 flex-col items-center justify-center w-full">
+          <div
+            className="absolute inset-1 rounded-md"
+            style={{ background: 'conic-gradient(from 180deg, #a78bfa, #38bdf8, #4ade80, #f5d90a, #fb4f6f, #a78bfa)', opacity: 0.35, filter: 'blur(3px)' }}
+          />
+          <span className="relative" style={{ fontSize: font * 1.35, filter: `drop-shadow(0 0 4px ${neon})` }}>🃏</span>
+          <span className="relative text-[8px] font-extrabold tracking-wide text-center leading-tight" style={{ color: '#f5d90a', textShadow: '0 0 6px #f5d90aaa' }}>
             {value === 'BIG' ? 'BIG' : 'LITTLE'}
           </span>
         </div>
@@ -65,14 +71,14 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
         <>
           <span
             className="self-start font-bold leading-none"
-            style={{ fontSize: font, color: isRed ? '#dc2626' : '#111827' }}
+            style={{ fontSize: font, color: '#f8fafc', textShadow: `0 0 6px ${suitColor}99` }}
           >
             {value}
           </span>
-          <span style={{ fontSize: font * 1.3, color: isRed ? '#dc2626' : '#111827' }}>{SUIT_SYMBOL[suit]}</span>
+          <span style={{ fontSize: font * 1.3, color: suitColor, filter: `drop-shadow(0 0 5px ${suitColor}aa)` }}>{SUIT_SYMBOL[suit]}</span>
           <span
             className="self-end font-bold leading-none rotate-180"
-            style={{ fontSize: font, color: isRed ? '#dc2626' : '#111827' }}
+            style={{ fontSize: font, color: '#f8fafc', textShadow: `0 0 6px ${suitColor}99` }}
           >
             {value}
           </span>

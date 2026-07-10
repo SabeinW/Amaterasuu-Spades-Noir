@@ -1,11 +1,43 @@
 import { useEffect, useState } from 'react'
-import { subscribeToRoom, updateRoom, leaveRoom } from '../lib/rooms'
+import { Repeat } from 'lucide-react'
+import { subscribeToRoom, updateRoom, leaveRoom, movePlayerToSeat } from '../lib/rooms'
+import { parseAvatar } from '../data/avatars'
 
 const BOT_NAMES = ['🤖 Sora', '🤖 Noctis', '🤖 Sakura']
+const TEAMS = [
+  { label: 'Team A', seats: [0, 2], color: '#a78bfa' },
+  { label: 'Team B', seats: [1, 3], color: '#ec4899' },
+]
+
+function SeatSlot({ seat, player, isHost, isMe, canSit, onSit, color }) {
+  const avatar = player ? parseAvatar(player.avatar_url) : null
+  return (
+    <div
+      className="flex items-center justify-between rounded-xl px-4 py-3"
+      style={{ background: isMe ? `${color}22` : 'rgba(255,255,255,0.05)', border: isMe ? `1px solid ${color}88` : '1px solid transparent' }}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        {avatar && (
+          <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}>
+            <span className="text-sm">{avatar.emoji}</span>
+          </div>
+        )}
+        <span className="text-sm font-medium truncate">{player ? player.name : `Seat ${seat + 1} — open`}</span>
+        {isHost && <span className="text-[10px] text-amber-300 font-semibold shrink-0">HOST</span>}
+      </div>
+      {canSit && !player && (
+        <button onClick={onSit} className="flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color }}>
+          <Repeat className="w-3 h-3" /> Sit Here
+        </button>
+      )}
+    </div>
+  )
+}
 
 export default function RoomWaitingScreen({ room: initialRoom, myUserId, onStart, onLeave }) {
   const [room, setRoom] = useState(initialRoom)
   const [starting, setStarting] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const sub = subscribeToRoom(initialRoom.id, (updated) => {
@@ -17,6 +49,16 @@ export default function RoomWaitingScreen({ room: initialRoom, myUserId, onStart
   }, [initialRoom.id])
 
   const isHost = room.host_id === myUserId
+  const mySeat = room.players.find((p) => p.id === myUserId)?.seat
+
+  async function handleSit(seat) {
+    setError(null)
+    try {
+      await movePlayerToSeat(room.id, myUserId, seat)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
 
   async function handleStart() {
     setStarting(true)
@@ -39,17 +81,27 @@ export default function RoomWaitingScreen({ room: initialRoom, myUserId, onStart
         <p className="font-display text-4xl font-extrabold tracking-[0.3em]">{room.code}</p>
         <p className="text-white/40 text-xs mt-2">Share this code so others can join</p>
       </div>
-      <div className="w-full max-w-xs flex flex-col gap-2">
-        {Array.from({ length: 4 }).map((_, seat) => {
-          const p = room.players.find((pl) => pl.seat === seat)
-          return (
-            <div key={seat} className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
-              <span className="text-sm font-medium">{p ? p.name : `Waiting for player ${seat + 1}…`}</span>
-              {p?.id === room.host_id && <span className="text-[10px] text-amber-300 font-semibold">HOST</span>}
-            </div>
-          )
-        })}
+      <div className="w-full max-w-xs flex flex-col gap-4">
+        <p className="text-[10px] text-white/30 -mb-2">Tap an open seat to choose your team — seatmates are partners</p>
+        {TEAMS.map((team) => (
+          <div key={team.label} className="flex flex-col gap-2">
+            <p className="text-[10px] tracking-widest font-semibold uppercase" style={{ color: team.color }}>{team.label}</p>
+            {team.seats.map((seat) => (
+              <SeatSlot
+                key={seat}
+                seat={seat}
+                player={room.players.find((pl) => pl.seat === seat)}
+                isHost={room.players.find((pl) => pl.seat === seat)?.id === room.host_id}
+                isMe={seat === mySeat}
+                canSit={mySeat !== undefined && seat !== mySeat}
+                onSit={() => handleSit(seat)}
+                color={team.color}
+              />
+            ))}
+          </div>
+        ))}
       </div>
+      {error && <p className="text-xs text-red-400">{error}</p>}
       {isHost ? (
         <button
           onClick={handleStart}

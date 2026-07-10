@@ -44,14 +44,24 @@ export async function fetchProfile(userId) {
   return data
 }
 
+export async function updateProfile(userId, patch) {
+  if (!supabaseEnabled) return null
+  const { data, error } = await supabase.from('profiles').update(patch).eq('id', userId).select().single()
+  if (error) throw error
+  return data
+}
+
+// Records the match, updates cumulative profile stats, and returns the
+// updated profile row so the caller (e.g. an achievement check) doesn't need
+// a second round-trip to see the post-match totals.
 export async function recordMatchResult(userId, { won, yourScore, opponentScore, rounds }) {
-  if (!supabaseEnabled) return
+  if (!supabaseEnabled) return null
   await supabase.from('match_history').insert({ user_id: userId, won, your_score: yourScore, opponent_score: opponentScore, rounds })
 
   const profile = await fetchProfile(userId)
-  if (!profile) return
+  if (!profile) return null
   const winStreak = won ? (profile.win_streak ?? 0) + 1 : 0
-  await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .update({
       games_played: (profile.games_played ?? 0) + 1,
@@ -64,4 +74,8 @@ export async function recordMatchResult(userId, { won, yourScore, opponentScore,
       elo_rating: (profile.elo_rating ?? 1200) + (won ? 15 : -10),
     })
     .eq('id', userId)
+    .select()
+    .single()
+  if (error) return null
+  return data
 }

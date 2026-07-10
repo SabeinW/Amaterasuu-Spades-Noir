@@ -6,9 +6,11 @@ import ChallengesModal from './components/ChallengesModal'
 import RulesModal from './components/RulesModal'
 import TableThemesModal from './components/TableThemesModal'
 import DeckThemesModal from './components/DeckThemesModal'
+import ProfileModal from './components/ProfileModal'
+import LeaderboardModal from './components/LeaderboardModal'
 import GameTable from './components/GameTable'
 import RoomWaitingScreen from './components/RoomWaitingScreen'
-import { onAuthStateChange, getSession, signOut } from './lib/auth'
+import { onAuthStateChange, getSession, signOut, fetchProfile } from './lib/auth'
 import { supabaseEnabled } from './lib/supabase'
 import { fromDbSettings } from './lib/rooms'
 import { POSITIONS } from './lib/cards'
@@ -24,15 +26,16 @@ function seatToDataPos(seat) {
 function buildPlayersMap(players) {
   const map = {}
   for (const p of players) {
-    map[seatToDataPos(p.seat)] = { username: p.name, isBot: !!p.isBot }
+    map[seatToDataPos(p.seat)] = { username: p.name, isBot: !!p.isBot, avatar_url: p.avatar_url }
   }
   return map
 }
 
 export default function App() {
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [view, setView] = useState('landing') // landing | room-waiting | game
-  const [modal, setModal] = useState(null) // auth | lobby | challenges | rules | tableThemes | deckThemes
+  const [modal, setModal] = useState(null) // auth | lobby | challenges | rules | tableThemes | deckThemes | profile | leaderboard
   const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_RULES)
   const [tableTheme, setTableTheme] = useState(TABLE_THEMES[0])
   const [deckTheme, setDeckTheme] = useState(DECK_THEMES[0])
@@ -44,6 +47,14 @@ export default function App() {
     const { data } = onAuthStateChange((session) => setUser(session?.user ?? null))
     return () => data?.subscription?.unsubscribe?.()
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfile(null)
+      return
+    }
+    fetchProfile(user.id).then(setProfile)
+  }, [user?.id])
 
   function startQuickGame() {
     setActiveRoom(null)
@@ -58,6 +69,8 @@ export default function App() {
   async function handleSignOut() {
     await signOut()
     setUser(null)
+    setModal(null)
+    setView('landing')
   }
 
   function handleEnterRoom(room) {
@@ -77,7 +90,7 @@ export default function App() {
   }
 
   const quickGamePlayers = {
-    bottom: { username: user?.email?.split('@')[0] ?? 'You' },
+    bottom: { username: profile?.username || user?.email?.split('@')[0] || 'You', avatar_url: profile?.avatar_url },
     left: { username: BOT_NAMES[0], isBot: true },
     top: { username: BOT_NAMES[1], isBot: true },
     right: { username: BOT_NAMES[2], isBot: true },
@@ -90,6 +103,7 @@ export default function App() {
       {view === 'landing' && (
         <Landing
           user={user}
+          profile={profile}
           onPlayOnline={() => setModal('lobby')}
           onQuickGame={startQuickGame}
           onOpenAuth={() => setModal('auth')}
@@ -97,6 +111,8 @@ export default function App() {
           onOpenTableThemes={() => setModal('tableThemes')}
           onOpenRules={() => setModal('rules')}
           onOpenChallenges={() => setModal('challenges')}
+          onOpenProfile={() => (user ? setModal('profile') : setModal('auth'))}
+          onOpenLeaderboard={() => setModal('leaderboard')}
         />
       )}
 
@@ -123,6 +139,7 @@ export default function App() {
       {view === 'game' && !activeRoom && (
         <GameTable
           mode="solo"
+          myUserId={user?.id}
           players={quickGamePlayers}
           settings={gameSettings}
           tableTheme={tableTheme}
@@ -144,6 +161,7 @@ export default function App() {
       {modal === 'lobby' && (
         <LobbyModal
           user={user}
+          profile={profile}
           defaultRules={gameSettings}
           onClose={() => setModal(null)}
           onRequireAuth={() => setModal('auth')}
@@ -152,6 +170,18 @@ export default function App() {
       )}
 
       {modal === 'challenges' && <ChallengesModal user={user} onClose={() => setModal(null)} />}
+
+      {modal === 'profile' && user && (
+        <ProfileModal
+          user={user}
+          profile={profile}
+          onClose={() => setModal(null)}
+          onProfileUpdate={setProfile}
+          onSignOut={handleSignOut}
+        />
+      )}
+
+      {modal === 'leaderboard' && <LeaderboardModal currentUserId={user?.id} onClose={() => setModal(null)} />}
 
       {modal === 'rules' && (
         <RulesModal
@@ -186,14 +216,6 @@ export default function App() {
         />
       )}
 
-      {user && view === 'landing' && (
-        <button
-          onClick={handleSignOut}
-          className="fixed bottom-4 left-4 text-[11px] text-white/30 hover:text-white/60"
-        >
-          Sign out ({user.email})
-        </button>
-      )}
     </div>
   )
 }

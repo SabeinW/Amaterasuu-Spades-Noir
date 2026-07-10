@@ -39,7 +39,7 @@ export function fromDbSettings(dbSettings = {}) {
   }
 }
 
-export async function createRoom(hostId, hostName, rules = {}) {
+export async function createRoom(hostId, hostName, rules = {}, hostAvatarUrl = '') {
   if (!supabaseEnabled) throw new Error('Supabase is not configured.')
   const code = generateRoomCode()
   const { data, error } = await supabase
@@ -50,7 +50,7 @@ export async function createRoom(hostId, hostName, rules = {}) {
       code,
       status: 'waiting',
       player_count: 1,
-      players: [{ id: hostId, name: hostName, seat: 0 }],
+      players: [{ id: hostId, name: hostName, seat: 0, avatar_url: hostAvatarUrl }],
       settings: toDbSettings(rules),
       ready_players: [],
       game_state: {},
@@ -111,6 +111,20 @@ export async function mergeGameState(roomId, patch) {
   if (!supabaseEnabled) return
   const { error } = await supabase.rpc('merge_room_game_state', { p_room_id: roomId, p_patch: patch })
   if (error) throw error
+}
+
+// Lets a player pick their own seat before the game starts, which is how
+// teams get chosen — seats 0+2 are one partnership, 1+3 the other. Only
+// moves into an empty seat; swapping with an occupied seat would require
+// negotiating with the other player, which this simple model doesn't support.
+export async function movePlayerToSeat(roomId, playerId, newSeat) {
+  if (!supabaseEnabled) return
+  const { data: room, error } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  if (error || !room) throw error ?? new Error('Room not found.')
+  if (room.players.some((p) => p.seat === newSeat)) throw new Error('That seat is taken.')
+  const updated = room.players.map((p) => (p.id === playerId ? { ...p, seat: newSeat } : p))
+  const { error: updateError } = await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
+  if (updateError) throw updateError
 }
 
 export async function replacePlayerWithBot(roomId, seat) {

@@ -27,7 +27,17 @@
       "Bash(node scripts/check-deck-themes.mjs)",
       "Bash(node scripts/check-jd-live.mjs)",
       "Bash(node scripts/generate-icons.mjs)",
-      "Bash(node scripts/check-logo.mjs)"
+      "Bash(node scripts/check-logo.mjs)",
+      "Bash(node scripts/test-social-access.mjs)",
+      "Bash(node scripts/test-social-logic.mjs)",
+      "Bash(node scripts/check-profile-ui.mjs)",
+      "Bash(node scripts/check-friend-flow.mjs)",
+      "Bash(node scripts/check-leaderboard-teams.mjs)",
+      "Bash(node scripts/check-ingame-avatar.mjs)",
+      "Bash(node scripts/check-settings-bug.mjs)",
+      "Bash(node scripts/check-neon-cards.mjs)",
+      "Bash(node scripts/check-final-features.mjs)",
+      "Bash(node scripts/check-friend-rooms.mjs)"
     ]
   }
 }

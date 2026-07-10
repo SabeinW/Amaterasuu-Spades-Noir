@@ -4,8 +4,8 @@ import fs from 'node:fs'
 const shotDir = new URL('./shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]):/, '$1:')
 fs.mkdirSync(shotDir, { recursive: true })
 
-const HOST = { email: 'mp-host-1783662488796@gmail.com', password: 'Test1234!' }
-const GUEST = { email: 'mp-guest-1783662488796@gmail.com', password: 'Test1234!' }
+const HOST = { email: 'mp-host-1783666067962@gmail.com', password: 'Test1234!' }
+const GUEST = { email: 'mp-guest-1783666067962@gmail.com', password: 'Test1234!' }
 
 const browser = await chromium.launch()
 const hostCtx = await browser.newContext({ viewport: { width: 420, height: 860 } })

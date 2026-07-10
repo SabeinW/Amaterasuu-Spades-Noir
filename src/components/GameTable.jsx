@@ -27,6 +27,8 @@ import GameSettingsSheet from './GameSettingsSheet'
 import DeckThemesModal from './DeckThemesModal'
 import TableThemesModal from './TableThemesModal'
 import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
+import { recordMatchResult } from '../lib/auth'
+import { checkAndUnlockAchievements } from '../lib/social'
 
 const NEXT_TURN = { bottom: 'left', left: 'top', top: 'right', right: 'bottom' }
 
@@ -82,6 +84,7 @@ export default function GameTable({
   const isMultiplayer = mode === 'multiplayer' && !!room
   const isHost = !isMultiplayer || room.host_id === myUserId
   const MY_POS = seatToDataPos(mySeat)
+  const myTeam = MY_POS === 'bottom' || MY_POS === 'top' ? 'A' : 'B'
 
   const [phase, setPhase] = useState('dealing')
   const [hands, setHands] = useState({})
@@ -96,6 +99,9 @@ export default function GameTable({
   const [runningScores, setRunningScores] = useState(initialRunningScores())
   const [roundDetail, setRoundDetail] = useState(null)
   const [matchWinner, setMatchWinner] = useState(null)
+  const [wasMoonShot, setWasMoonShot] = useState(false)
+  const [newAchievements, setNewAchievements] = useState([])
+  const matchRecordedRef = useRef(false)
   const [trickWinnerFlash, setTrickWinnerFlash] = useState(null)
   const [emotes, setEmotes] = useState({})
   const [chatMessages, setChatMessages] = useState([])
@@ -120,6 +126,14 @@ export default function GameTable({
     setErrorToast(message)
     setTimeout(() => setErrorToast((cur) => (cur === message ? null : cur)), 6000)
   }
+
+  useEffect(() => {
+    if (!newAchievements.length) return
+    playFanfare()
+    const t = setTimeout(() => setNewAchievements([]), 6000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newAchievements])
 
   const playShuffle = useSound('shuffle')
   const playBid = useSound('bid')
@@ -472,8 +486,8 @@ export default function GameTable({
     // Moon Shot: a partnership sweeping all 13 tricks in one hand wins instantly.
     let moonShotWinner = null
     if (settings.moonShot && settings.partnershipMode !== false) {
-      if (tricks.bottom + tricks.top === 13) moonShotWinner = 'You & Partner'
-      else if (tricks.left + tricks.right === 13) moonShotWinner = 'Opponents'
+      if (tricks.bottom + tricks.top === 13) moonShotWinner = myTeam === 'A' ? 'You & Partner' : 'Opponents'
+      else if (tricks.left + tricks.right === 13) moonShotWinner = myTeam === 'B' ? 'You & Partner' : 'Opponents'
     }
 
     const roundPatch = {
@@ -483,6 +497,7 @@ export default function GameTable({
     }
     if (moonShotWinner) {
       setMatchWinner(moonShotWinner)
+      setWasMoonShot(true)
       setPhase('game_over')
       persist({ ...roundPatch, phase: 'game_over' })
     } else {
@@ -500,7 +515,8 @@ export default function GameTable({
       const teamA = runningScores.bottom.total + runningScores.top.total
       const teamB = runningScores.left.total + runningScores.right.total
       if (teamA >= winScore || teamB >= winScore) {
-        setMatchWinner(teamA >= winScore ? 'You & Partner' : 'Opponents')
+        const winningTeam = teamA >= winScore ? 'A' : 'B'
+        setMatchWinner(winningTeam === myTeam ? 'You & Partner' : 'Opponents')
         setPhase('game_over')
         persist({ phase: 'game_over' })
         playFanfare()
@@ -516,6 +532,39 @@ export default function GameTable({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, isMultiplayer, isHost])
+
+  // Record this match to the signed-in player's own history/stats and check
+  // for newly-earned achievements. Runs once per client (each real player
+  // records their own result independently) — a ref guards against re-firing
+  // on re-renders while phase stays 'game_over'.
+  useEffect(() => {
+    if (phase !== 'game_over' || !myUserId || matchRecordedRef.current) return
+    matchRecordedRef.current = true
+    const partnership = settings.partnershipMode !== false
+    let won, yourScore, opponentScore
+    if (partnership) {
+      const teamA = runningScores.bottom.total + runningScores.top.total
+      const teamB = runningScores.left.total + runningScores.right.total
+      yourScore = myTeam === 'A' ? teamA : teamB
+      opponentScore = myTeam === 'A' ? teamB : teamA
+    } else {
+      yourScore = runningScores[MY_POS]?.total ?? 0
+      opponentScore = Math.max(0, ...POSITIONS.filter((p) => p !== MY_POS).map((p) => runningScores[p]?.total ?? 0))
+    }
+    won = yourScore > opponentScore
+    recordMatchResult(myUserId, { won, yourScore, opponentScore, rounds: dealNonce }).then((updatedProfile) => {
+      if (!updatedProfile) return
+      checkAndUnlockAchievements(myUserId, {
+        won,
+        marginOfVictory: yourScore - opponentScore,
+        moonShot: wasMoonShot,
+        profile: updatedProfile,
+      }).then((newly) => {
+        if (newly.length) setNewAchievements(newly)
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, myUserId])
 
   function getSeatLabel(pos) {
     return livePlayers[pos]?.username ?? pos
@@ -569,6 +618,21 @@ export default function GameTable({
           style={{ background: '#dc2626', animation: 'fadeUp 0.25s ease both' }}
         >
           {errorToast}
+        </div>
+      )}
+
+      {newAchievements.length > 0 && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-1.5 items-center">
+          {newAchievements.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold text-center shadow-lg bg-slate-900/90 backdrop-blur-md border"
+              style={{ borderColor: `${a.color}88`, animation: 'fadeUp 0.25s ease both' }}
+            >
+              <span className="text-base">{a.icon}</span>
+              <span style={{ color: a.color }}>Achievement Unlocked: {a.title}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -649,7 +713,7 @@ export default function GameTable({
         )}
       </div>
 
-      <div className="shrink-0 z-[200]">
+      <div className="shrink-0 z-40">
         {phase === 'bidding' && bids[MY_POS] !== null && (
           <div
             className="mx-2 mb-3 rounded-xl px-4 py-3 text-center text-sm bg-slate-900/80 backdrop-blur-md border border-white/10 shadow-2xl"

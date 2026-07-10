@@ -16,6 +16,9 @@ const results = []
 for (const u of users) {
   const { data, error } = await supabase.auth.signUp(u)
   if (error) throw error
+  // Mirrors lib/auth.js signUp() — the app has no DB trigger that
+  // provisions a profiles row automatically, so tests need one too.
+  await supabase.from('profiles').insert({ id: data.user.id, email: u.email, username: u.email.split('@')[0] })
   results.push({ ...u, id: data.user.id })
 }
 

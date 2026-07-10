@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { X, Users, Plus, RefreshCw, LogIn } from 'lucide-react'
 import { supabaseEnabled } from '../lib/supabase'
 import { createRoom, joinRoomByCode, listOpenRooms } from '../lib/rooms'
+import { listFriends } from '../lib/social'
+import { parseAvatar } from '../data/avatars'
 
-export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, defaultRules }) {
+export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequireAuth, defaultRules }) {
   const [rooms, setRooms] = useState([])
+  const [friendIds, setFriendIds] = useState(new Set())
   const [code, setCode] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -19,12 +22,23 @@ export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, 
     if (supabaseEnabled) refresh()
   }, [])
 
+  useEffect(() => {
+    if (!user?.id) {
+      setFriendIds(new Set())
+      return
+    }
+    listFriends(user.id).then(({ friends }) => setFriendIds(new Set(friends.map((f) => f.id))))
+  }, [user?.id])
+
+  const friendRooms = rooms.filter((r) => friendIds.has(r.host_id))
+  const otherRooms = rooms.filter((r) => !friendIds.has(r.host_id))
+
   async function handleCreate() {
     if (!user) return onRequireAuth()
     setError(null)
     try {
-      const hostName = user.email?.split('@')[0] ?? 'Host'
-      const room = await createRoom(user.id, hostName, defaultRules ?? {})
+      const hostName = profile?.username || user.email?.split('@')[0] || 'Host'
+      const room = await createRoom(user.id, hostName, defaultRules ?? {}, profile?.avatar_url ?? '')
       onEnterRoom(room)
     } catch (err) {
       setError(err.message)
@@ -36,8 +50,8 @@ export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, 
     if (!code.trim()) return
     setError(null)
     try {
-      const name = user.email?.split('@')[0] ?? 'Guest'
-      const room = await joinRoomByCode(code.trim(), { id: user.id, name })
+      const name = profile?.username || user.email?.split('@')[0] || 'Guest'
+      const room = await joinRoomByCode(code.trim(), { id: user.id, name, avatar_url: profile?.avatar_url ?? '' })
       onEnterRoom(room)
     } catch (err) {
       setError(err.message)
@@ -86,6 +100,37 @@ export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, 
 
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
+        {friendRooms.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[10px] tracking-widest font-semibold uppercase mb-2" style={{ color: '#a78bfa' }}>Friends' Rooms</p>
+            <div className="flex flex-col gap-1.5">
+              {friendRooms.map((r) => {
+                const hostPlayer = r.players?.find((p) => p.id === r.host_id)
+                const avatar = parseAvatar(hostPlayer?.avatar_url)
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      if (!user) return onRequireAuth()
+                      setCode(r.code)
+                    }}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
+                    style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0" style={{ background: `${avatar.color}33` }}>
+                        {avatar.emoji}
+                      </span>
+                      {r.code} · {r.host_name}
+                    </span>
+                    <span className="text-white/40 text-xs">{r.players?.length ?? 0}/4</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] tracking-widest text-white/40 font-semibold uppercase">Open Rooms</p>
           <button onClick={refresh} className="flex items-center gap-1 text-[11px] text-white/40">
@@ -94,7 +139,7 @@ export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, 
         </div>
 
         <div className="rounded-xl bg-white/5 p-6 text-center">
-          {rooms.length === 0 ? (
+          {otherRooms.length === 0 ? (
             <>
               <p className="text-2xl mb-2">🎉</p>
               <p className="text-sm font-medium">No open rooms yet</p>
@@ -102,7 +147,7 @@ export default function LobbyModal({ user, onClose, onEnterRoom, onRequireAuth, 
             </>
           ) : (
             <div className="flex flex-col gap-2 text-left">
-              {rooms.map((r) => (
+              {otherRooms.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => {

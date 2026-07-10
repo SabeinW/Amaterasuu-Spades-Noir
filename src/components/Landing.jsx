@@ -1,16 +1,18 @@
 import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User } from 'lucide-react'
 import PlayingCard from './PlayingCard'
+import { parseAvatar } from '../data/avatars'
 
 const FAN_CARDS = [
   { suit: 'S', value: 'A', rotate: -22, x: -66, delay: '0s' },
   { suit: 'H', value: 'K', rotate: -11, x: -34, delay: '0.12s' },
-  { suit: 'S', value: 'Q', rotate: 0, x: 0, delay: '0.24s' },
+  { suit: 'JOKER', value: 'BIG', rotate: 0, x: 0, delay: '0.24s' },
   { suit: 'D', value: 'J', rotate: 11, x: 34, delay: '0.36s' },
   { suit: 'S', value: '10', rotate: 22, x: 66, delay: '0.48s' },
 ]
 
 export default function Landing({
   user,
+  profile,
   onPlayOnline,
   onQuickGame,
   onOpenAuth,
@@ -18,9 +20,12 @@ export default function Landing({
   onOpenTableThemes,
   onOpenRules,
   onOpenChallenges,
+  onOpenProfile,
+  onOpenLeaderboard,
 }) {
+  const avatar = profile ? parseAvatar(profile.avatar_url) : null
   const PILLS = [
-    { icon: Trophy, label: 'Ranked Matches', onClick: onPlayOnline },
+    { icon: Trophy, label: 'Leaderboard', onClick: onOpenLeaderboard },
     { icon: Bot, label: 'AI Bots', onClick: onQuickGame },
     { icon: CreditCard, label: '13 Deck Themes', onClick: onOpenDeckThemes },
     { icon: Settings2, label: 'Custom Rules', onClick: onOpenRules },
@@ -50,9 +55,15 @@ export default function Landing({
             <Sliders className="w-4 h-4" />
           </button>
           {user ? (
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-500/30 flex items-center justify-center text-white/80 shrink-0">
-              <User className="w-4 h-4" />
-            </div>
+            <button
+              onClick={onOpenProfile}
+              title="Profile"
+              aria-label="Profile"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0"
+              style={avatar ? { background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` } : { background: 'rgba(99,102,241,0.3)' }}
+            >
+              {avatar ? <span className="text-sm">{avatar.emoji}</span> : <User className="w-4 h-4 text-white/80" />}
+            </button>
           ) : (
             <button
               onClick={onOpenAuth}
