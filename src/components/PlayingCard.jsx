@@ -17,14 +17,19 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
   // Master/OG themes carry a `face` ('white' | 'black') for a real card-stock
   // look with a `metal` accent instead of the standard decks' dark neon-tint
   // face. `classicColors` (OG's) uses true black/red suit ink instead of the
-  // app's neon red/green hearts-clubs convention.
+  // app's neon red/green hearts-clubs convention. `suitInk` (Midnight family)
+  // swaps just the hearts/diamonds ink for a themed accent instead of red,
+  // keeping spades/clubs on the same neutral used by classicColors.
   const face = deckTheme?.face
   const metal = deckTheme?.metal ?? neon
   const classicColors = !!deckTheme?.classicColors
+  const suitInk = deckTheme?.suitInk
 
   let suitColor
   if (isJoker) {
     suitColor = face ? metal : neon
+  } else if (suitInk) {
+    suitColor = suit === 'H' || suit === 'D' ? suitInk : face === 'black' ? '#e5e7eb' : '#111827'
   } else if (classicColors) {
     suitColor = suit === 'H' || suit === 'D' ? CLASSIC_RED : face === 'black' ? '#e5e7eb' : '#111827'
   } else if (face) {

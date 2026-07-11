@@ -127,6 +127,8 @@ export default function GameTable({
   }, [livePlayers])
   const [errorToast, setErrorToast] = useState(null)
   const [boardNotice, setBoardNotice] = useState(null)
+  const [totalBidNotice, setTotalBidNotice] = useState(null)
+  const prevPhaseRef = useRef(phase)
 
   function showError(message) {
     playError()
@@ -259,7 +261,13 @@ export default function GameTable({
     if (gs.bids) setBids(gs.bids)
     if (gs.tricks) setTricks(gs.tricks)
     setCurrentTrick(gs.current_trick ?? [])
-    setTurn(gs.current_turn ?? 'bottom')
+    // current_turn is intentionally null while a completed trick is pending
+    // evaluation (see playCard) — `?? 'bottom'` would silently coerce that
+    // null into a real seat, wrongly re-enabling someone's turn (always
+    // 'bottom' on the very next realtime echo of this client's own write)
+    // and letting an extra card get appended to an already-complete trick.
+    // Only fall back to 'bottom' when the field is truly absent.
+    setTurn(gs.current_turn === undefined ? 'bottom' : gs.current_turn)
     setLedSuit(gs.led_suit ?? null)
     setSpadesBroken(!!gs.spades_broken)
     if (gs.blind_nil) setBlindNil(gs.blind_nil)
@@ -355,12 +363,12 @@ export default function GameTable({
         const t = setTimeout(() => {
           setBids((prev) => {
             if (prev[pos] !== null) return prev
-            // The table can never take more than 13 tricks combined, so cap
-            // this bot's bid to whatever's left once every other seat's
-            // already-submitted bid (bot or human) is subtracted.
-            const alreadyBid = POSITIONS.reduce((sum, p) => sum + (p === pos ? 0 : prev[p] ?? 0), 0)
-            const remainingBudget = Math.max(0, 13 - alreadyBid)
-            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled, useJD, remainingBudget)
+            // No hard cap here on purpose — real Spades bidding lets the
+            // table land over or under 13 combined, which is what makes a
+            // round swingy. estimateBotBid still reads the bot's actual
+            // hand strength so it isn't reckless, just not artificially
+            // capped to whatever's technically still available.
+            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled, useJD)
             persist({ bids: { [pos]: bid } })
             playBid()
             return { ...prev, [pos]: bid }
@@ -412,6 +420,26 @@ export default function GameTable({
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, bids, isMultiplayer, isHost])
+
+  // Call out a wildly over- or under-confident table the moment bidding
+  // locks in. Runs identically on every client (host and guests) off their
+  // own already-synced `bids` — no persistence needed — and fires exactly
+  // once per round by keying off the 'bidding' -> 'playing' transition,
+  // which only happens after any board-rule rebid has already resolved.
+  useEffect(() => {
+    const prevPhase = prevPhaseRef.current
+    prevPhaseRef.current = phase
+    if (phase !== 'playing' || prevPhase === 'playing') return
+    const total = POSITIONS.reduce((sum, p) => sum + (bids[p] ?? 0), 0)
+    if (total === 13) return
+    setTotalBidNotice(
+      total > 13
+        ? `😂 Somebody's lyin' they whole butt off in here — that's ${total} bids on only 13 tricks!`
+        : `👀 Only ${total} bids on the table for 13 tricks — y'all leavin' free tricks layin' around!`
+    )
+    const t = setTimeout(() => setTotalBidNotice(null), 5000)
+    return () => clearTimeout(t)
+  }, [phase, bids])
 
   const isMyTurn = phase === 'playing' && turn === MY_POS
   const blindNilEnabled = !!settings.blindNil
@@ -726,6 +754,15 @@ export default function GameTable({
         </div>
       )}
 
+      {totalBidNotice && (
+        <div
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] max-w-[90%] rounded-xl px-4 py-2.5 text-xs font-semibold text-center shadow-lg bg-slate-900/90 backdrop-blur-md border"
+          style={{ borderColor: '#a78bfa88', color: '#e9d5ff', animation: 'fadeUp 0.25s ease both' }}
+        >
+          {totalBidNotice}
+        </div>
+      )}
+
       {newAchievements.length > 0 && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-1.5 items-center">
           {newAchievements.map((a) => (
@@ -744,8 +781,8 @@ export default function GameTable({
       <ScoreBar
         leftLabel="You & Partner"
         rightLabel="Opponents"
-        leftScore={teamAScore}
-        rightScore={teamBScore}
+        leftScore={myTeam === 'A' ? teamAScore : teamBScore}
+        rightScore={myTeam === 'A' ? teamBScore : teamAScore}
         target={winScore}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -809,7 +846,6 @@ export default function GameTable({
         {phase === 'bidding' && bids[MY_POS] === null && myRevealed && (
           <BidPanel
             accentColor={accentColor}
-            maxBid={Math.max(0, 13 - POSITIONS.reduce((sum, p) => sum + (p === MY_POS ? 0 : bids[p] ?? 0), 0))}
             onConfirm={(n) => {
               persist({ bids: { [MY_POS]: n } })
               setBids((prev) => ({ ...prev, [MY_POS]: n }))

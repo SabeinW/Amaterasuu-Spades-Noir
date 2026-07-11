@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { X, Check } from 'lucide-react'
-import { DECK_THEMES, MASTER_DECK_THEMES, OG_DECK_THEMES } from '../data/tableThemes'
+import { DECK_THEMES, MASTER_DECK_THEMES, OG_DECK_THEMES, MIDNIGHT_DECK_THEMES } from '../data/tableThemes'
 
 const TABS = [
   { key: 'standard', label: 'Classic', list: DECK_THEMES },
   { key: 'master', label: 'Master', list: MASTER_DECK_THEMES },
   { key: 'og', label: "OG's", list: OG_DECK_THEMES },
+  { key: 'midnight', label: 'Midnight', list: MIDNIGHT_DECK_THEMES },
 ]
 
 function DeckSwatch({ back }) {

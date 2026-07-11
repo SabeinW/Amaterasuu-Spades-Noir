@@ -112,47 +112,99 @@ export function isPlayable(card, hand, currentTrick, spadesBroken, useJD = false
   return true
 }
 
+function scoreIndividual(pos, bids, tricks, bags, baseNilBonus, bagLimit, blindNilFlags) {
+  const bid = bids[pos] ?? 0
+  const taken = tricks[pos] ?? 0
+  let score = 0
+  let bagsEarned = 0
+  if (bid === 0) {
+    const nilBonus = blindNilFlags[pos] ? baseNilBonus * 2 : baseNilBonus
+    score = taken === 0 ? nilBonus : -nilBonus
+  } else if (taken >= bid) {
+    bagsEarned = taken - bid
+    score = bid * 10 + bagsEarned
+  } else {
+    score = -bid * 10
+  }
+  let newBags = (bags[pos] ?? 0) + bagsEarned
+  let penalty = 0
+  while (newBags >= bagLimit) {
+    newBags -= bagLimit
+    penalty += 100
+  }
+  return { bid, taken, bagsEarned, penaltyThisRound: penalty, score: score - penalty, bags: newBags }
+}
+
+// Partnership scoring: a team's numeric bid is its two bids summed (nil
+// contributes 0, since it's scored separately below), and is checked against
+// the team's COMBINED tricks taken — not each partner's own tricks. This is
+// what makes one partner's extra tricks cover the other's shortfall instead
+// of scoring as an unrelated personal failure, and only tricks left over
+// after the combined bid is met count as bags — never a partner's own
+// under-bid on its own.
+function scoreTeam(posA, posB, bids, tricks, bags, baseNilBonus, bagLimit, blindNilFlags) {
+  let teamScore = 0
+  let nonNilBidTotal = 0
+  let combinedTricks = 0
+  for (const pos of [posA, posB]) {
+    const bid = bids[pos] ?? 0
+    const taken = tricks[pos] ?? 0
+    combinedTricks += taken
+    if (bid === 0) {
+      const nilBonus = blindNilFlags[pos] ? baseNilBonus * 2 : baseNilBonus
+      teamScore += taken === 0 ? nilBonus : -nilBonus
+    } else {
+      nonNilBidTotal += bid
+    }
+  }
+  let teamBagsEarned = 0
+  if (nonNilBidTotal > 0) {
+    if (combinedTricks >= nonNilBidTotal) {
+      teamBagsEarned = combinedTricks - nonNilBidTotal
+      teamScore += nonNilBidTotal * 10 + teamBagsEarned
+    } else {
+      teamScore -= nonNilBidTotal * 10
+    }
+  }
+  // Bags are a shared team pool, not per-seat — read from either partner's
+  // running total since both are kept in sync round to round.
+  let newBags = (bags[posA] ?? bags[posB] ?? 0) + teamBagsEarned
+  let penalty = 0
+  while (newBags >= bagLimit) {
+    newBags -= bagLimit
+    penalty += 100
+  }
+  const finalScore = teamScore - penalty
+  const perSeat = {}
+  for (const pos of [posA, posB]) {
+    perSeat[pos] = { bid: bids[pos] ?? 0, taken: tricks[pos] ?? 0, bagsEarned: teamBagsEarned, penaltyThisRound: penalty, score: finalScore, bags: newBags }
+  }
+  return perSeat
+}
+
 export function scoreRound(bids, tricks, bags, settings = {}, blindNilFlags = {}) {
   const baseNilBonus = settings.nilBonus ?? 100
   const bagLimit = settings.bagLimit ?? 10
-  const result = {}
-  for (const pos of POSITIONS) {
-    const bid = bids[pos] ?? 0
-    const taken = tricks[pos] ?? 0
-    let score = 0
-    let bagsEarned = 0
-    if (bid === 0) {
-      const nilBonus = blindNilFlags[pos] ? baseNilBonus * 2 : baseNilBonus
-      score = taken === 0 ? nilBonus : -nilBonus
-    } else {
-      if (taken >= bid) {
-        bagsEarned = taken - bid
-        score = bid * 10 + bagsEarned
-      } else {
-        score = -bid * 10
-      }
+  if (settings.partnershipMode === false) {
+    const result = {}
+    for (const pos of POSITIONS) {
+      result[pos] = scoreIndividual(pos, bids, tricks, bags, baseNilBonus, bagLimit, blindNilFlags)
     }
-    let newBags = (bags[pos] ?? 0) + bagsEarned
-    let penalty = 0
-    while (newBags >= bagLimit) {
-      newBags -= bagLimit
-      penalty += 100
-    }
-    result[pos] = { bid, taken, bagsEarned, penaltyThisRound: penalty, score: score - penalty, bags: newBags }
+    return result
   }
-  return result
+  return {
+    ...scoreTeam('bottom', 'top', bids, tricks, bags, baseNilBonus, bagLimit, blindNilFlags),
+    ...scoreTeam('left', 'right', bids, tricks, bags, baseNilBonus, bagLimit, blindNilFlags),
+  }
 }
 
-// `remainingBudget` is how many tricks are still unclaimed out of 13 once
-// every other seat's current bid is subtracted — the bot's estimate is
-// capped to it so the four bids at the table can never sum to more than 13,
-// which is otherwise "bound to fail": the table cannot collectively take
-// more tricks than exist in the hand. Weights below are tuned (see
-// scripts/sim-bidding.mjs) so an average hand, bid in isolation with no cap,
-// lands around 3 — four average hands then land close to but usually at or
-// under 13 on their own, with the cap only needed as a backstop for
-// stronger-than-average hands.
-export function estimateBotBid(hand, nilEnabled = true, useJD = false, remainingBudget = 13) {
+// No hard cap against the other seats' bids — real Spades lets the table's
+// four bids land over or under 13 combined (that mismatch is what makes a
+// round swingy: a team can blow way past their bid, or leave tricks on the
+// table). Weights below are tuned (see scripts/verify scripts) so an average
+// hand estimates around 3 on its own, which keeps bots from being reckless
+// without artificially forcing every round to sum to exactly 13.
+export function estimateBotBid(hand, nilEnabled = true, useJD = false) {
   const trumpCount = hand.filter((c) => effectiveSuit(c, useJD) === 'S').length
   const topTrumpCount = hand.filter((c) => isTopTrump(c, useJD)).length
   const highCards = hand.filter((c) => VALUE_RANK[c.value] >= VALUE_RANK['A'] || (effectiveSuit(c, useJD) === 'S' && VALUE_RANK[c.value] >= VALUE_RANK['J'])).length
@@ -162,7 +214,7 @@ export function estimateBotBid(hand, nilEnabled = true, useJD = false, remaining
   if (nilEnabled && trumpCount <= 1 && highCards === 0 && Math.random() < 0.35) {
     bid = 0
   }
-  return Math.min(bid, Math.max(0, remainingBudget))
+  return bid
 }
 
 // Partnership mapping: seat 0/2 (bottom/top) are one team, 1/3 (left/right)

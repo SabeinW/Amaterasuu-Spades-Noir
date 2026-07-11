@@ -72,7 +72,17 @@
       "Bash(git rev-list *)",
       "Bash(node scripts/check-card-redesign2.mjs)",
       "Bash(node scripts/check-bot-ai-live.mjs)",
-      "Bash(node scripts/verify-bot-ai.mjs)"
+      "Bash(node scripts/verify-bot-ai.mjs)",
+      "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783748276861@gmail.com\" \"mp-guest-1783748276861@gmail.com\")",
+      "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783748432065@gmail.com\" \"mp-guest-1783748432065@gmail.com\")",
+      "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783748573752@gmail.com\" \"mp-guest-1783748573752@gmail.com\")",
+      "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783748716378@gmail.com\" \"mp-guest-1783748716378@gmail.com\")",
+      "Bash(node scripts/inspect-room-state.mjs)",
+      "Bash(node scripts/inspect-room-state.mjs \"1783748716378\")",
+      "Bash(node scripts/diag-trick-sync.mjs \"mp-host-1783749234615@gmail.com\" \"mp-guest-1783749234615@gmail.com\")",
+      "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783749505669@gmail.com\" \"mp-guest-1783749505669@gmail.com\")",
+      "Bash(node scripts/check-midnight-theme.mjs)",
+      "Bash(node scripts/verify-final-multiplayer.mjs \"mp-host-1783750346136@gmail.com\" \"mp-guest-1783750346136@gmail.com\")"
     ]
   }
 }

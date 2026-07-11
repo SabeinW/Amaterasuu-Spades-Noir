@@ -373,3 +373,102 @@ export const OG_DECK_THEMES = [
     back: { from: '#a16207', to: '#1c1305', border: '#fde68a' },
   },
 ]
+
+// Midnight family: every entry is Midnight Noir's exact matte-black
+// card-stock construction — the only thing that changes per theme is the
+// accent color, carried through the border, joker glow, AND the
+// hearts/diamonds ink itself (`suitInk`) instead of the classic red.
+// Spades/clubs stay on the same neutral silver-on-black used by Midnight
+// Noir, so the accent swap reads clearly against a constant baseline.
+export const MIDNIGHT_DECK_THEMES = [
+  {
+    id: 'midnight-sapphire',
+    name: 'Midnight Sapphire',
+    tag: 'BLUE',
+    description: 'Midnight Noir\'s black card stock — sapphire-blue ink & trim instead of red',
+    face: 'black',
+    suitInk: '#3b82f6',
+    metal: '#3b82f6',
+    back: { from: '#1e3a5f', to: '#09090b', border: '#3b82f6aa' },
+  },
+  {
+    id: 'midnight-orchid',
+    name: 'Midnight Orchid',
+    tag: 'PURPLE',
+    description: 'Midnight Noir\'s black card stock — orchid-purple ink & trim instead of red',
+    face: 'black',
+    suitInk: '#a855f7',
+    metal: '#a855f7',
+    back: { from: '#3b1e5f', to: '#09090b', border: '#a855f7aa' },
+  },
+  {
+    id: 'midnight-jade',
+    name: 'Midnight Jade',
+    tag: 'GREEN',
+    description: 'Midnight Noir\'s black card stock — jade-green ink & trim instead of red',
+    face: 'black',
+    suitInk: '#22c55e',
+    metal: '#22c55e',
+    back: { from: '#14432b', to: '#09090b', border: '#22c55eaa' },
+  },
+  {
+    id: 'midnight-gold',
+    name: 'Midnight Gold',
+    tag: 'GOLD',
+    description: 'Midnight Noir\'s black card stock — antique-gold ink & trim instead of red',
+    face: 'black',
+    suitInk: '#f5d90a',
+    metal: '#f5d90a',
+    back: { from: '#4a3a0a', to: '#09090b', border: '#f5d90aaa' },
+  },
+  {
+    id: 'midnight-cyan',
+    name: 'Midnight Cyan',
+    tag: 'CYAN',
+    description: 'Midnight Noir\'s black card stock — electric-cyan ink & trim instead of red',
+    face: 'black',
+    suitInk: '#22d3ee',
+    metal: '#22d3ee',
+    back: { from: '#0e3a44', to: '#09090b', border: '#22d3eeaa' },
+  },
+  {
+    id: 'midnight-rose',
+    name: 'Midnight Rose',
+    tag: 'ROSE',
+    description: 'Midnight Noir\'s black card stock — hot-rose ink & trim instead of red',
+    face: 'black',
+    suitInk: '#ec4899',
+    metal: '#ec4899',
+    back: { from: '#4a1530', to: '#09090b', border: '#ec4899aa' },
+  },
+  {
+    id: 'midnight-ember',
+    name: 'Midnight Ember',
+    tag: 'AMBER',
+    description: 'Midnight Noir\'s black card stock — burning-ember ink & trim instead of red',
+    face: 'black',
+    suitInk: '#f97316',
+    metal: '#f97316',
+    back: { from: '#4a2410', to: '#09090b', border: '#f97316aa' },
+  },
+  {
+    id: 'midnight-teal',
+    name: 'Midnight Teal',
+    tag: 'TEAL',
+    description: 'Midnight Noir\'s black card stock — deep-teal ink & trim instead of red',
+    face: 'black',
+    suitInk: '#14b8a6',
+    metal: '#14b8a6',
+    back: { from: '#0f3d38', to: '#09090b', border: '#14b8a6aa' },
+  },
+  {
+    id: 'midnight-platinum',
+    name: 'Midnight Platinum',
+    tag: 'PLATINUM',
+    description: 'Midnight Noir\'s black card stock — icy-platinum ink & trim instead of red',
+    face: 'black',
+    suitInk: '#cbd5e1',
+    metal: '#cbd5e1',
+    back: { from: '#3a4048', to: '#09090b', border: '#cbd5e1aa' },
+  },
+]
