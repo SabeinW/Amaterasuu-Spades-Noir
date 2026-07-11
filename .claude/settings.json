@@ -59,7 +59,20 @@
       "Bash(node scripts/debug-trick1.mjs)",
       "Bash(node scripts/check-matchwinner-chat.mjs)",
       "Bash(node scripts/check-landing-cards.mjs)",
-      "Bash(node scripts/repro-start-race.mjs \"mp-host-1783744550054@gmail.com\" \"mp-guest-1783744550054@gmail.com\")"
+      "Bash(node scripts/repro-start-race.mjs \"mp-host-1783744550054@gmail.com\" \"mp-guest-1783744550054@gmail.com\")",
+      "Bash(node scripts/diag-guest-load.mjs \"mp-host-1783744907554@gmail.com\" \"mp-guest-1783744907554@gmail.com\")",
+      "Bash(node scripts/diag-guest-load.mjs \"mp-host-1783745011185@gmail.com\" \"mp-guest-1783745011185@gmail.com\")",
+      "Bash(node scripts/create-3-test-users.mjs)",
+      "Bash(node scripts/diag-3player.mjs \"mp-host-1783745140860@gmail.com\" \"mp-guest-a-1783745140860@gmail.com\" \"mp-guest-b-1783745140860@gmail.com\")",
+      "Bash(nohup npm run preview -- --port 4173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:4173)",
+      "Bash(node scripts/diag-prod-guest.mjs \"mp-host-1783745294384@gmail.com\" \"mp-guest-1783745294384@gmail.com\")",
+      "Bash(pkill -f \"vite preview\")",
+      "Bash(git fetch *)",
+      "Bash(git rev-list *)",
+      "Bash(node scripts/check-card-redesign2.mjs)",
+      "Bash(node scripts/check-bot-ai-live.mjs)",
+      "Bash(node scripts/verify-bot-ai.mjs)"
     ]
   }
 }

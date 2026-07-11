@@ -143,38 +143,89 @@ export function scoreRound(bids, tricks, bags, settings = {}, blindNilFlags = {}
   return result
 }
 
-export function estimateBotBid(hand, nilEnabled = true, useJD = false) {
+// `remainingBudget` is how many tricks are still unclaimed out of 13 once
+// every other seat's current bid is subtracted — the bot's estimate is
+// capped to it so the four bids at the table can never sum to more than 13,
+// which is otherwise "bound to fail": the table cannot collectively take
+// more tricks than exist in the hand. Weights below are tuned (see
+// scripts/sim-bidding.mjs) so an average hand, bid in isolation with no cap,
+// lands around 3 — four average hands then land close to but usually at or
+// under 13 on their own, with the cap only needed as a backstop for
+// stronger-than-average hands.
+export function estimateBotBid(hand, nilEnabled = true, useJD = false, remainingBudget = 13) {
   const trumpCount = hand.filter((c) => effectiveSuit(c, useJD) === 'S').length
   const topTrumpCount = hand.filter((c) => isTopTrump(c, useJD)).length
   const highCards = hand.filter((c) => VALUE_RANK[c.value] >= VALUE_RANK['A'] || (effectiveSuit(c, useJD) === 'S' && VALUE_RANK[c.value] >= VALUE_RANK['J'])).length
   const nonTrump = hand.length - trumpCount
-  let estimate = Math.round(trumpCount * 0.8 + topTrumpCount * 0.5 + highCards * 0.3 + nonTrump * 0.12)
+  let estimate = Math.round(trumpCount * 0.6 + topTrumpCount * 0.4 + highCards * 0.22 + nonTrump * 0.09)
   let bid = Math.max(1, Math.min(9, estimate))
   if (nilEnabled && trumpCount <= 1 && highCards === 0 && Math.random() < 0.35) {
     bid = 0
   }
-  return bid
+  return Math.min(bid, Math.max(0, remainingBudget))
 }
 
-export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD = false, spadesBreakRule = true) {
+// Partnership mapping: seat 0/2 (bottom/top) are one team, 1/3 (left/right)
+// the other — matches the fixed data-position layout used throughout.
+export function posTeam(pos) {
+  return pos === 'bottom' || pos === 'top' ? 'A' : 'B'
+}
+
+// The cheapest card in `sorted` (ascending) that would win the trick if
+// played now, or null if nothing in hand can beat the current best card.
+function cheapestWinner(sorted, currentTrick, useJD) {
+  for (const card of sorted) {
+    const would = [...currentTrick, { pos: '_me', card }]
+    if (evaluateTrick(would, useJD) === '_me') return card
+  }
+  return null
+}
+
+// `context` carries what a bot needs to play with real trick awareness:
+// - pos: this bot's own seat, to know its team and its own bid progress
+// - bids / tricksTaken: this round's bids and tricks-won-so-far per seat
+// Without context (or on a fresh/incomplete one) this degrades gracefully
+// to "lead low, otherwise play the cheapest legal card" — never throws.
+export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD = false, spadesBreakRule = true, context = {}) {
+  const { pos, bids = {}, tricksTaken = {} } = context
   const playable = hand.filter((c) => isPlayable(c, hand, currentTrick, spadesBroken, useJD, spadesBreakRule))
+
   if (currentTrick.length === 0) {
     const nonTrump = playable.filter((c) => effectiveSuit(c, useJD) !== 'S')
     const pool = nonTrump.length ? nonTrump : playable
-    return sortHand(pool)[0]
-  }
-  const canFollow = playable.some((c) => (ledSuit ? effectiveSuit(c, useJD) === ledSuit : true))
-  const followers = canFollow ? playable.filter((c) => effectiveSuit(c, useJD) === ledSuit) : playable
-  const sorted = sortHand(followers)
-  const isLastToPlay = currentTrick.length === 3
-  if (isLastToPlay) {
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const would = [...currentTrick, { pos: '_me', card: sorted[i] }]
-      if (evaluateTrick(would, useJD) === '_me') return sorted[i]
+    const sorted = sortHand(pool)
+    // Still short of our own bid? Lead a near-certain winner (an Ace, or a
+    // top trump) to actively bank a trick instead of always leading low.
+    const myBid = bids[pos] ?? 0
+    const myTaken = tricksTaken[pos] ?? 0
+    if (myBid > 0 && myTaken < myBid) {
+      const strongLead = [...sorted].reverse().find((c) => c.value === 'A' || isTopTrump(c, useJD))
+      if (strongLead) return strongLead
     }
     return sorted[0]
   }
-  return sorted[0]
+
+  const canFollow = playable.some((c) => (ledSuit ? effectiveSuit(c, useJD) === ledSuit : true))
+  const followers = canFollow ? playable.filter((c) => effectiveSuit(c, useJD) === ledSuit) : playable
+  const sorted = sortHand(followers)
+
+  const currentWinnerPos = evaluateTrick(currentTrick, useJD)
+  const winnerIsTeammate = pos && posTeam(currentWinnerPos) === posTeam(pos) && currentWinnerPos !== pos
+  // If our own partner bid nil and is currently sitting on the trick, they
+  // need rescuing — otherwise it's someone we shouldn't bother competing with.
+  const partnerNilInDanger = winnerIsTeammate && bids[currentWinnerPos] === 0
+
+  if (winnerIsTeammate && !partnerNilInDanger) {
+    // Our own team already has this trick — don't burn a high card (or a
+    // trump, if we're void in the led suit) contesting our own partner.
+    const nonTrumpFollowers = sorted.filter((c) => effectiveSuit(c, useJD) !== 'S')
+    return (nonTrumpFollowers.length ? nonTrumpFollowers : sorted)[0]
+  }
+
+  // An opponent holds the trick, or our nil-bidding partner needs saving —
+  // take it with the cheapest card that gets the job done.
+  const winner = cheapestWinner(sorted, currentTrick, useJD)
+  return winner ?? sorted[0]
 }
 
 export function cardLabel(card) {

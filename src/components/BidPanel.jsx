@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const NUMBERS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
-export default function BidPanel({ onConfirm, accentColor = '#fbbf24' }) {
+export default function BidPanel({ onConfirm, accentColor = '#fbbf24', maxBid = 13 }) {
   const [selected, setSelected] = useState(null)
 
   return (
@@ -12,21 +12,30 @@ export default function BidPanel({ onConfirm, accentColor = '#fbbf24' }) {
       <p className="text-center font-display font-semibold mb-4" style={{ color: accentColor }}>
         ♠ How many tricks?
       </p>
+      {maxBid < 13 && (
+        <p className="text-center text-[10px] text-white/40 -mt-2 mb-3">
+          Other bids already claim {13 - maxBid} tricks — the table can't bid past 13 combined
+        </p>
+      )}
       <div className="grid grid-cols-7 gap-1.5">
-        {NUMBERS.map((n) => (
-          <button
-            key={n}
-            onClick={() => setSelected(n)}
-            className="aspect-square rounded-lg text-xs font-semibold flex items-center justify-center transition-colors"
-            style={{
-              background: selected === n ? accentColor : 'rgba(255,255,255,0.05)',
-              color: selected === n ? '#0a0812' : 'rgba(255,255,255,0.7)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            {n === 0 ? 'Nil' : n}
-          </button>
-        ))}
+        {NUMBERS.map((n) => {
+          const disabled = n > 0 && n > maxBid
+          return (
+            <button
+              key={n}
+              onClick={() => !disabled && setSelected(n)}
+              disabled={disabled}
+              className="aspect-square rounded-lg text-xs font-semibold flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+              style={{
+                background: selected === n ? accentColor : 'rgba(255,255,255,0.05)',
+                color: selected === n ? '#0a0812' : 'rgba(255,255,255,0.7)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              {n === 0 ? 'Nil' : n}
+            </button>
+          )
+        })}
       </div>
       <button
         disabled={selected === null}

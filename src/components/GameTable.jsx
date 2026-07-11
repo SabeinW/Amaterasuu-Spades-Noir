@@ -355,7 +355,12 @@ export default function GameTable({
         const t = setTimeout(() => {
           setBids((prev) => {
             if (prev[pos] !== null) return prev
-            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled, useJD)
+            // The table can never take more than 13 tricks combined, so cap
+            // this bot's bid to whatever's left once every other seat's
+            // already-submitted bid (bot or human) is subtracted.
+            const alreadyBid = POSITIONS.reduce((sum, p) => sum + (p === pos ? 0 : prev[p] ?? 0), 0)
+            const remainingBudget = Math.max(0, 13 - alreadyBid)
+            const bid = estimateBotBid(hands[pos] ?? [], nilEnabled, useJD, remainingBudget)
             persist({ bids: { [pos]: bid } })
             playBid()
             return { ...prev, [pos]: bid }
@@ -365,8 +370,12 @@ export default function GameTable({
       }
     }
     return () => timers.forEach(clearTimeout)
+    // `bids` must stay a dependency: the board-rule effect can reset a
+    // bot's bid back to null for a rebid without touching phase/hands, and
+    // without re-running here that bot would never get a new bid timer
+    // scheduled — stuck at "no bid" forever.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, hands, livePlayers, settings.standardNil, isMultiplayer, isHost])
+  }, [phase, hands, livePlayers, settings.standardNil, isMultiplayer, isHost, bids])
 
   // Transition bidding -> playing once all bids in (host-only in multiplayer).
   // "Board rule": a partnership's combined bid must reach the minimum
@@ -489,7 +498,7 @@ export default function GameTable({
     const t = setTimeout(() => {
       const hand = hands[turn] ?? []
       if (!hand.length) return
-      const card = botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD, spadesBreakRule)
+      const card = botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD, spadesBreakRule, { pos: turn, bids, tricksTaken: tricks })
       if (card) playCard(turn, card)
     }, 600 + Math.random() * 600)
     return () => clearTimeout(t)
@@ -800,6 +809,7 @@ export default function GameTable({
         {phase === 'bidding' && bids[MY_POS] === null && myRevealed && (
           <BidPanel
             accentColor={accentColor}
+            maxBid={Math.max(0, 13 - POSITIONS.reduce((sum, p) => sum + (p === MY_POS ? 0 : bids[p] ?? 0), 0))}
             onConfirm={(n) => {
               persist({ bids: { [MY_POS]: n } })
               setBids((prev) => ({ ...prev, [MY_POS]: n }))
