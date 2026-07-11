@@ -14,7 +14,7 @@ import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './
 import { supabaseEnabled } from './lib/supabase'
 import { fromDbSettings } from './lib/rooms'
 import { POSITIONS } from './lib/cards'
-import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES, MASTER_DECK_THEMES, OG_DECK_THEMES, MIDNIGHT_DECK_THEMES } from './data/tableThemes'
+import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES, MASTER_DECK_THEMES, OG_DECK_THEMES, MIDNIGHT_DECK_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
 
 const BOT_NAMES = ['Nyx', 'Kestrel', 'Osiris']
@@ -55,15 +55,31 @@ function savePreferences(patch) {
 
 const storedPrefs = loadStoredPreferences()
 
+// A person can save several uploaded tables, not just one overwritable
+// slot — `prefs.customTables` is an array of {id, imageDataUrl, name}.
+// (A single-slot `prefs.customTableImage` from an earlier version of this
+// feature is migrated into that array below rather than dropped.)
+function resolveStoredCustomTables(prefs) {
+  if (prefs.customTables) return prefs.customTables
+  if (prefs.customTableImage) return [{ id: 'custom', imageDataUrl: prefs.customTableImage, name: 'Your Custom Table' }]
+  return []
+}
+
+function resolveStoredTableTheme(prefs) {
+  const customTables = resolveStoredCustomTables(prefs)
+  const savedCustom = customTables.find((t) => t.id === prefs.tableThemeId)
+  if (savedCustom) return customTableTheme(savedCustom.imageDataUrl, savedCustom.id, savedCustom.name)
+  return [...TABLE_THEMES, ...MASTER_THEMES].find((t) => t.id === prefs.tableThemeId) ?? TABLE_THEMES[0]
+}
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('landing') // landing | room-waiting | game
   const [modal, setModal] = useState(null) // auth | lobby | challenges | rules | tableThemes | deckThemes | profile | leaderboard
   const [gameSettings, setGameSettings] = useState({ ...DEFAULT_GAME_RULES, ...storedPrefs.gameSettings })
-  const [tableTheme, setTableTheme] = useState(
-    [...TABLE_THEMES, ...MASTER_THEMES].find((t) => t.id === storedPrefs.tableThemeId) ?? TABLE_THEMES[0]
-  )
+  const [tableTheme, setTableTheme] = useState(resolveStoredTableTheme(storedPrefs))
+  const [customTables, setCustomTables] = useState(resolveStoredCustomTables(storedPrefs))
   const [deckTheme, setDeckTheme] = useState(
     [...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES].find((d) => d.id === storedPrefs.deckThemeId) ?? DECK_THEMES[0]
   )
@@ -97,7 +113,24 @@ export default function App() {
 
   function handleSetTableTheme(theme) {
     setTableTheme(theme)
-    savePreferences({ tableThemeId: theme.id })
+    if (theme.custom && !customTables.some((t) => t.id === theme.id)) {
+      // A genuinely new upload — bank it alongside any already-saved custom
+      // tables (oldest dropped once the cap is hit) instead of overwriting
+      // the one slot this used to be.
+      const entry = { id: theme.id, imageDataUrl: theme.imageDataUrl, name: theme.name }
+      const nextCustomTables = [...customTables, entry].slice(-MAX_CUSTOM_TABLES)
+      setCustomTables(nextCustomTables)
+      savePreferences({ tableThemeId: theme.id, customTables: nextCustomTables })
+    } else {
+      savePreferences({ tableThemeId: theme.id })
+    }
+  }
+
+  function handleDeleteCustomTable(id) {
+    const nextCustomTables = customTables.filter((t) => t.id !== id)
+    setCustomTables(nextCustomTables)
+    savePreferences({ customTables: nextCustomTables })
+    if (tableTheme.id === id) handleSetTableTheme(TABLE_THEMES[0])
   }
 
   function handleSetDeckTheme(theme) {
@@ -249,10 +282,12 @@ export default function App() {
       {modal === 'tableThemes' && (
         <TableThemesModal
           selectedId={tableTheme.id}
+          customTables={customTables.map((t) => customTableTheme(t.imageDataUrl, t.id, t.name))}
           onSelect={(t) => {
             handleSetTableTheme(t)
             setModal(null)
           }}
+          onDeleteCustom={handleDeleteCustomTable}
           onClose={() => setModal(null)}
         />
       )}

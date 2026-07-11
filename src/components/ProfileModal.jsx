@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw } from 'lucide-react'
-import { AVATAR_EMOJIS, AVATAR_COLORS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, DEFAULT_AVATAR } from '../data/avatars'
-import { ACHIEVEMENTS } from '../data/achievements'
+import { AVATAR_EMOJIS, AVATAR_COLORS, PROFILE_BORDERS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, borderStyle, DEFAULT_AVATAR } from '../data/avatars'
+import { ACHIEVEMENTS, TIER_STYLE, tierForCount } from '../data/achievements'
 import { updateProfile } from '../lib/auth'
 import {
   listFriends,
@@ -9,30 +9,25 @@ import {
   sendFriendRequest,
   respondToFriendRequest,
   removeFriend,
-  fetchUnlockedAchievementIds,
+  fetchAchievementCounts,
 } from '../lib/social'
 
 const TABS = ['Overview', 'Achievements', 'Friends']
 
 function AvatarBadge({ avatar, size = 16 }) {
-  if (avatar.kind === 'photo') {
-    return (
-      <img
-        src={avatar.url}
-        alt=""
-        className="rounded-full object-cover shrink-0"
-        style={{ width: size * 4, height: size * 4 }}
-      />
-    )
-  }
-  return (
+  const px = size * 4
+  const inner = avatar.kind === 'photo' ? (
+    <img src={avatar.url} alt="" className="rounded-full object-cover shrink-0 block" style={{ width: px, height: px }} />
+  ) : (
     <div
       className="rounded-full flex items-center justify-center shrink-0"
-      style={{ width: size * 4, height: size * 4, background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}
+      style={{ width: px, height: px, background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` }}
     >
       <span style={{ fontSize: size * 2 }}>{avatar.emoji}</span>
     </div>
   )
+  if (!avatar.border) return inner
+  return <div style={borderStyle(avatar.border, px)}>{inner}</div>
 }
 
 export default function ProfileModal({ user, profile, onClose, onProfileUpdate, onSignOut }) {
@@ -43,7 +38,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  const [unlockedIds, setUnlockedIds] = useState(new Set())
+  const [achievementCounts, setAchievementCounts] = useState({})
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] })
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -54,7 +49,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
 
   useEffect(() => {
     if (!user?.id) return
-    fetchUnlockedAchievementIds(user.id).then(setUnlockedIds)
+    fetchAchievementCounts(user.id).then(setAchievementCounts)
     listFriends(user.id).then(setFriendsData)
   }, [user?.id])
 
@@ -84,11 +79,16 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
     setError(null)
     try {
       const dataUrl = await fileToAvatarDataUrl(file)
-      await saveAvatarUrl(dataUrl)
+      // Preserve whatever border is already set instead of dropping it.
+      await saveAvatar({ kind: 'photo', url: dataUrl, border: avatar.border })
     } catch (err) {
       setError(err.message)
       setSaving(false)
     }
+  }
+
+  async function setBorder(borderId) {
+    await saveAvatar({ ...avatar, border: avatar.border === borderId ? null : borderId })
   }
 
   async function saveName() {
@@ -204,7 +204,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
               </button>
               {avatar.kind === 'photo' && (
                 <button
-                  onClick={() => saveAvatar(DEFAULT_AVATAR)}
+                  onClick={() => saveAvatar({ ...DEFAULT_AVATAR, border: avatar.border })}
                   disabled={saving}
                   title="Remove photo"
                   aria-label="Remove photo"
@@ -214,10 +214,11 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
                 </button>
               )}
             </div>
+            <p className="text-[10px] text-white/30 -mt-1 mb-3">Photos and GIFs both work — GIFs keep their animation.</p>
             <p className="text-[10px] tracking-widest text-white/40 font-semibold uppercase mb-2">Or Pick an Emoji</p>
             <div className="grid grid-cols-8 gap-1.5 mb-3">
               {AVATAR_EMOJIS.map((emoji) => {
-                const base = avatar.kind === 'emoji' ? avatar : DEFAULT_AVATAR
+                const base = avatar.kind === 'emoji' ? avatar : { ...DEFAULT_AVATAR, border: avatar.border }
                 const active = avatar.kind === 'emoji' && emoji === avatar.emoji
                 return (
                   <button
@@ -233,7 +234,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
             </div>
             <div className="flex gap-1.5">
               {AVATAR_COLORS.map((color) => {
-                const base = avatar.kind === 'emoji' ? avatar : DEFAULT_AVATAR
+                const base = avatar.kind === 'emoji' ? avatar : { ...DEFAULT_AVATAR, border: avatar.border }
                 return (
                   <button
                     key={color}
@@ -244,6 +245,35 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
                   />
                 )
               })}
+            </div>
+            <p className="text-[10px] tracking-widest text-white/40 font-semibold uppercase mt-3 mb-2">Border</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setBorder(null)}
+                disabled={saving}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[9px] text-white/50 shrink-0"
+                style={{ background: 'rgba(255,255,255,0.05)', border: !avatar.border ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent' }}
+                aria-label="No border"
+              >
+                None
+              </button>
+              {PROFILE_BORDERS.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => setBorder(b.id)}
+                  disabled={saving}
+                  title={b.name}
+                  aria-label={`${b.name} border`}
+                  className="w-8 h-8 rounded-full shrink-0"
+                  style={{
+                    ...borderStyle(b.id, 32),
+                    outline: avatar.border === b.id ? '2px solid white' : 'none',
+                    outlineOffset: 2,
+                  }}
+                >
+                  <div className="w-full h-full rounded-full bg-slate-900" />
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -277,16 +307,27 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
         {tab === 'Achievements' && (
           <div className="grid grid-cols-2 gap-2.5">
             {ACHIEVEMENTS.map((a) => {
-              const unlocked = unlockedIds.has(a.id)
+              const count = achievementCounts[a.id] ?? 0
+              const unlocked = count > 0
+              const tier = TIER_STYLE[tierForCount(count)]
               return (
                 <div
                   key={a.id}
-                  className="rounded-xl p-3 flex flex-col items-center text-center gap-1"
-                  style={{ background: unlocked ? `${a.color}18` : 'rgba(255,255,255,0.04)', border: unlocked ? `1px solid ${a.color}55` : '1px solid transparent', opacity: unlocked ? 1 : 0.5 }}
+                  className="relative rounded-xl p-3 flex flex-col items-center text-center gap-1"
+                  style={{ background: unlocked ? `${(tier?.ring ?? a.color)}18` : 'rgba(255,255,255,0.04)', border: unlocked ? `1px solid ${(tier?.ring ?? a.color)}55` : '1px solid transparent', opacity: unlocked ? 1 : 0.5 }}
                 >
+                  {tier && (
+                    <span
+                      className="absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: `${tier.ring}33`, color: tier.ring }}
+                    >
+                      {tier.label}
+                    </span>
+                  )}
                   <span className="text-2xl">{unlocked ? a.icon : <Lock className="w-5 h-5 text-white/30" />}</span>
                   <p className="text-xs font-semibold">{a.title}</p>
                   <p className="text-[10px] text-white/40 leading-tight">{a.description}</p>
+                  {a.repeatable && count > 1 && <p className="text-[9px] text-white/30">Earned ×{count}</p>}
                 </div>
               )
             })}

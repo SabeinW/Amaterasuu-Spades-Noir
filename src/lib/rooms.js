@@ -196,6 +196,16 @@ export async function leaveRoom(roomId, playerId) {
   }
 }
 
+// Direct read, bypassing realtime entirely — used as a self-heal fallback
+// when a client appears stuck waiting on a postgres_changes event that may
+// have been missed (e.g. subscribed a beat too late relative to a write).
+export async function fetchRoom(roomId) {
+  if (!supabaseEnabled) return null
+  const { data, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
+  if (error) return null
+  return data
+}
+
 export function subscribeToRoom(roomId, onChange) {
   if (!supabaseEnabled) return { unsubscribe() {} }
   const channel = supabase

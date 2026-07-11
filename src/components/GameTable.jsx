@@ -8,7 +8,7 @@ import {
   botCardChoice,
   effectiveSuit,
 } from '../lib/cards'
-import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel, updatePlayerInfo } from '../lib/rooms'
+import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel, updatePlayerInfo, fetchRoom } from '../lib/rooms'
 import PlayerHand from './PlayerHand'
 import BidPanel from './BidPanel'
 import SeatChip from './SeatChip'
@@ -29,9 +29,33 @@ import TableThemesModal from './TableThemesModal'
 import ProfileModal from './ProfileModal'
 import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
 import { recordMatchResult } from '../lib/auth'
-import { checkAndUnlockAchievements } from '../lib/social'
+import { checkAndUnlockAchievements, unlockAchievementNow, listFriends } from '../lib/social'
+import { TIER_STYLE } from '../data/achievements'
 
 const NEXT_TURN = { bottom: 'left', left: 'top', top: 'right', right: 'bottom' }
+
+// Shown once bidding locks in if the table's four bids don't sum to exactly
+// 13 — each a function of the total so the number slots into the joke.
+const OVERBID_ROASTS = [
+  (total) => `😂 Somebody's lyin' they whole butt off in here — that's ${total} bids on only 13 tricks!`,
+  (total) => `🚨 Fraud alert! ${total} bids for 13 tricks?? Y'all cannot ALL be that good.`,
+  (total) => `🤡 ${total} combined bids on 13 tricks — bold strategy, let's see how it pans out.`,
+  (total) => `📈 Somebody's confidence is writing checks their hand can't cash — ${total} bids, only 13 tricks exist.`,
+  (total) => `🎭 ${total} bids on the table for 13 tricks. The Oscar goes to whoever's bluffing hardest.`,
+  (total) => `🔥 That's ${total} bids for 13 tricks — this table's about to catch some serious bags.`,
+  (total) => `💀 ${total} total bids?? Someone's about to eat a big fat nil-fail today.`,
+  (total) => `🎪 Welcome to the circus — ${total} bids on only 13 tricks available.`,
+]
+const UNDERBID_ROASTS = [
+  (total) => `👀 Only ${total} bids on the table for 13 tricks — y'all leavin' free tricks layin' around!`,
+  (total) => `😴 ${total} bids total? Somebody's sandbagging hard over here.`,
+  (total) => `🕵️ Only ${total} combined bids — who's hiding a monster hand?`,
+  (total) => `🙈 ${total} bids for 13 tricks — playing it real safe today, huh?`,
+  (total) => `🎯 ${total} total bids, 13 tricks up for grabs — free real estate out here.`,
+  (total) => `😬 Nobody trusts their cards today — only ${total} bids on the board.`,
+  (total) => `🐢 ${total} bids total... slow and steady, but somebody's leaving points on the table.`,
+  (total) => `🧊 Ice cold table — only ${total} bids combined for 13 whole tricks.`,
+]
 
 // This app's local phase names ('bidding'/'playing') don't match the
 // vocabulary already used in the DB's game_state.phase ('bid'/'play') —
@@ -107,6 +131,14 @@ export default function GameTable({
   const [wasMoonShot, setWasMoonShot] = useState(false)
   const [newAchievements, setNewAchievements] = useState([])
   const matchRecordedRef = useRef(false)
+  // Tracks MY_POS's consecutive trick wins for the live "Walk Em Down"
+  // achievement — this must work identically for host and guest alike, so
+  // unlike host-authoritative trick evaluation it's driven purely by
+  // watching the already-synced `tricks` state change, not by evaluating
+  // who won locally.
+  const prevTricksRef = useRef(tricks)
+  const consecutiveTricksRef = useRef(0)
+  const roundAchievementNonceRef = useRef(-1)
   const [trickWinnerFlash, setTrickWinnerFlash] = useState(null)
   const [emotes, setEmotes] = useState({})
   const [chatMessages, setChatMessages] = useState([])
@@ -129,6 +161,11 @@ export default function GameTable({
   const [boardNotice, setBoardNotice] = useState(null)
   const [totalBidNotice, setTotalBidNotice] = useState(null)
   const prevPhaseRef = useRef(phase)
+  // Read via ref (not a dependency) in the totalBidNotice effect below — see
+  // that effect's comment for why depending on `bids` directly leaves the
+  // notice stuck on screen forever.
+  const bidsRef = useRef(bids)
+  bidsRef.current = bids
 
   function showError(message) {
     playError()
@@ -143,6 +180,27 @@ export default function GameTable({
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newAchievements])
+
+  // "Walk Em Down" — win 4 tricks in a row. Fires the instant it happens
+  // (not at match end) by watching whichever position's count in the
+  // already-synced `tricks` state just went up; this works the same for
+  // host and guest since it never depends on locally evaluating the trick.
+  useEffect(() => {
+    const prev = prevTricksRef.current
+    prevTricksRef.current = tricks
+    const wonPos = POSITIONS.find((p) => (tricks[p] ?? 0) > (prev[p] ?? 0))
+    if (!wonPos) return
+    if (wonPos !== MY_POS) {
+      consecutiveTricksRef.current = 0
+      return
+    }
+    consecutiveTricksRef.current += 1
+    if (consecutiveTricksRef.current === 4 && myUserId) {
+      unlockAchievementNow(myUserId, 'walk_em_down').then((result) => {
+        if (result) setNewAchievements((cur) => [...cur, result])
+      })
+    }
+  }, [tricks, MY_POS, myUserId])
 
   const playShuffle = useSound('shuffle')
   const playBid = useSound('bid')
@@ -160,6 +218,11 @@ export default function GameTable({
   // duplicate seat entry) in a way evaluateTrick can't cleanly resolve,
   // stalling the game. Cleared once `turn` actually changes.
   const playingCardRef = useRef(false)
+  // Guards the initial-mount deal so it can only ever fire once per
+  // component instance — React Strict Mode's dev-only double-invoke of a
+  // fresh effect would otherwise call startDeal() twice, dealing two
+  // different shuffles that race to persist over each other.
+  const initialDealDoneRef = useRef(false)
   const roomIdRef = useRef(room?.id)
   roomIdRef.current = room?.id
 
@@ -209,6 +272,8 @@ export default function GameTable({
     setHands(nextHands)
     setBids(blankBids())
     setTricks(blankTricks())
+    prevTricksRef.current = blankTricks()
+    consecutiveTricksRef.current = 0
     setCurrentTrick([])
     setTurn('bottom')
     setLedSuit(null)
@@ -238,6 +303,8 @@ export default function GameTable({
   }, [useJD, isMultiplayer, isHost])
 
   useEffect(() => {
+    if (initialDealDoneRef.current) return
+    initialDealDoneRef.current = true
     if (!isMultiplayer) {
       startDeal()
     } else if (Object.keys(room.game_state ?? {}).length === 0 && isHost) {
@@ -276,6 +343,26 @@ export default function GameTable({
     if (gs.phase) setPhase(DB_TO_LOCAL_PHASE[gs.phase] ?? gs.phase)
     if (typeof gs.round === 'number') setDealNonce(gs.round)
   }
+
+  // Self-heal against a missed realtime event. A non-host client depends
+  // entirely on the host's postgres_changes broadcast to leave 'dealing' —
+  // it never runs handleDealComplete itself. If that one event is dropped
+  // (a subscription that was still connecting the instant the host's write
+  // landed, a flaky connection, etc.) there's normally no retry and the
+  // client is stuck on the dealing animation forever, looking like a blank
+  // game. If we're still in 'dealing' well past the ~4.5s animation, fetch
+  // the room directly (bypassing realtime) and hydrate from that instead.
+  useEffect(() => {
+    if (!isMultiplayer || !room?.id) return
+    if (phase !== 'dealing') return
+    if (isHost) return
+    const t = setTimeout(async () => {
+      const fresh = await fetchRoom(room.id)
+      if (fresh?.game_state) hydrate(fresh.game_state)
+    }, 7000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiplayer, room?.id, phase, isHost])
 
   // Multiplayer: mirror remote room state.
   useEffect(() => {
@@ -426,20 +513,32 @@ export default function GameTable({
   // own already-synced `bids` — no persistence needed — and fires exactly
   // once per round by keying off the 'bidding' -> 'playing' transition,
   // which only happens after any board-rule rebid has already resolved.
+  // The message is picked deterministically from `dealNonce` + the total
+  // (both already synced) rather than Math.random(), so every client shows
+  // the same joke for the same round while still varying round to round.
+  //
+  // Deliberately depends on [phase, dealNonce] only, NOT `bids` — a realtime
+  // echo can hand back a `bids` object with identical values but a new
+  // reference (e.g. on the host, which sees more echoes of its own writes).
+  // If `bids` were a dependency, that reference change would re-run this
+  // effect; the cleanup would cancel the pending dismiss timer, and the
+  // `prevPhase === 'playing'` guard (already true by then) would return
+  // early without scheduling a new one — leaving the notice stuck on screen
+  // forever instead of clearing after its timeout. `bids` is read from a
+  // ref instead so the notice text is still correct without that hazard.
   useEffect(() => {
     const prevPhase = prevPhaseRef.current
     prevPhaseRef.current = phase
     if (phase !== 'playing' || prevPhase === 'playing') return
-    const total = POSITIONS.reduce((sum, p) => sum + (bids[p] ?? 0), 0)
+    const currentBids = bidsRef.current
+    const total = POSITIONS.reduce((sum, p) => sum + (currentBids[p] ?? 0), 0)
     if (total === 13) return
-    setTotalBidNotice(
-      total > 13
-        ? `😂 Somebody's lyin' they whole butt off in here — that's ${total} bids on only 13 tricks!`
-        : `👀 Only ${total} bids on the table for 13 tricks — y'all leavin' free tricks layin' around!`
-    )
-    const t = setTimeout(() => setTotalBidNotice(null), 5000)
+    const pool = total > 13 ? OVERBID_ROASTS : UNDERBID_ROASTS
+    const index = (dealNonce * 7 + total * 3) % pool.length
+    setTotalBidNotice(pool[index](total))
+    const t = setTimeout(() => setTotalBidNotice(null), 10000)
     return () => clearTimeout(t)
-  }, [phase, bids])
+  }, [phase, dealNonce])
 
   const isMyTurn = phase === 'playing' && turn === MY_POS
   const blindNilEnabled = !!settings.blindNil
@@ -619,6 +718,27 @@ export default function GameTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, tricks, currentTrick, isMultiplayer, isHost])
 
+  // Round-scope achievements (Nil Master, Blindfolded, Sharpshooter, High
+  // Roller) — checked from MY_POS's own round line, on every client (not
+  // host-gated) since `roundDetail`/`blindNil` are already synced via
+  // hydrate. `roundAchievementNonceRef` guards against re-checking the same
+  // round on a redundant re-render.
+  useEffect(() => {
+    if (!roundDetail || !myUserId) return
+    if (roundAchievementNonceRef.current === dealNonce) return
+    roundAchievementNonceRef.current = dealNonce
+    const mine = roundDetail[MY_POS]
+    if (!mine) return
+    checkAndUnlockAchievements(myUserId, 'round', {
+      bid: mine.bid,
+      taken: mine.taken,
+      blindNil: !!blindNil[MY_POS],
+    }).then((newly) => {
+      if (newly.length) setNewAchievements((cur) => [...cur, ...newly])
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundDetail, dealNonce, myUserId])
+
   useEffect(() => {
     if (phase !== 'result' || !runningScores) return
     if (isMultiplayer && !isHost) return
@@ -666,13 +786,16 @@ export default function GameTable({
     won = yourScore > opponentScore
     recordMatchResult(myUserId, { won, yourScore, opponentScore, rounds: dealNonce }).then((updatedProfile) => {
       if (!updatedProfile) return
-      checkAndUnlockAchievements(myUserId, {
-        won,
-        marginOfVictory: yourScore - opponentScore,
-        moonShot: wasMoonShot,
-        profile: updatedProfile,
-      }).then((newly) => {
-        if (newly.length) setNewAchievements(newly)
+      listFriends(myUserId).then(({ friends }) => {
+        checkAndUnlockAchievements(myUserId, 'match', {
+          won,
+          marginOfVictory: yourScore - opponentScore,
+          moonShot: wasMoonShot,
+          profile: updatedProfile,
+          friendCount: friends.length,
+        }).then((newly) => {
+          if (newly.length) setNewAchievements((cur) => [...cur, ...newly])
+        })
       })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -765,16 +888,24 @@ export default function GameTable({
 
       {newAchievements.length > 0 && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-1.5 items-center">
-          {newAchievements.map((a) => (
-            <div
-              key={a.id}
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold text-center shadow-lg bg-slate-900/90 backdrop-blur-md border"
-              style={{ borderColor: `${a.color}88`, animation: 'fadeUp 0.25s ease both' }}
-            >
-              <span className="text-base">{a.icon}</span>
-              <span style={{ color: a.color }}>Achievement Unlocked: {a.title}</span>
-            </div>
-          ))}
+          {newAchievements.map((a, i) => {
+            const tier = TIER_STYLE[a.tier]
+            return (
+              <div
+                key={`${a.id}-${i}`}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold text-center shadow-lg bg-slate-900/90 backdrop-blur-md border"
+                style={{ borderColor: `${(tier?.ring ?? a.color)}88`, animation: 'fadeUp 0.25s ease both' }}
+              >
+                <span className="text-base">{a.icon}</span>
+                <span style={{ color: a.color }}>Achievement Unlocked: {a.title}</span>
+                {tier && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${tier.ring}33`, color: tier.ring }}>
+                    {tier.label}
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

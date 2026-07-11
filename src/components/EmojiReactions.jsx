@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { Smile } from 'lucide-react'
 
-const EMOJIS = ['😏', '👏', '😂', '😤', '🔥', '👍']
+const EMOJIS = [
+  '😏', '👏', '😂', '😤', '🔥', '👍',
+  '💀', '😭', '🤯', '😱', '🙌', '🤝',
+  '👀', '💪', '🎉', '🥳', '😎', '🤔',
+  '😬', '🫡', '🤡', '💯', '🐐', '🃏',
+  '😈', '🥶', '🫢', '🤌', '🙈', '😩',
+  '🚨', '👑', '🎯', '💰', '🧊', '⚡',
+]
 
 export default function EmojiReactions({ onReact }) {
   const [open, setOpen] = useState(false)
@@ -11,7 +18,7 @@ export default function EmojiReactions({ onReact }) {
         <Smile className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute bottom-10 right-0 flex gap-1 bg-black/80 backdrop-blur-lg rounded-xl p-2 border border-white/10">
+        <div className="absolute bottom-10 right-0 grid grid-cols-6 gap-1 bg-black/80 backdrop-blur-lg rounded-xl p-2 border border-white/10 w-[216px]">
           {EMOJIS.map((e) => (
             <button
               key={e}

@@ -82,7 +82,19 @@
       "Bash(node scripts/diag-trick-sync.mjs \"mp-host-1783749234615@gmail.com\" \"mp-guest-1783749234615@gmail.com\")",
       "Bash(node scripts/verify-score-sync.mjs \"mp-host-1783749505669@gmail.com\" \"mp-guest-1783749505669@gmail.com\")",
       "Bash(node scripts/check-midnight-theme.mjs)",
-      "Bash(node scripts/verify-final-multiplayer.mjs \"mp-host-1783750346136@gmail.com\" \"mp-guest-1783750346136@gmail.com\")"
+      "Bash(node scripts/verify-final-multiplayer.mjs \"mp-host-1783750346136@gmail.com\" \"mp-guest-1783750346136@gmail.com\")",
+      "Bash(node scripts/repro-blank-join.mjs \"mp-host-1783750930762@gmail.com\" \"mp-guest-1783750930762@gmail.com\")",
+      "Bash(node scripts/repro-blank-join.mjs \"mp-host-1783751258597@gmail.com\" \"mp-guest-1783751258597@gmail.com\")",
+      "Bash(node scripts/repro-blank-join.mjs \"mp-host-1783751383006@gmail.com\" \"mp-guest-1783751383006@gmail.com\")",
+      "Bash(node scripts/repro-blank-join.mjs \"mp-host-1783751458657@gmail.com\" \"mp-guest-1783751458657@gmail.com\")",
+      "Bash(sed -i \"s|http://localhost:4173|http://localhost:5173|g\" c:/Users/rahee/Downloads/amaterasuu-noir-spades/scripts/repro-blank-join.mjs)",
+      "Bash(node scripts/repro-blank-join.mjs \"mp-host-1783751762356@gmail.com\" \"mp-guest-1783751762356@gmail.com\")",
+      "Bash(node scripts/check-custom-table.mjs)",
+      "Bash(node scripts/check-profile-border.mjs \"mp-host-1783752917281@gmail.com\")",
+      "Bash(node scripts/verify-final-round2.mjs \"mp-host-1783753182869@gmail.com\" \"mp-guest-1783753182869@gmail.com\")",
+      "Bash(node scripts/verify-achievements.mjs)",
+      "Bash(node scripts/verify-achievements-live.mjs)",
+      "Bash(node scripts/check-achievement-toast.mjs \"mp-host-1783756639583@gmail.com\")"
     ]
   }
 }

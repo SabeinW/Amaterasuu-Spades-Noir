@@ -1,5 +1,5 @@
 import { supabase, supabaseEnabled } from './supabase'
-import { checkNewAchievements } from '../data/achievements'
+import { ACHIEVEMENTS, checkNewAchievements, tierForCount } from '../data/achievements'
 
 export async function fetchLeaderboard(limit = 20) {
   if (!supabaseEnabled) return []
@@ -84,23 +84,57 @@ export async function removeFriend(rowId) {
   if (error) throw error
 }
 
-export async function fetchUnlockedAchievementIds(userId) {
-  if (!supabaseEnabled) return new Set()
+// A repeatable achievement gets a fresh row each time it's earned again (see
+// data/achievements.js), so "unlocked" isn't a yes/no — it's a count, which
+// is also what drives the gold/diamond tier evolution on repeat earns.
+export async function fetchAchievementCounts(userId) {
+  if (!supabaseEnabled) return {}
   const { data, error } = await supabase.from('achievements').select('badge_name').eq('user_id', userId)
-  if (error || !data) return new Set()
-  return new Set(data.map((r) => r.badge_name))
+  if (error || !data) return {}
+  const counts = {}
+  for (const row of data) counts[row.badge_name] = (counts[row.badge_name] ?? 0) + 1
+  return counts
 }
 
-// Evaluates the achievement catalog against the just-finished match + the
-// player's freshly-updated profile, inserts any newly-earned badges, and
-// returns their definitions (so the caller can show an unlock toast).
-export async function checkAndUnlockAchievements(userId, matchCtx) {
+// Inserts one row per newly-earned achievement and returns each with the
+// tier its NEW count lands on. `counts` is mutated in place so repeated
+// calls within the same batch (e.g. several achievements earned on the same
+// round) see each other's increments.
+async function insertEarnedAchievements(userId, defs, counts) {
+  if (!defs.length) return []
+  const rows = []
+  const results = []
+  for (const a of defs) {
+    const nextCount = (counts[a.id] ?? 0) + 1
+    counts[a.id] = nextCount
+    rows.push({ user_id: userId, badge_name: a.id, description: a.title })
+    results.push({ ...a, tier: tierForCount(nextCount), count: nextCount })
+  }
+  const { error } = await supabase.from('achievements').insert(rows)
+  if (error) return []
+  return results
+}
+
+// Evaluates the achievement catalog for one scope ('match' | 'round') against
+// the given context, inserts any newly-earned badges, and returns their
+// definitions (with tier) so the caller can show an unlock toast.
+export async function checkAndUnlockAchievements(userId, scope, ctx) {
   if (!supabaseEnabled || !userId) return []
-  const alreadyUnlocked = await fetchUnlockedAchievementIds(userId)
-  const newlyUnlocked = checkNewAchievements(matchCtx, alreadyUnlocked)
-  if (!newlyUnlocked.length) return []
-  await supabase.from('achievements').insert(
-    newlyUnlocked.map((a) => ({ user_id: userId, badge_name: a.id, description: a.title }))
-  )
-  return newlyUnlocked
+  const counts = await fetchAchievementCounts(userId)
+  const alreadyUnlocked = new Set(Object.keys(counts))
+  const newlyEarned = checkNewAchievements(scope, ctx, alreadyUnlocked)
+  return insertEarnedAchievements(userId, newlyEarned, counts)
+}
+
+// For a 'live' achievement already confirmed true by the caller in real
+// time (e.g. a 4-trick win streak the instant it happens) rather than
+// re-evaluated from its check() — lets it unlock the moment it happens
+// instead of waiting for the match to end.
+export async function unlockAchievementNow(userId, achievementId) {
+  if (!supabaseEnabled || !userId) return null
+  const def = ACHIEVEMENTS.find((a) => a.id === achievementId)
+  if (!def) return null
+  const counts = await fetchAchievementCounts(userId)
+  const [result] = await insertEarnedAchievements(userId, [def], counts)
+  return result ?? null
 }

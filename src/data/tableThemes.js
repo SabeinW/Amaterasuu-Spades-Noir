@@ -1,3 +1,84 @@
+// Static and GIF uploads for a custom table background — same reasoning as
+// the avatar uploader (see src/data/avatars.js): no Storage bucket, so the
+// image is downsampled and stored as a data: URI directly. A GIF is kept
+// as-is (no canvas pass) so it stays animated; a static image is capped on
+// its longer edge and re-encoded to keep the stored string small.
+const TABLE_IMAGE_MAX_EDGE = 900
+const TABLE_IMAGE_QUALITY = 0.78
+const MAX_TABLE_IMAGE_BYTES = 550_000
+const MAX_TABLE_GIF_BYTES = 1_200_000
+// Everything here lands in localStorage as data: URIs, which shares a
+// browser's typical 5-10MB per-origin quota with the rest of this app's
+// saved preferences — cap how many a person can bank at once.
+export const MAX_CUSTOM_TABLES = 4
+
+export function fileToTableBackgroundDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Please choose an image or GIF file.'))
+      return
+    }
+    if (file.type === 'image/gif') {
+      if (file.size > MAX_TABLE_GIF_BYTES) {
+        reject(new Error('That GIF is too large — try one under 1.2MB.'))
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(new Error("Couldn't read that GIF."))
+      reader.readAsDataURL(file)
+      return
+    }
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const scale = Math.min(1, TABLE_IMAGE_MAX_EDGE / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, w, h)
+      const dataUrl = canvas.toDataURL('image/jpeg', TABLE_IMAGE_QUALITY)
+      if (dataUrl.length > MAX_TABLE_IMAGE_BYTES) {
+        reject(new Error('That image is too large — try a different one.'))
+        return
+      }
+      resolve(dataUrl)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error("Couldn't read that image."))
+    }
+    img.src = objectUrl
+  })
+}
+
+// A user can save several uploaded tables (not just one overwritable slot),
+// so each needs its own stable id — callers pass one when reconstructing a
+// saved entry, or omit it to mint a fresh one for a brand-new upload.
+export function customTableTheme(imageDataUrl, id = `custom-${Date.now()}`, name = 'Your Custom Table') {
+  return {
+    id,
+    name,
+    tag: 'CUSTOM',
+    description: 'Your own uploaded image or GIF',
+    // A single `background` shorthand (not separate backgroundImage/-Size/
+    // -Position) so this works wherever a theme's `tableStyle` is consumed —
+    // some spots only pull `tableStyle.background` specifically.
+    tableStyle: {
+      background: `url(${imageDataUrl}) center / cover no-repeat`,
+      border: '1px solid rgba(255,255,255,0.12)',
+    },
+    centerGlow: 'radial-gradient(ellipse, rgba(0,0,0,0.35), transparent)',
+    accentColor: '#a78bfa',
+    custom: true,
+    imageDataUrl,
+  }
+}
+
 export const TABLE_THEMES = [
   {
     id: 'classic-felt',
