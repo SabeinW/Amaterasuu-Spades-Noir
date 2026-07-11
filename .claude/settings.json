@@ -107,7 +107,13 @@
       "Bash(node scripts/repro-sameteam-blank.mjs \"mp-host-1783806742457@gmail.com\" \"mp-guest-1783806742457@gmail.com\")",
       "Bash(node scripts/check-mobile-viewport.mjs)",
       "Bash(node scripts/repro-sameteam-final.mjs)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(node scripts/verify-lobby.mjs)",
+      "Read(//c/Users/rahee/AppData/Local/Temp/claude/**)",
+      "Bash(cd \"c:\\\\Users\\\\rahee\\\\Downloads\\\\amaterasuu-noir-spades\" && rm -f scripts/verify-lobby.mjs && rm -f /tmp/verify-lobby.mjs && git status --short)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
