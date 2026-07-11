@@ -100,7 +100,14 @@
       "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758327497@gmail.com\" \"mp-guest-1783758327497@gmail.com\")",
       "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758711026@gmail.com\" \"mp-guest-1783758711026@gmail.com\")",
       "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758922152@gmail.com\" \"mp-guest-1783758922152@gmail.com\")",
-      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783759178896@gmail.com\" \"mp-guest-1783759178896@gmail.com\")"
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783759178896@gmail.com\" \"mp-guest-1783759178896@gmail.com\")",
+      "Bash(node scripts/repro-sameteam-blank.mjs \"mp-host-1783806077851@gmail.com\" \"mp-guest-1783806077851@gmail.com\")",
+      "Bash(node scripts/repro-sameteam-blank.mjs \"mp-host-1783806278646@gmail.com\" \"mp-guest-1783806278646@gmail.com\")",
+      "Bash(node scripts/repro-sameteam-loop.mjs)",
+      "Bash(node scripts/repro-sameteam-blank.mjs \"mp-host-1783806742457@gmail.com\" \"mp-guest-1783806742457@gmail.com\")",
+      "Bash(node scripts/check-mobile-viewport.mjs)",
+      "Bash(node scripts/repro-sameteam-final.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
     ]
   }
 }

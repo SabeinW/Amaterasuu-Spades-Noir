@@ -123,14 +123,33 @@ export async function mergeGameState(roomId, patch) {
 // teams get chosen — seats 0+2 are one partnership, 1+3 the other. Only
 // moves into an empty seat; swapping with an occupied seat would require
 // negotiating with the other player, which this simple model doesn't support.
+//
+// The write is conditioned on `status = 'waiting'` (not just checked at
+// read time) so it can't land after the host has already called
+// startGame(). Without that guard this is a classic read-modify-write race:
+// if a guest sits down right as the host starts, this call's `players`
+// snapshot (read before the host's bot-filled roster existed) can win the
+// write after startGame()'s, silently reverting the room back to a
+// players array missing the bot-filled seats — while `status` stays
+// 'playing', leaving the room in a broken state nobody can recover from.
+// Conditioning the UPDATE's WHERE clause on the CURRENT row (evaluated by
+// Postgres at write time, not the client's stale read) closes that race
+// without needing a server-side RPC.
 export async function movePlayerToSeat(roomId, playerId, newSeat) {
   if (!supabaseEnabled) return
-  const { data: room, error } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  const { data: room, error } = await supabase.from('rooms').select('players, status').eq('id', roomId).single()
   if (error || !room) throw error ?? new Error('Room not found.')
+  if (room.status !== 'waiting') throw new Error('The game has already started.')
   if (room.players.some((p) => p.seat === newSeat)) throw new Error('That seat is taken.')
   const updated = room.players.map((p) => (p.id === playerId ? { ...p, seat: newSeat } : p))
-  const { error: updateError } = await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
+  const { data: applied, error: updateError } = await supabase
+    .from('rooms')
+    .update({ players: updated })
+    .eq('id', roomId)
+    .eq('status', 'waiting')
+    .select('id')
   if (updateError) throw updateError
+  if (!applied?.length) throw new Error('The game already started — you were seated automatically.')
 }
 
 // Pushes a live username/avatar change into a room this player is already

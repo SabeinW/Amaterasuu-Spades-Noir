@@ -194,3 +194,14 @@ h4,
     animation: none !important;
   }
 }
+
+/* Desktop-only card hover lift. Scoped to (hover: hover) so a tap on a
+   touchscreen never leaves a card stuck in a "hovered" look — touch devices
+   don't reliably fire mouseleave, so :hover alone would stick until the
+   next unrelated tap. `!important` is required to win over PlayingCard's
+   own inline `transform` (used for the click-to-select lift). */
+@media (hover: hover) and (pointer: fine) {
+  .pc-hover-card:hover:not(:disabled) {
+    transform: translateY(-8px) scale(1.05) !important;
+  }
+}

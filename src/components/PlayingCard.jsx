@@ -94,12 +94,19 @@ export default function PlayingCard({ suit, value, selected = false, faceDown = 
           `linear-gradient(160deg, ${neon}70 0%, #0e0f1a 52%, #050509 100%)`,
         ]
 
+  // Mouse-hover lift on desktop — scoped to hover-capable pointers via the
+  // .pc-hover-card CSS rule (see index.css) so it never triggers a "sticky"
+  // hover state on touch devices, where tapping a card can leave :hover
+  // matching until the next unrelated tap. Only applied to interactive,
+  // not-already-selected cards so it doesn't fight the click-to-select lift.
+  const hoverable = !disabled && !!onClick && !selected
+
   return (
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="relative rounded-lg shrink-0 select-none flex flex-col items-center justify-between p-1.5 overflow-hidden transition-transform duration-150"
+      className={`relative rounded-lg shrink-0 select-none flex flex-col items-center justify-between p-1.5 overflow-hidden transition-transform duration-150 ${hoverable ? 'pc-hover-card' : ''}`}
       style={{
         width: w,
         height: h,

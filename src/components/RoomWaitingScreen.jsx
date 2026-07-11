@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Repeat } from 'lucide-react'
-import { subscribeToRoom, leaveRoom, movePlayerToSeat, startGame } from '../lib/rooms'
+import { subscribeToRoom, leaveRoom, movePlayerToSeat, startGame, fetchRoom } from '../lib/rooms'
 import { parseAvatar } from '../data/avatars'
 
 const TEAMS = [
@@ -40,12 +40,37 @@ export default function RoomWaitingScreen({ room: initialRoom, myUserId, onStart
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState(null)
 
+  const startedRef = useRef(false)
+
   useEffect(() => {
     const sub = subscribeToRoom(initialRoom.id, (updated) => {
       setRoom(updated)
-      if (updated.status === 'playing') onStart(updated)
+      if (updated.status === 'playing' && !startedRef.current) {
+        startedRef.current = true
+        onStart(updated)
+      }
     })
     return () => sub.unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRoom.id])
+
+  // Safety net: the postgres_changes UPDATE event above can be missed if this
+  // client's realtime channel hasn't finished subscribing yet (much more
+  // common on slower/mobile connections) right when the host starts the
+  // game — leaving this screen stuck on "Waiting for the host…" forever
+  // with no error, since nothing actually failed, an event was just never
+  // delivered. Poll a direct read as a fallback so a missed event can't
+  // strand the guest here.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (startedRef.current) return
+      const fresh = await fetchRoom(initialRoom.id)
+      if (fresh && fresh.status === 'playing' && !startedRef.current) {
+        startedRef.current = true
+        onStart(fresh)
+      }
+    }, 2000)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRoom.id])
 
