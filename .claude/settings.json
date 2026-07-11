@@ -94,7 +94,8 @@
       "Bash(node scripts/verify-final-round2.mjs \"mp-host-1783753182869@gmail.com\" \"mp-guest-1783753182869@gmail.com\")",
       "Bash(node scripts/verify-achievements.mjs)",
       "Bash(node scripts/verify-achievements-live.mjs)",
-      "Bash(node scripts/check-achievement-toast.mjs \"mp-host-1783756639583@gmail.com\")"
+      "Bash(node scripts/check-achievement-toast.mjs \"mp-host-1783756639583@gmail.com\")",
+      "Bash(node scripts/verify-final-round3.mjs \"mp-host-1783757317467@gmail.com\" \"mp-guest-1783757317467@gmail.com\")"
     ]
   }
 }
