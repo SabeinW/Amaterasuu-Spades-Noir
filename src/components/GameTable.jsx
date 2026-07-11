@@ -210,6 +210,7 @@ export default function GameTable({
   const playError = useSound('error')
 
   const pendingTrickRef = useRef(false)
+  const roundCompleteRef = useRef(-1)
   // Guards against a rapid double-tap/double-click playing two cards for the
   // same turn: playCard reads currentTrick/ledSuit/spadesBroken from the
   // render closure rather than a functional update, so two calls firing
@@ -643,11 +644,14 @@ export default function GameTable({
     const t = setTimeout(() => {
       playTrickWin()
       setTrickWinnerFlash(winnerPos)
-      setTricks((prev) => {
-        const next = { ...prev, [winnerPos]: prev[winnerPos] + 1 }
-        persist({ tricks: next, current_trick: [], led_suit: null, current_turn: winnerPos })
-        return next
-      })
+      // Computed from the render closure (this 1200ms timeout only ever
+      // fires once per trick, guarded by pendingTrickRef) rather than a
+      // setTricks(prev => ...) updater with persist() inside it — same
+      // reasoning as the running-score fix above: a side effect inside an
+      // updater isn't guaranteed to run exactly once at a predictable time.
+      const nextTricks = { ...tricks, [winnerPos]: tricks[winnerPos] + 1 }
+      setTricks(nextTricks)
+      persist({ tricks: nextTricks, current_trick: [], led_suit: null, current_turn: winnerPos })
       setTurn(winnerPos)
       setCurrentTrick([])
       setLedSuit(null)
@@ -669,29 +673,43 @@ export default function GameTable({
   }, [phase, currentTrick, useJD, isMultiplayer, isHost])
 
   // Round complete after 13 tricks — host authoritative in multiplayer.
+  // `roundCompleteRef` guards against processing the same round twice: this
+  // effect depends on `tricks`, and a realtime echo of the host's own last
+  // trick-win write can hand back a `tricks` object with identical values
+  // but a new reference, re-satisfying every guard below (phase is still
+  // 'playing' at that instant, total is still 13, currentTrick is still
+  // empty) and re-running the whole round score calculation a second time —
+  // doubling the running total and the persisted round detail. Keyed by
+  // `dealNonce` so it naturally resets for each new round without needing
+  // an explicit reset call.
   useEffect(() => {
     if (phase !== 'playing') return
     if (isMultiplayer && !isHost) return
     const total = POSITIONS.reduce((sum, p) => sum + tricks[p], 0)
     if (total !== 13) return
     if (currentTrick.length !== 0) return
+    if (roundCompleteRef.current === dealNonce) return
+    roundCompleteRef.current = dealNonce
     const detail = scoreRound(bids, tricks, bags, settings, blindNil)
     setRoundDetail(detail)
-    setBags((prev) => {
-      const next = { ...prev }
-      POSITIONS.forEach((p) => {
-        next[p] = detail[p].bags
-      })
-      return next
+    // Computed directly from the render-closure `bags`/`runningScores`
+    // (this effect's own `roundCompleteRef` guard already makes that safe)
+    // instead of inside a setXxx(prev => ...) updater — a functional
+    // updater's callback isn't guaranteed to run synchronously, so a value
+    // assigned inside one and read immediately after (as `nextRunning` used
+    // to be, for the persist() call below) can still be undefined at that
+    // point. React's own state still ends up correct either way, which is
+    // why this only ever broke the DB write — host's own screen looked
+    // fine while every other client received `running_scores: undefined`
+    // and could never show a real score.
+    const nextBags = { ...bags }
+    const nextRunning = { ...runningScores }
+    POSITIONS.forEach((p) => {
+      nextBags[p] = detail[p].bags
+      nextRunning[p] = { total: runningScores[p].total + detail[p].score, bags: detail[p].bags }
     })
-    let nextRunning
-    setRunningScores((prev) => {
-      nextRunning = { ...prev }
-      POSITIONS.forEach((p) => {
-        nextRunning[p] = { total: prev[p].total + detail[p].score, bags: detail[p].bags }
-      })
-      return nextRunning
-    })
+    setBags(nextBags)
+    setRunningScores(nextRunning)
     playFanfare()
 
     // Moon Shot: a partnership sweeping all 13 tricks in one hand wins instantly.
@@ -744,8 +762,13 @@ export default function GameTable({
     if (isMultiplayer && !isHost) return
     const partnership = settings.partnershipMode !== false
     if (partnership) {
-      const teamA = runningScores.bottom.total + runningScores.top.total
-      const teamB = runningScores.left.total + runningScores.right.total
+      // Under team-combined scoring both partners already carry the SAME
+      // shared total (see scoreTeam in lib/cards.js) — summing them here
+      // would double-count a single team outcome as if two independent
+      // scores existed, both inflating the displayed score and making a
+      // match end at half the real target.
+      const teamA = runningScores.bottom.total
+      const teamB = runningScores.left.total
       if (teamA >= winScore || teamB >= winScore) {
         const winningTeam = teamA >= winScore ? 'A' : 'B'
         setMatchWinner(winningTeam === myTeam ? 'You & Partner' : 'Opponents')
@@ -775,8 +798,10 @@ export default function GameTable({
     const partnership = settings.partnershipMode !== false
     let won, yourScore, opponentScore
     if (partnership) {
-      const teamA = runningScores.bottom.total + runningScores.top.total
-      const teamB = runningScores.left.total + runningScores.right.total
+      // Same reasoning as the win-condition check above: both partners
+      // share one total under team-combined scoring, so don't sum them.
+      const teamA = runningScores.bottom.total
+      const teamB = runningScores.left.total
       yourScore = myTeam === 'A' ? teamA : teamB
       opponentScore = myTeam === 'A' ? teamB : teamA
     } else {
@@ -854,8 +879,11 @@ export default function GameTable({
     right: 'right-[26%] top-1/2 -translate-y-1/2',
   }
 
-  const teamAScore = runningScores.bottom.total + runningScores.top.total
-  const teamBScore = runningScores.left.total + runningScores.right.total
+  // Both partners already carry the same shared total under team-combined
+  // scoring (see scoreTeam in lib/cards.js) — summing them would double the
+  // displayed score instead of showing the team's real combined total.
+  const teamAScore = runningScores.bottom.total
+  const teamBScore = runningScores.left.total
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden relative gap-2 p-2 sm:p-3 bg-gradient-to-b from-[#0B0C10] via-[#1F2833] to-[#0B0C10]">

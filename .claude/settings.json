@@ -95,7 +95,12 @@
       "Bash(node scripts/verify-achievements.mjs)",
       "Bash(node scripts/verify-achievements-live.mjs)",
       "Bash(node scripts/check-achievement-toast.mjs \"mp-host-1783756639583@gmail.com\")",
-      "Bash(node scripts/verify-final-round3.mjs \"mp-host-1783757317467@gmail.com\" \"mp-guest-1783757317467@gmail.com\")"
+      "Bash(node scripts/verify-final-round3.mjs \"mp-host-1783757317467@gmail.com\" \"mp-guest-1783757317467@gmail.com\")",
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758033044@gmail.com\" \"mp-guest-1783758033044@gmail.com\")",
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758327497@gmail.com\" \"mp-guest-1783758327497@gmail.com\")",
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758711026@gmail.com\" \"mp-guest-1783758711026@gmail.com\")",
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783758922152@gmail.com\" \"mp-guest-1783758922152@gmail.com\")",
+      "Bash(node scripts/repro-guest-score.mjs \"mp-host-1783759178896@gmail.com\" \"mp-guest-1783759178896@gmail.com\")"
     ]
   }
 }
