@@ -14,7 +14,7 @@ import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './
 import { supabaseEnabled } from './lib/supabase'
 import { fromDbSettings } from './lib/rooms'
 import { POSITIONS } from './lib/cards'
-import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES } from './data/tableThemes'
+import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES, MASTER_DECK_THEMES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
 
 const BOT_NAMES = ['Nyx', 'Kestrel', 'Osiris']
@@ -64,7 +64,9 @@ export default function App() {
   const [tableTheme, setTableTheme] = useState(
     [...TABLE_THEMES, ...MASTER_THEMES].find((t) => t.id === storedPrefs.tableThemeId) ?? TABLE_THEMES[0]
   )
-  const [deckTheme, setDeckTheme] = useState(DECK_THEMES.find((d) => d.id === storedPrefs.deckThemeId) ?? DECK_THEMES[0])
+  const [deckTheme, setDeckTheme] = useState(
+    [...DECK_THEMES, ...MASTER_DECK_THEMES].find((d) => d.id === storedPrefs.deckThemeId) ?? DECK_THEMES[0]
+  )
   const [activeRoom, setActiveRoom] = useState(null)
 
   useEffect(() => {

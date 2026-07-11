@@ -29,7 +29,7 @@ export default function Landing({
   const PILLS = [
     { icon: Trophy, label: 'Leaderboard', onClick: onOpenLeaderboard },
     { icon: Bot, label: 'AI Bots', onClick: onQuickGame },
-    { icon: CreditCard, label: '13 Deck Themes', onClick: onOpenDeckThemes },
+    { icon: CreditCard, label: '23 Deck Themes', onClick: onOpenDeckThemes },
     { icon: Settings2, label: 'Custom Rules', onClick: onOpenRules },
     { icon: Flame, label: 'Challenges', onClick: onOpenChallenges },
     { icon: Globe, label: 'Multiplayer', onClick: onPlayOnline },

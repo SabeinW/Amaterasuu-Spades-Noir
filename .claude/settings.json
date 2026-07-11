@@ -58,7 +58,8 @@
       "Bash(node scripts/check-roundover-chat.mjs)",
       "Bash(node scripts/debug-trick1.mjs)",
       "Bash(node scripts/check-matchwinner-chat.mjs)",
-      "Bash(node scripts/check-landing-cards.mjs)"
+      "Bash(node scripts/check-landing-cards.mjs)",
+      "Bash(node scripts/repro-start-race.mjs \"mp-host-1783744550054@gmail.com\" \"mp-guest-1783744550054@gmail.com\")"
     ]
   }
 }

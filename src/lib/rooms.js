@@ -146,6 +146,36 @@ export async function updatePlayerInfo(roomId, playerId, { name, avatar_url }) {
   await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
 }
 
+// Fills any still-open seats with bots and marks the room 'playing'. Reads
+// `players` fresh from the DB right before writing (rather than trusting the
+// host's local, realtime-subscription-derived room state) — if the host
+// clicks Start right after a guest picks a seat, the host's own client may
+// not have received that update yet, and starting from a stale local
+// snapshot would silently overwrite the guest's seat with a bot, leaving
+// them with no valid seat in the game that's about to start.
+export async function startGame(roomId) {
+  if (!supabaseEnabled) throw new Error('Supabase is not configured.')
+  const { data: room, error } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  if (error || !room) throw error ?? new Error('Room not found.')
+  const filled = [...room.players]
+  const botNames = ['🤖 Sora', '🤖 Noctis', '🤖 Sakura']
+  let botIdx = 0
+  for (let seat = 0; seat < 4; seat++) {
+    if (!filled.some((p) => p.seat === seat)) {
+      filled.push({ id: `__bot__${seat}`, name: botNames[botIdx % botNames.length], seat, isBot: true })
+      botIdx++
+    }
+  }
+  const { data, error: updateError } = await supabase
+    .from('rooms')
+    .update({ players: filled, player_count: filled.length, status: 'playing' })
+    .eq('id', roomId)
+    .select()
+    .single()
+  if (updateError) throw updateError
+  return data
+}
+
 export async function replacePlayerWithBot(roomId, seat) {
   if (!supabaseEnabled) return
   const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()

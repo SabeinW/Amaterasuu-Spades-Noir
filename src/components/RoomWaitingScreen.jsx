@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Repeat } from 'lucide-react'
-import { subscribeToRoom, updateRoom, leaveRoom, movePlayerToSeat } from '../lib/rooms'
+import { subscribeToRoom, leaveRoom, movePlayerToSeat, startGame } from '../lib/rooms'
 import { parseAvatar } from '../data/avatars'
 
-const BOT_NAMES = ['🤖 Sora', '🤖 Noctis', '🤖 Sakura']
 const TEAMS = [
   { label: 'Team A', seats: [0, 2], color: '#a78bfa' },
   { label: 'Team B', seats: [1, 3], color: '#ec4899' },
@@ -64,16 +63,13 @@ export default function RoomWaitingScreen({ room: initialRoom, myUserId, onStart
 
   async function handleStart() {
     setStarting(true)
-    const filled = [...room.players]
-    let botIdx = 0
-    for (let seat = 0; seat < 4; seat++) {
-      if (!filled.some((p) => p.seat === seat)) {
-        filled.push({ id: `__bot__${seat}`, name: BOT_NAMES[botIdx % BOT_NAMES.length], seat, isBot: true })
-        botIdx++
-      }
+    try {
+      const updated = await startGame(room.id)
+      onStart(updated)
+    } catch (err) {
+      setError(err.message)
+      setStarting(false)
     }
-    await updateRoom(room.id, { players: filled, player_count: filled.length, status: 'playing' })
-    onStart({ ...room, players: filled, status: 'playing' })
   }
 
   return (

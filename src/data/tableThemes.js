@@ -210,3 +210,76 @@ export const DECK_THEMES = [
     back: { from: '#4338ca', to: '#020617', border: '#818cf8aa' },
   },
 ]
+
+export const MASTER_DECK_THEMES = [
+  {
+    id: 'inferno-blaze-m',
+    name: 'Inferno Blaze',
+    tag: 'FIRE',
+    description: 'Molten red-orange embers over scorched black, blazing neon glow',
+    back: { from: '#dc2626', to: '#1a0502', border: '#f97316cc' },
+  },
+  {
+    id: 'glacier-frost-m',
+    name: 'Glacier Frost',
+    tag: 'FROST',
+    description: 'Crystalline ice-blue backs with frozen white shimmer',
+    back: { from: '#67e8f9', to: '#031a26', border: '#a5f3fcdd' },
+  },
+  {
+    id: 'onyx-sovereign-m',
+    name: 'Onyx Sovereign',
+    tag: 'LUXE',
+    description: 'Polished black onyx with heavy 24k gold filigree',
+    back: { from: '#0a0a0a', to: '#000000', border: '#f5d90ac0' },
+  },
+  {
+    id: 'venom-toxic-m',
+    name: 'Venom Toxic',
+    tag: 'TOXIC',
+    description: 'Acid-green venom drip over pitch black, radioactive neon glow',
+    back: { from: '#84cc16', to: '#0a1400', border: '#bef264cc' },
+  },
+  {
+    id: 'imperial-amethyst-m',
+    name: 'Imperial Amethyst',
+    tag: 'ROYAL',
+    description: 'Deep royal purple with gold trim, amethyst neon glow',
+    back: { from: '#7e22ce', to: '#170626', border: '#facc15aa' },
+  },
+  {
+    id: 'blood-moon-m',
+    name: 'Blood Moon',
+    tag: 'CRIMSON',
+    description: 'Eclipse-dark crimson over void black, blood-red neon glow',
+    back: { from: '#991b1b', to: '#0d0000', border: '#fca5a5cc' },
+  },
+  {
+    id: 'solar-flare-m',
+    name: 'Solar Flare',
+    tag: 'SOLAR',
+    description: 'Radiant gold-orange corona over deep charcoal',
+    back: { from: '#fbbf24', to: '#1a0f00', border: '#fde68acc' },
+  },
+  {
+    id: 'abyssal-tide-m',
+    name: 'Abyssal Tide',
+    tag: 'OCEAN',
+    description: 'Deep-sea teal and navy backs, bioluminescent cyan glow',
+    back: { from: '#0e7490', to: '#020a12', border: '#67e8f9cc' },
+  },
+  {
+    id: 'rose-gold-elite-m',
+    name: 'Rose Gold Elite',
+    tag: 'ELITE',
+    description: 'Blush rose-gold backs with satin shimmer, luxury pink glow',
+    back: { from: '#fb7185', to: '#2a0a12', border: '#fbcfe8cc' },
+  },
+  {
+    id: 'shadow-viper-m',
+    name: 'Shadow Viper',
+    tag: 'STEALTH',
+    description: 'Matte graphite-black backs with a venomous green glint',
+    back: { from: '#134e2a', to: '#050805', border: '#4ade80cc' },
+  },
+]
