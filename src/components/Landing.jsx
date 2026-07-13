@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User } from 'lucide-react'
+import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User, Undo2 } from 'lucide-react'
 import PlayingCard from './PlayingCard'
 import { parseAvatar, borderStyle } from '../data/avatars'
 
@@ -22,6 +22,8 @@ export default function Landing({
   onOpenChallenges,
   onOpenProfile,
   onOpenLeaderboard,
+  rejoinableRoom,
+  onRejoin,
 }) {
   const avatar = profile ? parseAvatar(profile.avatar_url) : null
   const [hoveredCard, setHoveredCard] = useState(null)
@@ -133,6 +135,15 @@ export default function Landing({
         </p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
+          {rejoinableRoom && (
+            <button
+              onClick={onRejoin}
+              className="rounded-2xl py-3.5 font-semibold text-sm flex items-center justify-center gap-2 animate-pulseGlow"
+              style={{ background: 'linear-gradient(90deg,#22c55e,#4ade80)', color: '#0a0812' }}
+            >
+              <Undo2 className="w-4 h-4" /> Rejoin Game in Progress · {rejoinableRoom.code}
+            </button>
+          )}
           <button
             onClick={onPlayOnline}
             className="rounded-2xl py-3.5 font-semibold text-sm"

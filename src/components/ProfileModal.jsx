@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw } from 'lucide-react'
 import { AVATAR_EMOJIS, AVATAR_COLORS, PROFILE_BORDERS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, borderStyle, DEFAULT_AVATAR } from '../data/avatars'
 import { ACHIEVEMENTS, TIER_STYLE, tierForCount } from '../data/achievements'
+import { rankProgress } from '../data/ranks'
 import { updateProfile } from '../lib/auth'
 import {
   listFriends,
@@ -142,6 +143,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
   }
 
   const winRate = profile?.total_games ? Math.round(((profile.wins ?? 0) / profile.total_games) * 100) : 0
+  const { current: rank, next: nextRank, progress: rankProgressPct, pointsToNext } = rankProgress(profile?.elo_rating ?? 1200)
 
   const stats = [
     { label: 'Rating', value: profile?.elo_rating ?? 1200 },
@@ -294,13 +296,29 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
         </div>
 
         {tab === 'Overview' && (
-          <div className="grid grid-cols-3 gap-2.5">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-xl bg-white/5 p-3 text-center">
-                <p className="text-lg font-bold">{s.value}</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-wide">{s.label}</p>
-              </div>
-            ))}
+          <div className="flex flex-col gap-2.5">
+            <div className="rounded-xl p-4 flex flex-col items-center gap-2" style={{ background: `${rank.color}14`, border: `1px solid ${rank.color}55` }}>
+              <span className="text-3xl" style={{ filter: `drop-shadow(0 0 8px ${rank.color}88)` }}>{rank.icon}</span>
+              <p className="text-lg font-display font-extrabold" style={{ color: rank.color }}>{rank.label}</p>
+              {nextRank ? (
+                <div className="w-full">
+                  <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.round(rankProgressPct * 100)}%`, background: rank.color }} />
+                  </div>
+                  <p className="text-[10px] text-white/40 mt-1.5 text-center">{pointsToNext} rating to {nextRank.label}</p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-white/40">Max rank reached</p>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {stats.map((s) => (
+                <div key={s.label} className="rounded-xl bg-white/5 p-3 text-center">
+                  <p className="text-lg font-bold">{s.value}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wide">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

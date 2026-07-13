@@ -12,7 +12,7 @@ import GameTable from './components/GameTable'
 import RoomWaitingScreen from './components/RoomWaitingScreen'
 import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
 import { supabaseEnabled } from './lib/supabase'
-import { fromDbSettings } from './lib/rooms'
+import { fromDbSettings, fetchRoom, rejoinRoomById } from './lib/rooms'
 import { POSITIONS } from './lib/cards'
 import { TABLE_THEMES, MASTER_THEMES, DECK_THEMES, MASTER_DECK_THEMES, OG_DECK_THEMES, MIDNIGHT_DECK_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
@@ -53,6 +53,40 @@ function savePreferences(patch) {
   }
 }
 
+// Points at whichever multiplayer room this device most recently entered, so
+// a dropped connection or an accidental tab close can be recovered from —
+// without this, leaving (deliberately or not) has no way back in beyond
+// remembering the room code. Cleared on a genuine, final exit (pre-game
+// "Leave Room", or leaving after a match has actually finished); left in
+// place across a mid-game "Leave Match" so the room can be resumed. See
+// markPlayerLeft/rejoinRoomById in lib/rooms.js for the server side of this.
+const ACTIVE_ROOM_KEY = 'amaterasuu-noir-spades:activeRoomPointer'
+
+function saveActiveRoomPointer(room) {
+  try {
+    localStorage.setItem(ACTIVE_ROOM_KEY, JSON.stringify({ id: room.id, code: room.code }))
+  } catch {
+    // no-op — see savePreferences above
+  }
+}
+
+function clearActiveRoomPointer() {
+  try {
+    localStorage.removeItem(ACTIVE_ROOM_KEY)
+  } catch {
+    // no-op
+  }
+}
+
+function loadActiveRoomPointer() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_ROOM_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 const storedPrefs = loadStoredPreferences()
 
 // A person can save several uploaded tables, not just one overwritable
@@ -84,6 +118,7 @@ export default function App() {
     [...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES].find((d) => d.id === storedPrefs.deckThemeId) ?? DECK_THEMES[0]
   )
   const [activeRoom, setActiveRoom] = useState(null)
+  const [rejoinableRoom, setRejoinableRoom] = useState(null)
 
   useEffect(() => {
     if (!supabaseEnabled) return
@@ -100,6 +135,25 @@ export default function App() {
     fetchOrCreateProfile(user).then(setProfile)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
+
+  // Detects a leftover "active room" pointer (see saveActiveRoomPointer)
+  // from a previous session/tab and, if it's still a real resumable game,
+  // surfaces a "Rejoin" prompt on the landing screen instead of silently
+  // stranding the player. A pointer to a room that's since closed, finished,
+  // or no longer includes this player is just stale — clear it rather than
+  // offering a rejoin that would immediately fail.
+  useEffect(() => {
+    if (!user?.id || !supabaseEnabled || activeRoom) return
+    const pointer = loadActiveRoomPointer()
+    if (!pointer?.id) return
+    fetchRoom(pointer.id).then((room) => {
+      const stillResumable =
+        room && room.status === 'playing' && room.game_state?.phase !== 'game_over' && room.players.some((p) => p.id === user.id)
+      if (stillResumable) setRejoinableRoom(room)
+      else clearActiveRoomPointer()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeRoom])
 
   function startQuickGame() {
     setActiveRoom(null)
@@ -152,16 +206,37 @@ export default function App() {
 
   function handleEnterRoom(room) {
     setActiveRoom(room)
+    setRejoinableRoom(null)
+    saveActiveRoomPointer(room)
     setModal(null)
     setView(room.status === 'playing' ? 'game' : 'room-waiting')
   }
 
   function handleRoomStart(room) {
     setActiveRoom(room)
+    saveActiveRoomPointer(room)
     setView('game')
   }
 
-  function exitToLanding() {
+  async function handleRejoin() {
+    if (!rejoinableRoom || !user?.id) return
+    try {
+      const fresh = await rejoinRoomById(rejoinableRoom.id, user.id)
+      handleEnterRoom(fresh)
+    } catch {
+      // Room closed/finished/no longer theirs between the detection check
+      // and clicking the prompt — nothing to rejoin, so just clear it.
+      clearActiveRoomPointer()
+      setRejoinableRoom(null)
+    }
+  }
+
+  // `clearRoom` defaults to true (a genuine, final exit — pre-game "Leave
+  // Room", or leaving a finished match) so it clears the rejoin pointer.
+  // GameTable's mid-game "Leave Match" explicitly passes false to keep it,
+  // since that seat is still resumable — see handleExit in GameTable.jsx.
+  function exitToLanding(clearRoom = true) {
+    if (clearRoom) clearActiveRoomPointer()
     setActiveRoom(null)
     setView('landing')
   }
@@ -190,6 +265,8 @@ export default function App() {
           onOpenChallenges={() => setModal('challenges')}
           onOpenProfile={() => (user ? setModal('profile') : setModal('auth'))}
           onOpenLeaderboard={() => setModal('leaderboard')}
+          rejoinableRoom={rejoinableRoom}
+          onRejoin={handleRejoin}
         />
       )}
 

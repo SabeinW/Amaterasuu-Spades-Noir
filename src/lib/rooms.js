@@ -67,14 +67,32 @@ export async function createRoom(hostId, hostName, rules = {}, hostAvatarUrl = '
   return data
 }
 
+// A room sitting in 'waiting' with nobody ever clicking Start (an abandoned
+// tab, a test room, a host who closed their browser instead of clicking
+// "Leave Room") never transitions away from 'waiting' on its own — nothing
+// currently deletes or expires it. Without a time filter here, every such
+// room accumulates in the open-rooms list forever. 30 minutes comfortably
+// covers a real group slowly trickling in while clearing out abandonment.
+const OPEN_ROOM_MAX_AGE_MS = 30 * 60 * 1000
+// Much longer-lived stale rooms (hours old, definitely abandoned) get
+// opportunistically closed as a side effect of anyone refreshing the list —
+// this is a fire-and-forget best-effort sweep, not the thing the UI's
+// filter above depends on, so it's fine if it's slow, rare, or (on a
+// misconfigured RLS setup) silently a no-op.
+const STALE_ROOM_SWEEP_AGE_MS = 6 * 60 * 60 * 1000
+
 export async function listOpenRooms() {
   if (!supabaseEnabled) return []
+  const cutoff = new Date(Date.now() - OPEN_ROOM_MAX_AGE_MS).toISOString()
   const { data, error } = await supabase
     .from('rooms')
     .select('*')
     .eq('status', 'waiting')
+    .gte('created_at', cutoff)
     .order('created_at', { ascending: false })
     .limit(20)
+  const staleCutoff = new Date(Date.now() - STALE_ROOM_SWEEP_AGE_MS).toISOString()
+  supabase.from('rooms').update({ status: 'closed' }).eq('status', 'waiting').lt('created_at', staleCutoff).then(() => {}, () => {})
   if (error) return []
   return data
 }
@@ -84,6 +102,20 @@ export async function joinRoomByCode(code, player) {
   const { data: room, error } = await supabase.from('rooms').select('*').eq('code', code.trim()).single()
   if (error || !room) throw new Error('Room not found.')
   if (room.status === 'closed') throw new Error('That room has closed.')
+  // Already part of this room — most commonly someone rejoining after
+  // leaving mid-game (see markPlayerLeft below), re-entering the same code
+  // instead of using the auto-detected "Rejoin" prompt. Reconnect their
+  // existing seat instead of erroring "room is full" or adding a duplicate
+  // entry; also lets a returning human reclaim a seat a bot had filled in
+  // for them.
+  const existing = room.players.find((p) => p.id === player.id)
+  if (existing) {
+    if (!existing.left && !existing.isBot) return room
+    const reconnected = room.players.map((p) => (p.id === player.id ? { ...p, left: false, isBot: false } : p))
+    const { data, error: reconnectError } = await supabase.from('rooms').update({ players: reconnected }).eq('id', room.id).select().single()
+    if (reconnectError) throw reconnectError
+    return data
+  }
   if (room.players.length >= 4) throw new Error('Room is full.')
   const takenSeats = new Set(room.players.map((p) => p.seat))
   let seat = 0
@@ -199,10 +231,13 @@ export async function replacePlayerWithBot(roomId, seat) {
   if (!supabaseEnabled) return
   const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()
   if (!room) return
-  const updated = room.players.map((p) => (p.seat === seat ? { ...p, isBot: true, name: p.name?.endsWith(' (Bot)') ? p.name : `${p.name} (Bot)` } : p))
+  const updated = room.players.map((p) => (p.seat === seat ? { ...p, isBot: true, left: false, name: p.name?.endsWith(' (Bot)') ? p.name : `${p.name} (Bot)` } : p))
   await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
 }
 
+// Pre-game only: still in the waiting room, so there's no hand/seat state
+// worth preserving — fully removes the player (freeing their seat for
+// someone else) rather than just flagging them gone.
 export async function leaveRoom(roomId, playerId) {
   if (!supabaseEnabled) return
   const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()
@@ -213,6 +248,43 @@ export async function leaveRoom(roomId, playerId) {
   } else {
     await supabase.from('rooms').update({ players: remaining, player_count: remaining.length }).eq('id', roomId)
   }
+}
+
+// Mid-game "Leave Match": unlike leaveRoom above, this deliberately keeps
+// the player's entry (and therefore their seat, hand, bids, tricks — all
+// keyed by seat, not by connection state) in `players`, just flagged `left`,
+// so they can reconnect later via rejoinRoomById/joinRoomByCode and resume
+// exactly where they left off. Other clients pick up the flag through the
+// same realtime/poll sync already watching `players` and can offer to
+// replace the seat with a bot (see PlayerLeftModal in GameTable.jsx) without
+// permanently closing the door on the player coming back — reclaiming a
+// seat even after a bot has taken it over is intentional (see
+// replacePlayerWithBot/joinRoomByCode), since nothing about a bot's moves
+// is tied to *who* controls the seat next.
+export async function markPlayerLeft(roomId, playerId) {
+  if (!supabaseEnabled) return
+  const { data: room } = await supabase.from('rooms').select('players').eq('id', roomId).single()
+  if (!room) return
+  const updated = room.players.map((p) => (p.id === playerId ? { ...p, left: true } : p))
+  await supabase.from('rooms').update({ players: updated }).eq('id', roomId)
+}
+
+// Companion to joinRoomByCode's idempotent-rejoin branch, for the
+// auto-detected "Rejoin Game" prompt (App.jsx), which only has the room id
+// (from a localStorage pointer) rather than a code the player would have to
+// remember and retype.
+export async function rejoinRoomById(roomId, playerId) {
+  if (!supabaseEnabled) throw new Error('Supabase is not configured.')
+  const { data: room, error } = await supabase.from('rooms').select('*').eq('id', roomId).single()
+  if (error || !room) throw new Error('Room not found.')
+  if (room.status === 'closed') throw new Error('That room has closed.')
+  const existing = room.players.find((p) => p.id === playerId)
+  if (!existing) throw new Error('You are not part of that room.')
+  if (!existing.left && !existing.isBot) return room
+  const updated = room.players.map((p) => (p.id === playerId ? { ...p, left: false, isBot: false } : p))
+  const { data, error: updateError } = await supabase.from('rooms').update({ players: updated }).eq('id', roomId).select().single()
+  if (updateError) throw updateError
+  return data
 }
 
 // Direct read, bypassing realtime entirely — used as a self-heal fallback

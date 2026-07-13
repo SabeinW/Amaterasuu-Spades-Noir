@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, Trophy } from 'lucide-react'
 import { fetchLeaderboard } from '../lib/social'
 import { parseAvatar } from '../data/avatars'
+import { rankForRating } from '../data/ranks'
 
 const RANK_COLORS = { 1: '#f5d90a', 2: '#cbd5e1', 3: '#f97316' }
 
@@ -68,6 +69,7 @@ export default function LeaderboardModal({ onClose, currentUserId }) {
                     <p className="text-sm font-semibold truncate">{r.username ?? 'Player'}{isMe ? ' (You)' : ''}</p>
                     <p className="text-[10px] text-white/40">{r.wins ?? 0}W · {r.losses ?? 0}L · {winRate}% win rate</p>
                   </div>
+                  <span className="text-sm" title={rankForRating(r.elo_rating ?? 1200).label}>{rankForRating(r.elo_rating ?? 1200).icon}</span>
                   <span className="text-sm font-bold text-white/80">{r.elo_rating ?? 1200}</span>
                 </div>
               )

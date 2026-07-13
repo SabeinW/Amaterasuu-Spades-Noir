@@ -37,10 +37,27 @@ export function shuffle(deck) {
   return arr
 }
 
-export function sortHand(cards) {
-  const suitOrder = { S: 0, H: 1, D: 2, C: 3, JOKER: -1 }
+// Suit-group order is Spades, Diamonds, Clubs, Hearts. In Jokers & Deuces
+// mode, 2♠ and 2♦ are promoted trumps (see isTopTrump) — they're pulled out
+// of their printed suit and grouped into the Spades section instead so the
+// hand LOOKS like what it actually plays like, with jokers (if any, already
+// their own 'JOKER' suit) leading the whole hand and the deuces leading the
+// spades group ahead of the Ace. Without `useJD`, deuces have no special
+// status and sort in their normal printed suit.
+export function sortHand(cards, useJD = false) {
+  const suitOrder = { S: 0, D: 1, C: 2, H: 3, JOKER: -1 }
+  const isDeuceTrump = (c) => useJD && c.value === '2' && (c.suit === 'S' || c.suit === 'D')
   return [...cards].sort((a, b) => {
-    if (a.suit !== b.suit) return suitOrder[a.suit] - suitOrder[b.suit]
+    const aDeuce = isDeuceTrump(a)
+    const bDeuce = isDeuceTrump(b)
+    const aGroup = aDeuce ? 'S' : a.suit
+    const bGroup = bDeuce ? 'S' : b.suit
+    if (aGroup !== bGroup) return suitOrder[aGroup] - suitOrder[bGroup]
+    if (aGroup === 'S') {
+      if (aDeuce !== bDeuce) return aDeuce ? -1 : 1
+      if (aDeuce && bDeuce) return a.suit === 'S' ? -1 : 1
+      return VALUE_RANK[b.value] - VALUE_RANK[a.value]
+    }
     return VALUE_RANK[a.value] - VALUE_RANK[b.value]
   })
 }
@@ -50,7 +67,7 @@ export function dealHands(useJD = false) {
   const perPlayer = deck.length / 4
   const hands = {}
   POSITIONS.forEach((pos, i) => {
-    hands[pos] = sortHand(deck.slice(i * perPlayer, (i + 1) * perPlayer))
+    hands[pos] = sortHand(deck.slice(i * perPlayer, (i + 1) * perPlayer), useJD)
   })
   return hands
 }

@@ -110,7 +110,13 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(node scripts/verify-lobby.mjs)",
       "Read(//c/Users/rahee/AppData/Local/Temp/claude/**)",
-      "Bash(cd \"c:\\\\Users\\\\rahee\\\\Downloads\\\\amaterasuu-noir-spades\" && rm -f scripts/verify-lobby.mjs && rm -f /tmp/verify-lobby.mjs && git status --short)"
+      "Bash(cd \"c:\\\\Users\\\\rahee\\\\Downloads\\\\amaterasuu-noir-spades\" && rm -f scripts/verify-lobby.mjs && rm -f /tmp/verify-lobby.mjs && git status --short)",
+      "Bash(node scripts/verify-fixes.mjs)",
+      "Bash(node scripts/verify-boardrule.mjs)",
+      "Bash(node scripts/verify-mp-regression.mjs)",
+      "Bash(node scripts/verify-full-round.mjs)",
+      "Bash(node scripts/verify-rejoin.mjs)",
+      "Bash(node scripts/verify-stale-rooms.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"

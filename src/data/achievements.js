@@ -2,9 +2,10 @@
 // since each scope's ctx shape is different (checking a 'round' achievement
 // against 'match' ctx, or vice versa, would read undefined fields):
 // - 'match': once a match finishes, profile stats already updated —
-//   ctx = { won, marginOfVictory, moonShot, profile, friendCount }
+//   ctx = { won, marginOfVictory, moonShot, profile, friendCount, maxDeficit }
 // - 'round': after every round completes, mid-match —
-//   ctx = { bid, taken, blindNil, bagsEarned }  (this player's own round line)
+//   ctx = { bid, taken, blindNil, partnerBid, partnerTaken } (this player's
+//   own round line, plus their partner's for same-round combo achievements)
 // - 'live': the instant something happens during play —
 //   ctx = { consecutiveTricks }
 //
@@ -13,6 +14,14 @@
 // tier evolves with the count (2nd earn = gold, 3rd+ = diamond). Entries
 // without `repeatable` are milestone/cumulative-stat badges that can only
 // ever cross their threshold once, so they stay a one-time unlock.
+//
+// The rank-tier achievements (Master through Immortal) fire the first time
+// a match ends with the player's updated elo_rating inside that tier — see
+// data/ranks.js for the same thresholds driving the profile rank badge.
+
+import { RANKS } from './ranks'
+
+const rankMin = (id) => RANKS.find((r) => r.id === id).min
 
 export const ACHIEVEMENTS = [
   {
@@ -147,6 +156,138 @@ export const ACHIEVEMENTS = [
     scope: 'round',
     repeatable: true,
     check: (ctx) => ctx.bid >= 10 && ctx.taken >= ctx.bid,
+  },
+  {
+    id: 'trick_king',
+    title: 'Trick King',
+    description: 'Take 10 or more tricks in a single hand',
+    icon: '👑',
+    color: '#fbbf24',
+    scope: 'round',
+    repeatable: true,
+    check: (ctx) => ctx.taken >= 10,
+  },
+  {
+    id: 'sandbag_slayer',
+    title: 'Sandbag Slayer',
+    description: 'Bid 4 or more and hit it exactly — zero bags',
+    icon: '🗡️',
+    color: '#64748b',
+    scope: 'round',
+    repeatable: true,
+    check: (ctx) => ctx.bid >= 4 && ctx.taken === ctx.bid,
+  },
+  {
+    id: 'perfect_bid',
+    title: 'Perfect Bid',
+    description: 'Bid 7 or more and hit it exactly',
+    icon: '✅',
+    color: '#34d399',
+    scope: 'round',
+    repeatable: true,
+    check: (ctx) => ctx.bid >= 7 && ctx.taken === ctx.bid,
+  },
+  {
+    id: 'ace_collector',
+    title: 'Ace Collector',
+    description: 'You and your partner both bid and make Nil in the same hand',
+    icon: '🂡',
+    color: '#f472b6',
+    scope: 'round',
+    repeatable: true,
+    check: (ctx) => ctx.bid === 0 && ctx.taken === 0 && ctx.partnerBid === 0 && ctx.partnerTaken === 0,
+  },
+  {
+    id: 'clutch_player',
+    title: 'Clutch Player',
+    description: 'Win a match by 20 points or less',
+    icon: '😤',
+    color: '#f43f5e',
+    scope: 'match',
+    repeatable: true,
+    check: (ctx) => ctx.won && ctx.marginOfVictory > 0 && ctx.marginOfVictory <= 20,
+  },
+  {
+    id: 'comeback_king',
+    title: 'Comeback King',
+    description: 'Win a match after trailing by 100+ points at some point',
+    icon: '🔄',
+    color: '#38bdf8',
+    scope: 'match',
+    repeatable: true,
+    check: (ctx) => ctx.won && ctx.maxDeficit >= 100,
+  },
+  {
+    id: 'dynasty',
+    title: 'Dynasty',
+    description: 'Win 10 matches in a row',
+    icon: '🏛️',
+    color: '#8b5cf6',
+    scope: 'match',
+    check: (ctx) => ctx.profile.win_streak >= 10,
+  },
+  {
+    id: 'card_shark',
+    title: 'Card Shark',
+    description: 'Win 50 matches',
+    icon: '🦈',
+    color: '#0ea5e9',
+    scope: 'match',
+    check: (ctx) => ctx.profile.wins >= 50,
+  },
+  {
+    id: 'rank_master',
+    title: 'Master',
+    description: 'Reach Master rank',
+    icon: '⭐',
+    color: '#a78bfa',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('master'),
+  },
+  {
+    id: 'rank_grandmaster',
+    title: 'Grandmaster',
+    description: 'Reach Grandmaster rank',
+    icon: '🌟',
+    color: '#f472b6',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('grandmaster'),
+  },
+  {
+    id: 'rank_beast',
+    title: 'Beast',
+    description: 'Reach Beast rank',
+    icon: '🐺',
+    color: '#f97316',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('beast'),
+  },
+  {
+    id: 'rank_bloodthirsty',
+    title: 'Bloodthirsty',
+    description: 'Reach Bloodthirsty rank',
+    icon: '🩸',
+    color: '#dc2626',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('bloodthirsty'),
+  },
+  {
+    id: 'rank_legend',
+    title: 'Legend',
+    description: 'Reach Legend rank',
+    icon: '🏆',
+    color: '#facc15',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('legend'),
+  },
+  {
+    id: 'rank_immortal',
+    title: 'Immortal',
+    description: 'Reach Immortal rank',
+    icon: '🔥',
+    color: '#fb923c',
+    scope: 'match',
+    check: (ctx) => ctx.profile.elo_rating >= rankMin('immortal'),
   },
 ]
 

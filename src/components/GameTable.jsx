@@ -8,7 +8,7 @@ import {
   botCardChoice,
   effectiveSuit,
 } from '../lib/cards'
-import { updateRoom, mergeGameState, subscribeToRoom, leaveRoom, replacePlayerWithBot, openGameChannel, updatePlayerInfo, fetchRoom } from '../lib/rooms'
+import { updateRoom, mergeGameState, subscribeToRoom, markPlayerLeft, replacePlayerWithBot, openGameChannel, updatePlayerInfo, fetchRoom } from '../lib/rooms'
 import PlayerHand from './PlayerHand'
 import BidPanel from './BidPanel'
 import SeatChip from './SeatChip'
@@ -31,6 +31,7 @@ import { useSound, setSoundMuted, isSoundMuted } from '../hooks/useSound'
 import { recordMatchResult } from '../lib/auth'
 import { checkAndUnlockAchievements, unlockAchievementNow, listFriends } from '../lib/social'
 import { TIER_STYLE } from '../data/achievements'
+import { rankForRating, rankIndex } from '../data/ranks'
 
 const NEXT_TURN = { bottom: 'left', left: 'top', top: 'right', right: 'bottom' }
 
@@ -114,6 +115,7 @@ export default function GameTable({
   const isHost = !isMultiplayer || room.host_id === myUserId
   const MY_POS = seatToDataPos(mySeat)
   const myTeam = MY_POS === 'bottom' || MY_POS === 'top' ? 'A' : 'B'
+  const PARTNER_POS = { bottom: 'top', top: 'bottom', left: 'right', right: 'left' }[MY_POS]
 
   const [phase, setPhase] = useState('dealing')
   const [hands, setHands] = useState({})
@@ -130,6 +132,7 @@ export default function GameTable({
   const [matchWinner, setMatchWinner] = useState(null)
   const [wasMoonShot, setWasMoonShot] = useState(false)
   const [newAchievements, setNewAchievements] = useState([])
+  const [rankUp, setRankUp] = useState(null)
   const matchRecordedRef = useRef(false)
   // Tracks MY_POS's consecutive trick wins for the live "Walk Em Down"
   // achievement — this must work identically for host and guest alike, so
@@ -139,6 +142,10 @@ export default function GameTable({
   const prevTricksRef = useRef(tricks)
   const consecutiveTricksRef = useRef(0)
   const roundAchievementNonceRef = useRef(-1)
+  // Largest point deficit MY team has faced at any point in the match, for
+  // the "Comeback King" achievement — updated every time a round's scores
+  // land, on every client (running_scores is already synced via hydrate).
+  const maxDeficitRef = useRef(0)
   const [trickWinnerFlash, setTrickWinnerFlash] = useState(null)
   const [emotes, setEmotes] = useState({})
   const [chatMessages, setChatMessages] = useState([])
@@ -181,6 +188,14 @@ export default function GameTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newAchievements])
 
+  useEffect(() => {
+    if (!rankUp) return
+    playFanfare()
+    const t = setTimeout(() => setRankUp(null), 7000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankUp])
+
   // "Walk Em Down" — win 4 tricks in a row. Fires the instant it happens
   // (not at match end) by watching whichever position's count in the
   // already-synced `tricks` state just went up; this works the same for
@@ -211,6 +226,13 @@ export default function GameTable({
 
   const pendingTrickRef = useRef(false)
   const roundCompleteRef = useRef(-1)
+  // Caps the "board rule" (min combined team bid) rebid loop at one attempt.
+  // Without a cap, a team paired with a bot whose hand-based bid estimate is
+  // deterministic (same hand -> same estimate every rebid) can never clear
+  // the minimum, and the round never advances past bidding — from the
+  // player's side that looks exactly like the game freezing. Reset to 0 at
+  // the start of every deal.
+  const boardRuleAttemptRef = useRef(0)
   // Guards against a rapid double-tap/double-click playing two cards for the
   // same turn: playCard reads currentTrick/ledSuit/spadesBroken from the
   // render closure rather than a functional update, so two calls firing
@@ -240,11 +262,19 @@ export default function GameTable({
   // on the server instead. Writes from this client are also chained
   // through writeQueueRef so they reach the server in the order issued.
   const writeQueueRef = useRef(Promise.resolve())
+  // Timestamp of this client's own last persist() call — read by the general
+  // self-heal poll below so it never re-hydrates from a `fetchRoom` snapshot
+  // that raced ahead of (i.e. was read before) a write this same client just
+  // issued. Without this guard, a poll landing in the gap between "we called
+  // persist()" and "that write actually committed" would read a pre-write
+  // row and briefly roll this client's own fresh move back on screen.
+  const lastPersistAtRef = useRef(0)
 
   function persist(patch) {
     const dbPatchState = patch.phase ? { ...patch, phase: LOCAL_TO_DB_PHASE[patch.phase] ?? patch.phase } : patch
     gameStateRef.current = { ...gameStateRef.current, ...dbPatchState }
     if (isMultiplayer && roomIdRef.current) {
+      lastPersistAtRef.current = Date.now()
       if (dbPatchState.phase && dbPatchState.phase !== 'dealing' && room.status === 'waiting') {
         updateRoom(roomIdRef.current, { status: 'playing' }).catch(() => {})
       }
@@ -267,16 +297,30 @@ export default function GameTable({
     })
   }
 
+  // Standard Spades dealer rotation: the deal passes one seat to the left
+  // each hand, and the player to the dealer's left always leads the first
+  // trick — which, since teams alternate seats around the table (A/B/A/B),
+  // is exactly the same as saying "the opposite team leads" whenever the
+  // dealer is on your own side. `dealerRef` tracks whoever dealt the *last*
+  // hand; the room's creator deals hand 1 (defaulting to 'bottom'), and each
+  // startDeal() rotates it to that hand's leader — since the seat that led
+  // is, by definition, the seat to the old dealer's left, which is exactly
+  // where the deal passes to next. Persisted as `dealer` so a host reload
+  // mid-game (or a guest, kept in sync via hydrate) doesn't reset rotation
+  // back to 'bottom'.
+  const dealerRef = useRef('bottom')
+
   const startDeal = useCallback(() => {
     playShuffle()
     const nextHands = dealHands(useJD)
+    const leader = NEXT_TURN[dealerRef.current]
     setHands(nextHands)
     setBids(blankBids())
     setTricks(blankTricks())
     prevTricksRef.current = blankTricks()
     consecutiveTricksRef.current = 0
     setCurrentTrick([])
-    setTurn('bottom')
+    setTurn(leader)
     setLedSuit(null)
     setSpadesBroken(false)
     setSelectedCard(null)
@@ -285,13 +329,15 @@ export default function GameTable({
     setDealNonce((n) => n + 1)
     setBlindNil(blankBlind())
     setRevealed({})
+    boardRuleAttemptRef.current = 0
     if (!isMultiplayer || isHost) {
       persist({
         hands: nextHands,
         bids: blankBids(),
         tricks: blankTricks(),
         current_trick: [],
-        current_turn: 'bottom',
+        current_turn: leader,
+        dealer: dealerRef.current,
         led_suit: null,
         spades_broken: false,
         round_detail: null,
@@ -300,6 +346,7 @@ export default function GameTable({
         round: (gameStateRef.current.round ?? 0) + 1,
       })
     }
+    dealerRef.current = leader
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useJD, isMultiplayer, isHost])
 
@@ -319,6 +366,7 @@ export default function GameTable({
         ids[seatToDataPos(p.seat)] = p.id
       })
       knownPlayerIdsRef.current = ids
+      lastPlayersRawRef.current = JSON.stringify(room.players)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -336,6 +384,7 @@ export default function GameTable({
     // and letting an extra card get appended to an already-complete trick.
     // Only fall back to 'bottom' when the field is truly absent.
     setTurn(gs.current_turn === undefined ? 'bottom' : gs.current_turn)
+    if (gs.dealer) dealerRef.current = gs.dealer
     setLedSuit(gs.led_suit ?? null)
     setSpadesBroken(!!gs.spades_broken)
     if (gs.blind_nil) setBlindNil(gs.blind_nil)
@@ -365,43 +414,96 @@ export default function GameTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMultiplayer, room?.id, phase, isHost])
 
+  // Applies a fresh `players` array (from either a realtime echo or a direct
+  // poll) to livePlayers/knownPlayerIdsRef — shared so both paths converge
+  // on the same seat map instead of drifting from two different code paths.
+  const lastPlayersRawRef = useRef(null)
+  function syncPlayers(playersArr) {
+    if (!playersArr) return
+    lastPlayersRawRef.current = JSON.stringify(playersArr)
+    const newIds = {}
+    playersArr.forEach((p) => {
+      newIds[seatToDataPos(p.seat)] = p.id
+    })
+    const prevIds = knownPlayerIdsRef.current
+    if (prevIds) {
+      for (const pos of POSITIONS) {
+        // A seat's human can go away two ways: their entry disappears
+        // entirely (the pre-game leaveRoom path), or — mid-game — it stays
+        // but flips `left: true` (markPlayerLeft), so the seat/hand/turn
+        // state survives for a possible reconnect. Both should offer the
+        // same "replace with bot?" prompt to everyone else.
+        const wasHuman = prevIds[pos] && !livePlayersRef.current[pos]?.isBot
+        const stillThereNow = playersArr.find((p) => seatToDataPos(p.seat) === pos)
+        const nowGoneOrLeft = !newIds[pos] || (stillThereNow?.left && !livePlayersRef.current[pos]?.left)
+        if (wasHuman && nowGoneOrLeft) {
+          setLeftPlayerPos((cur) => cur ?? pos)
+        }
+      }
+    }
+    knownPlayerIdsRef.current = newIds
+    setLivePlayers((prev) => {
+      const next = { ...prev }
+      playersArr.forEach((p) => {
+        const pos = seatToDataPos(p.seat)
+        next[pos] = { ...next[pos], username: p.name, isBot: !!p.isBot, left: !!p.left }
+      })
+      return next
+    })
+  }
+
   // Multiplayer: mirror remote room state.
   useEffect(() => {
     if (!isMultiplayer || !room?.id) return
     const sub = subscribeToRoom(room.id, (updatedRoom) => {
       if (updatedRoom.game_state) hydrate(updatedRoom.game_state)
-      if (updatedRoom.players) {
-        const newIds = {}
-        updatedRoom.players.forEach((p) => {
-          newIds[seatToDataPos(p.seat)] = p.id
-        })
-        const prevIds = knownPlayerIdsRef.current
-        if (prevIds) {
-          for (const pos of POSITIONS) {
-            const wasHuman = prevIds[pos] && !livePlayersRef.current[pos]?.isBot
-            if (wasHuman && !newIds[pos]) {
-              setLeftPlayerPos((cur) => cur ?? pos)
-            }
-          }
-        }
-        knownPlayerIdsRef.current = newIds
-        setLivePlayers((prev) => {
-          const next = { ...prev }
-          updatedRoom.players.forEach((p) => {
-            const pos = seatToDataPos(p.seat)
-            next[pos] = { ...next[pos], username: p.name, isBot: !!p.isBot }
-          })
-          return next
-        })
-      }
+      if (updatedRoom.players) syncPlayers(updatedRoom.players)
     })
     return () => sub.unsubscribe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMultiplayer, room?.id])
 
-  // Auto-dismiss the "player left" prompt once that seat has been replaced with a bot.
+  // General self-heal poll: any client (host included — a guest's card play
+  // or bid is written directly by that guest and only reaches everyone else,
+  // host included, as a postgres_changes echo) can miss a realtime event on
+  // a flaky connection and silently stop advancing while chat/emoji (a
+  // separate broadcast channel) keep working — the exact "stuck on an old
+  // turn while everyone else has moved on" symptom. Every few seconds,
+  // compare the server's actual game_state/players against what's currently
+  // applied and re-hydrate if they've drifted, so no client can stay stuck
+  // for more than a few seconds no matter which event got dropped.
   useEffect(() => {
-    if (leftPlayerPos && livePlayers[leftPlayerPos]?.isBot) {
+    if (!isMultiplayer || !room?.id) return
+    const interval = setInterval(async () => {
+      const fresh = await fetchRoom(room.id)
+      if (!fresh) return
+      // Skip if we issued our own write in the last 2.5s — `fresh` may have
+      // been read before that write committed, and applying it would roll
+      // our own just-made move back on screen (see lastPersistAtRef above).
+      if (Date.now() - lastPersistAtRef.current < 2500) return
+      if (fresh.game_state && JSON.stringify(fresh.game_state) !== JSON.stringify(gameStateRef.current)) {
+        hydrate(fresh.game_state)
+      }
+      if (fresh.players && JSON.stringify(fresh.players) !== lastPlayersRawRef.current) {
+        syncPlayers(fresh.players)
+      }
+    }, 4000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiplayer, room?.id])
+
+  // Auto-dismiss the "player left" prompt once that seat has been replaced
+  // with a bot, or the human reconnects on their own (rejoinRoomById /
+  // joinRoomByCode clear the `left` flag — see lib/rooms.js). Checks the
+  // seat is actually still present before trusting its `left` flag — a
+  // position that's disappeared from `players` entirely keeps whatever
+  // stale `left`/`isBot` values it last had, which would otherwise read as
+  // "reconnected" and dismiss the prompt for a seat nobody ever fixed.
+  useEffect(() => {
+    if (!leftPlayerPos) return
+    const stillPresent = !!knownPlayerIdsRef.current?.[leftPlayerPos]
+    const info = livePlayers[leftPlayerPos]
+    if (info?.isBot || (stillPresent && !info?.left)) {
       setLeftPlayerPos(null)
     }
   }, [livePlayers, leftPlayerPos])
@@ -490,7 +592,17 @@ export default function GameTable({
         { pos: ['left', 'right'], total: bids.left + bids.right },
       ]
       const short = teams.find((t) => t.total < boardMin)
-      if (short) {
+      // Capped at one rebid attempt per deal. A bot's bid estimate is
+      // deterministic for a given hand (only its nil coin-flip varies), so a
+      // team paired with a weak-handed bot can be mathematically incapable
+      // of ever reaching the minimum — without this cap that team's bids get
+      // cleared and re-submitted forever, bidding never locks in, and the
+      // round (and therefore the whole game) never advances. One rebid still
+      // gives a human a chance to correct an accidental low bid; if the team
+      // is still short after that, play proceeds under the minimum instead
+      // of looping.
+      if (short && boardRuleAttemptRef.current < 1) {
+        boardRuleAttemptRef.current += 1
         const mine = short.pos.includes(MY_POS)
         setBoardNotice(`${mine ? 'Your team' : 'Opponents'} bid only ${short.total} combined — must bid at least ${boardMin}. Rebidding…`)
         setTimeout(() => setBoardNotice(null), 4500)
@@ -747,15 +859,25 @@ export default function GameTable({
     roundAchievementNonceRef.current = dealNonce
     const mine = roundDetail[MY_POS]
     if (!mine) return
+    const partner = roundDetail[PARTNER_POS]
     checkAndUnlockAchievements(myUserId, 'round', {
       bid: mine.bid,
       taken: mine.taken,
       blindNil: !!blindNil[MY_POS],
+      partnerBid: partner?.bid,
+      partnerTaken: partner?.taken,
     }).then((newly) => {
       if (newly.length) setNewAchievements((cur) => [...cur, ...newly])
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundDetail, dealNonce, myUserId])
+
+  useEffect(() => {
+    const myTotal = runningScores[MY_POS]?.total ?? 0
+    const oppPos = myTeam === 'A' ? 'left' : 'bottom'
+    const oppTotal = runningScores[oppPos]?.total ?? 0
+    maxDeficitRef.current = Math.max(maxDeficitRef.current, oppTotal - myTotal)
+  }, [runningScores, MY_POS, myTeam])
 
   useEffect(() => {
     if (phase !== 'result' || !runningScores) return
@@ -809,8 +931,15 @@ export default function GameTable({
       opponentScore = Math.max(0, ...POSITIONS.filter((p) => p !== MY_POS).map((p) => runningScores[p]?.total ?? 0))
     }
     won = yourScore > opponentScore
+    const ratingBefore = profile?.elo_rating ?? 1200
     recordMatchResult(myUserId, { won, yourScore, opponentScore, rounds: dealNonce }).then((updatedProfile) => {
       if (!updatedProfile) return
+      onProfileUpdate?.(updatedProfile)
+      const before = rankForRating(ratingBefore)
+      const after = rankForRating(updatedProfile.elo_rating ?? 1200)
+      if (after.id !== before.id && rankIndex(after.id) > rankIndex(before.id)) {
+        setRankUp(after)
+      }
       listFriends(myUserId).then(({ friends }) => {
         checkAndUnlockAchievements(myUserId, 'match', {
           won,
@@ -818,6 +947,7 @@ export default function GameTable({
           moonShot: wasMoonShot,
           profile: updatedProfile,
           friendCount: friends.length,
+          maxDeficit: maxDeficitRef.current,
         }).then((newly) => {
           if (newly.length) setNewAchievements((cur) => [...cur, ...newly])
         })
@@ -865,11 +995,15 @@ export default function GameTable({
     gameChannelRef.current?.send('CHAT', { author, text })
   }
 
+  // Leaving mid-game keeps the player's seat (see markPlayerLeft) so they
+  // can rejoin later instead of losing their hand/turn — only a genuinely
+  // finished match (game_over) has nothing left to reconnect to, so that
+  // case tells the caller to drop the "rejoin" pointer entirely.
   function handleExit() {
-    if (isMultiplayer && myUserId && room?.id) {
-      leaveRoom(room.id, myUserId).catch(() => {})
+    if (isMultiplayer && myUserId && room?.id && phase !== 'game_over') {
+      markPlayerLeft(room.id, myUserId).catch(() => {})
     }
-    onExit?.()
+    onExit?.(phase === 'game_over')
   }
 
   const trickCardPositions = {
@@ -934,6 +1068,19 @@ export default function GameTable({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {rankUp && (
+        <div className="absolute inset-0 z-[210] flex items-center justify-center pointer-events-none px-6">
+          <div
+            className="flex flex-col items-center gap-2 rounded-2xl px-8 py-6 text-center shadow-2xl bg-slate-900/95 backdrop-blur-md border-2"
+            style={{ borderColor: `${rankUp.color}aa`, animation: 'rankPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, pulseGlow 1.8s ease-in-out 0.5s infinite' }}
+          >
+            <span className="text-5xl" style={{ filter: `drop-shadow(0 0 12px ${rankUp.color}aa)` }}>{rankUp.icon}</span>
+            <p className="text-[10px] tracking-widest font-semibold uppercase text-white/50">Rank Up</p>
+            <p className="text-2xl font-display font-extrabold" style={{ color: rankUp.color }}>{rankUp.label}</p>
+          </div>
         </div>
       )}
 
