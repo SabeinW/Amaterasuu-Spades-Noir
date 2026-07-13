@@ -15,7 +15,7 @@
 // without `repeatable` are milestone/cumulative-stat badges that can only
 // ever cross their threshold once, so they stay a one-time unlock.
 //
-// The rank-tier achievements (Master through Immortal) fire the first time
+// The rank-tier achievements (Master through Conqueror) fire the first time
 // a match ends with the player's updated elo_rating inside that tier — see
 // data/ranks.js for the same thresholds driving the profile rank badge.
 
@@ -282,8 +282,8 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'rank_immortal',
-    title: 'Immortal',
-    description: 'Reach Immortal rank',
+    title: 'Conqueror',
+    description: 'Reach Conqueror rank',
     icon: '🔥',
     color: '#fb923c',
     scope: 'match',

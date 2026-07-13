@@ -18,7 +18,7 @@ export const RANKS = [
   { id: 'beast', label: 'Beast', min: 3350, color: '#f97316', icon: '🐺' },
   { id: 'bloodthirsty', label: 'Bloodthirsty', min: 3700, color: '#dc2626', icon: '🩸' },
   { id: 'legend', label: 'Legend', min: 4100, color: '#facc15', icon: '🏆' },
-  { id: 'immortal', label: 'Immortal', min: 4500, color: '#fb923c', icon: '🔥' },
+  { id: 'immortal', label: 'Conqueror', min: 4500, color: '#fb923c', icon: '🔥' },
   { id: 'mythic', label: 'Mythic', min: 5000, color: '#c084fc', icon: '🔮' },
   { id: 'titan', label: 'Titan', min: 5600, color: '#94a3b8', icon: '⚡' },
   { id: 'apex', label: 'Apex', min: 6300, color: '#f8fafc', icon: '👑' },
