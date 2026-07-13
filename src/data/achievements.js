@@ -19,7 +19,7 @@
 // a match ends with the player's updated elo_rating inside that tier — see
 // data/ranks.js for the same thresholds driving the profile rank badge.
 
-import { RANKS } from './ranks'
+import { RANKS } from './ranks.js'
 
 const rankMin = (id) => RANKS.find((r) => r.id === id).min
 

@@ -240,6 +240,18 @@ export function posTeam(pos) {
   return pos === 'bottom' || pos === 'top' ? 'A' : 'B'
 }
 
+// Ascending by effective trick-taking strength (JD-aware), independent of
+// suit grouping — bot logic needs "the weakest card" / "the cheapest card
+// that still wins" in absolute terms, which is a different requirement from
+// sortHand's suit-grouped, deuces-lead-the-group display order for a human's
+// hand. Reusing sortHand here previously coupled the two: changing how a
+// hand is DISPLAYED silently changed which card a bot would pick (e.g. a
+// descending spades group made "the cheapest winner" resolve to the
+// strongest spade instead of the weakest one).
+function sortByStrength(cards, useJD) {
+  return [...cards].sort((a, b) => cardRank(a, useJD) - cardRank(b, useJD))
+}
+
 // The cheapest card in `sorted` (ascending) that would win the trick if
 // played now, or null if nothing in hand can beat the current best card.
 function cheapestWinner(sorted, currentTrick, useJD) {
@@ -262,7 +274,7 @@ export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD =
   if (currentTrick.length === 0) {
     const nonTrump = playable.filter((c) => effectiveSuit(c, useJD) !== 'S')
     const pool = nonTrump.length ? nonTrump : playable
-    const sorted = sortHand(pool)
+    const sorted = sortByStrength(pool, useJD)
     // Still short of our own bid? Lead a near-certain winner (an Ace, or a
     // top trump) to actively bank a trick instead of always leading low.
     const myBid = bids[pos] ?? 0
@@ -276,7 +288,7 @@ export function botCardChoice(hand, currentTrick, spadesBroken, ledSuit, useJD =
 
   const canFollow = playable.some((c) => (ledSuit ? effectiveSuit(c, useJD) === ledSuit : true))
   const followers = canFollow ? playable.filter((c) => effectiveSuit(c, useJD) === ledSuit) : playable
-  const sorted = sortHand(followers)
+  const sorted = sortByStrength(followers, useJD)
 
   const currentWinnerPos = evaluateTrick(currentTrick, useJD)
   const winnerIsTeammate = pos && posTeam(currentWinnerPos) === posTeam(pos) && currentWinnerPos !== pos

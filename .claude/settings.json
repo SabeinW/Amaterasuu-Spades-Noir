@@ -116,7 +116,12 @@
       "Bash(node scripts/verify-mp-regression.mjs)",
       "Bash(node scripts/verify-full-round.mjs)",
       "Bash(node scripts/verify-rejoin.mjs)",
-      "Bash(node scripts/verify-stale-rooms.mjs)"
+      "Bash(node scripts/verify-stale-rooms.mjs)",
+      "Bash(node scripts/audit-scoring.mjs)",
+      "Bash(mv scripts/audit-scoring.mjs scripts/verify-scoring-invariant.mjs)",
+      "Bash(node scripts/verify-scoring-invariant.mjs)",
+      "Bash(node scripts/verify-team-scoring.mjs)",
+      "Bash(node scripts/verify-score-sync.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"
