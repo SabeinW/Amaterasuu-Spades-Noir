@@ -60,7 +60,13 @@ function check(name, actual, expected) {
 check('tier for count 1 is base (null)', tierForCount(1), null)
 check('tier for count 2 is gold', tierForCount(2), 'gold')
 check('tier for count 3 is diamond', tierForCount(3), 'diamond')
-check('tier for count 5 is still diamond', tierForCount(5), 'diamond')
+check('tier for count 4 is still diamond', tierForCount(4), 'diamond')
+check('tier for count 5 is obsidian', tierForCount(5), 'obsidian')
+check('tier for count 7 is prismatic', tierForCount(7), 'prismatic')
+check('tier for count 10 is radiant', tierForCount(10), 'radiant')
+check('tier for count 14 is celestial', tierForCount(14), 'celestial')
+check('tier for count 19 is cosmic', tierForCount(19), 'cosmic')
+check('tier for count 50 is still cosmic (ceiling)', tierForCount(50), 'cosmic')
 
 // Every achievement has a valid scope.
 const validScopes = new Set(['match', 'round', 'live'])

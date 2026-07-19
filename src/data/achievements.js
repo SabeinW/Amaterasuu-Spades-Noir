@@ -300,14 +300,37 @@ export function checkNewAchievements(scope, ctx, alreadyUnlockedIds = new Set())
   return ACHIEVEMENTS.filter((a) => a.scope === scope && (a.repeatable || !alreadyUnlockedIds.has(a.id)) && a.check(ctx))
 }
 
-// 1st earn = base badge, 2nd = gold, 3rd+ = diamond.
+// 1st earn = base badge (no tier), then progressively rarer tiers the more
+// times a repeatable achievement is earned again — applies uniformly to
+// every repeatable achievement, not configured per-achievement. Diamond used
+// to be the ceiling forever after a 3rd earn; thresholds now keep climbing
+// well past it (gaps widen with each tier, same escalating-grind feel as
+// the rank ladder in data/ranks.js, just paced for how often a single
+// achievement can realistically repeat rather than a whole match history).
+const TIER_THRESHOLDS = [
+  { tier: 'gold', count: 2 },
+  { tier: 'diamond', count: 3 },
+  { tier: 'obsidian', count: 5 },
+  { tier: 'prismatic', count: 7 },
+  { tier: 'radiant', count: 10 },
+  { tier: 'celestial', count: 14 },
+  { tier: 'cosmic', count: 19 },
+]
+
 export function tierForCount(count) {
-  if (count >= 3) return 'diamond'
-  if (count >= 2) return 'gold'
-  return null
+  let tier = null
+  for (const t of TIER_THRESHOLDS) {
+    if (count >= t.count) tier = t.tier
+  }
+  return tier
 }
 
 export const TIER_STYLE = {
   gold: { label: 'GOLD', ring: '#f5d90a' },
   diamond: { label: 'DIAMOND', ring: '#67e8f9' },
+  obsidian: { label: 'OBSIDIAN', ring: '#a78bfa' },
+  prismatic: { label: 'PRISMATIC', ring: '#f472b6' },
+  radiant: { label: 'RADIANT', ring: '#fb923c' },
+  celestial: { label: 'CELESTIAL', ring: '#38bdf8' },
+  cosmic: { label: 'COSMIC', ring: '#f8fafc' },
 }
