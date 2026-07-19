@@ -121,7 +121,14 @@
       "Bash(mv scripts/audit-scoring.mjs scripts/verify-scoring-invariant.mjs)",
       "Bash(node scripts/verify-scoring-invariant.mjs)",
       "Bash(node scripts/verify-team-scoring.mjs)",
-      "Bash(node scripts/verify-score-sync.mjs)"
+      "Bash(node scripts/verify-score-sync.mjs)",
+      "Read(//c/Users/rahee/Downloads/**)",
+      "Read(//c/Users/rahee/**)",
+      "Bash(npm run *)",
+      "Bash(node scripts/verify-multiround.mjs)",
+      "Bash(node scripts/verify-direct-join.mjs)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "\\tmp"

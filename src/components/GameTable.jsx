@@ -282,17 +282,30 @@ export default function GameTable({
     }
   }
 
-  // A failed write gets one silent retry after 3s (DB hiccup / flaky
-  // connection); only a second failure surfaces to the player, since most
-  // transient errors resolve on their own before the retry even fires.
-  function persistWithRetry(dbPatchState, isRetry = false) {
+  // Retries with increasing backoff (up to 8 attempts, spread over roughly
+  // a minute and a half) instead of giving up after a single 3s retry. A
+  // move that fails to persist only reaches OTHER players once it lands in
+  // the DB — the writer's own screen already shows it optimistically (see
+  // persist() above), so a write that's abandoned too early doesn't look
+  // broken to the player who made the move, only to everyone else, who see
+  // the game stop advancing with no error of their own to explain why. A
+  // mobile connection drop, a backgrounded tab pausing timers, or a brief
+  // Supabase hiccup can easily outlast 3 seconds without being a truly dead
+  // connection, so this gives real transient failures much more room to
+  // resolve on their own before a move is permanently lost. Only after
+  // exhausting every attempt does it give up on THIS specific write (so a
+  // genuinely dead connection can't jam every later move stuck behind it in
+  // writeQueueRef) and leave a visible warning instead of failing silently.
+  function persistWithRetry(dbPatchState, attempt = 0) {
     return mergeGameState(roomIdRef.current, dbPatchState).catch(() => {
-      if (isRetry) {
-        showError('Connection issue — some moves may not have synced. Retrying…')
+      if (attempt === 0) showError('Connection issue — retrying…')
+      if (attempt >= 8) {
+        showError('Could not sync your last move — check your connection and try again.')
         return
       }
+      const delay = Math.min(3000 * (attempt + 1), 15000)
       return new Promise((resolve) => {
-        setTimeout(() => resolve(persistWithRetry(dbPatchState, true)), 3000)
+        setTimeout(() => resolve(persistWithRetry(dbPatchState, attempt + 1)), delay)
       })
     })
   }

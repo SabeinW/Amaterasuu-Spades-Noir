@@ -11,6 +11,7 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
   const [code, setCode] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [joining, setJoining] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -45,17 +46,23 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
     }
   }
 
-  async function handleJoin() {
+  async function joinRoom(roomCode) {
     if (!user) return onRequireAuth()
-    if (!code.trim()) return
+    if (!roomCode || joining) return
     setError(null)
+    setJoining(true)
     try {
       const name = profile?.username || user.email?.split('@')[0] || 'Guest'
-      const room = await joinRoomByCode(code.trim(), { id: user.id, name, avatar_url: profile?.avatar_url ?? '' })
+      const room = await joinRoomByCode(roomCode, { id: user.id, name, avatar_url: profile?.avatar_url ?? '' })
       onEnterRoom(room)
     } catch (err) {
       setError(err.message)
+      setJoining(false)
     }
+  }
+
+  function handleJoin() {
+    joinRoom(code.trim())
   }
 
   return (
@@ -94,8 +101,8 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
               maxLength={5}
               className="w-20 text-center rounded-xl bg-white/5 border border-white/10 text-sm outline-none tracking-widest"
             />
-            <button onClick={handleJoin} className="flex items-center gap-1 rounded-xl px-3 text-sm font-semibold bg-white/5 text-white/70">
-              <LogIn className="w-4 h-4" /> Join
+            <button onClick={handleJoin} disabled={joining} className="flex items-center gap-1 rounded-xl px-3 text-sm font-semibold bg-white/5 text-white/70 disabled:opacity-50">
+              <LogIn className="w-4 h-4" /> {joining ? 'Joining…' : 'Join'}
             </button>
           </div>
 
@@ -113,11 +120,9 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
                   return (
                     <button
                       key={r.id}
-                      onClick={() => {
-                        if (!user) return onRequireAuth()
-                        setCode(r.code)
-                      }}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
+                      onClick={() => joinRoom(r.code)}
+                      disabled={joining}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm disabled:opacity-50"
                       style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.35)' }}
                     >
                       <span className="flex items-center gap-2">
@@ -157,11 +162,9 @@ export default function LobbyModal({ user, profile, onClose, onEnterRoom, onRequ
                 {otherRooms.map((r) => (
                   <button
                     key={r.id}
-                    onClick={() => {
-                      if (!user) return onRequireAuth()
-                      setCode(r.code)
-                    }}
-                    className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
+                    onClick={() => joinRoom(r.code)}
+                    disabled={joining}
+                    className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm disabled:opacity-50"
                   >
                     <span>{r.code} · {r.host_name}</span>
                     <span className="text-white/40 text-xs">{r.players?.length ?? 0}/4</span>
