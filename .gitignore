@@ -24,3 +24,7 @@ scripts/shots/
 *.njsproj
 *.sln
 *.sw?
+
+# local Supabase
+supabase/.temp/
+supabase/.branches/
