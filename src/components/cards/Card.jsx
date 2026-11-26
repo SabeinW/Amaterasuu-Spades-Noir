@@ -183,7 +183,7 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
           {isAce && (
             <div className="absolute rounded-full" style={{ width: width * 0.62, height: width * 0.62, boxShadow: `0 0 0 1.5px ${ink}55` }} />
           )}
-          <Suit suit={card.suit} color={ink} size={width * (isAce ? 0.4 : 0.44)} style={{ position: 'relative', marginTop: width * 0.06, filter: 'drop-shadow(0 1px 0 rgb(255 255 255 / 0.25))' }} />
+          <Suit suit={card.suit} color={ink} metal={metal} size={width * (isAce ? 0.4 : 0.44)} style={{ position: 'relative', marginTop: width * 0.06, filter: 'drop-shadow(0 1px 0 rgb(255 255 255 / 0.25))' }} />
         </div>
       )}
 
