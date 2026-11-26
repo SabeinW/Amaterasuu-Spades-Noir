@@ -502,7 +502,15 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         </div>
         <AnimatePresence>
           {myBidTurn && !busy && (
-            <motion.div className="absolute left-0 right-0 z-40" style={{ bottom: hw * 1.4 + 30 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: 20 }}>
+            // Sit clear of the hand: the hand is pushed up by the home-bar
+            // inset on iPhones (--safe-b), so the panel has to rise with it.
+            <motion.div
+              className="absolute left-0 right-0 z-40"
+              style={{ bottom: `calc(${Math.round(hw * 1.4 + 30)}px + var(--safe-b))` }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
               <BidSheet
                 minBid={E.minimumBid(view, mySeat, rules)}
                 nilAllowed={E.canBidNil(view, mySeat, rules)}
