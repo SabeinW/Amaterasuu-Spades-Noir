@@ -14,6 +14,12 @@
 
 alter table public.rooms add column if not exists version integer not null default 0;
 
+-- Rooms from the old browser-run engine can't be resumed by the new one,
+-- and their game_state holds every player's hand in public view: close
+-- them and clear the cards.
+update public.rooms set status = 'closed', game_state = '{}'::jsonb
+where status <> 'closed' or coalesce(game_state, '{}'::jsonb) ? 'hands';
+
 -- Codes only need to be unique among live rooms; closed rooms keep their
 -- old code without blocking it from being reused.
 alter table public.rooms drop constraint if exists rooms_code_key;
@@ -30,6 +36,10 @@ alter table public.room_secrets enable row level security;
 
 drop policy if exists "Signed-in users can create rooms" on public.rooms;
 drop policy if exists "Players can update rooms" on public.rooms;
+-- (the live project also had these looser duplicates)
+drop policy if exists "Users can create rooms" on public.rooms;
+drop policy if exists "Host can update their room" on public.rooms;
+drop policy if exists "Players can update the room they are in" on public.rooms;
 revoke insert, update, delete on public.rooms from anon, authenticated;
 
 drop function if exists public.merge_room_game_state(uuid, jsonb);
@@ -111,7 +121,7 @@ begin
 
   insert into public.profiles (id, username)
   values (p_user, 'player' || substr(replace(p_user::text, '-', ''), 1, 6))
-  on conflict (id) do nothing;
+  on conflict do nothing;
 
   update public.profiles set
     games_played = coalesce(games_played, 0) + 1,
@@ -159,16 +169,23 @@ grant execute on function public.record_practice_result(boolean, integer, intege
 
 -- RLS for the tables that never had it.
 alter table public.match_history enable row level security;
+drop policy if exists "Users insert own history" on public.match_history;
+drop policy if exists "Users see own history" on public.match_history;
 drop policy if exists "Own match history" on public.match_history;
 create policy "Own match history" on public.match_history for select using (auth.uid() = user_id);
 
 alter table public.achievements enable row level security;
+drop policy if exists "Anyone can view achievements" on public.achievements;
+drop policy if exists "Users can insert own achievements" on public.achievements;
 drop policy if exists "Achievements are public" on public.achievements;
 create policy "Achievements are public" on public.achievements for select using (true);
 drop policy if exists "Earn own achievements" on public.achievements;
 create policy "Earn own achievements" on public.achievements for insert with check (auth.uid() = user_id);
 
 alter table public.friends enable row level security;
+drop policy if exists "Users can insert friends" on public.friends;
+drop policy if exists "Users can update their received friend requests" on public.friends;
+drop policy if exists "Users can view their friends" on public.friends;
 drop policy if exists "See own friendships" on public.friends;
 create policy "See own friendships" on public.friends for select using (auth.uid() in (user_id, friend_id));
 drop policy if exists "Send friend requests" on public.friends;

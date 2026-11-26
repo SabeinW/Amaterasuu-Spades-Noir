@@ -1,178 +1,179 @@
-import { useState } from 'react'
-import { Layers, Palette, Sliders, Trophy, Bot, CreditCard, Settings2, Flame, Globe, Sparkles, User, Undo2 } from 'lucide-react'
-import PlayingCard from './PlayingCard'
-import { parseAvatar, borderStyle } from '../data/avatars'
+import { motion, useReducedMotion } from 'motion/react'
+import { useEffect, useState } from 'react'
+import { BookOpen, Flame, Layers, Palette, RotateCcw, Trophy, User, Users, Bot, LogIn } from 'lucide-react'
+import Card from './cards/Card'
+import Avatar from './ui/Avatar'
+import { ALL_DECKS } from '../data/tableThemes'
 
-const FAN_CARDS = [
-  { suit: 'S', value: 'A', rotate: -24, x: -78, accentColor: '#a78bfa', delay: '0s' },
-  { suit: 'H', value: 'K', rotate: -8, x: -26, accentColor: '#fb4f6f', delay: '0.12s' },
-  { suit: 'JOKER', value: 'BIG', rotate: 8, x: 26, accentColor: '#f5d90a', delay: '0.24s' },
-  { suit: 'D', value: 'Q', rotate: 24, x: 78, accentColor: '#38bdf8', delay: '0.36s' },
+// The home screen always shows the Sun Court deck's royals.
+const HERO_DECK = ALL_DECKS.find((d) => d.id === 'sun-court')
+
+const HERO_CARDS = [
+  { card: { suit: 'S', value: 'A', id: 'AS' }, r: -14, x: -58, y: 10, d: 0 },
+  { card: { suit: 'H', value: 'Q', id: 'QH' }, r: 0, x: 0, y: -6, d: 0.6 },
+  { card: { suit: 'JOKER', value: 'BIG', id: 'JOKER_BIG' }, r: 14, x: 58, y: 10, d: 1.2 },
 ]
+
+function HeroArt() {
+  const reduce = useReducedMotion()
+  const [wide, setWide] = useState(() => window.matchMedia('(min-aspect-ratio: 1/1)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-aspect-ratio: 1/1)')
+    const on = () => setWide(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  const saveData = navigator.connection?.saveData
+  const poster = wide ? '/art/hero/hero-wide.webp' : '/art/hero/hero.webp'
+  const src = wide ? '/art/hero/hero-wide-loop.mp4' : '/art/hero/hero-loop.mp4'
+  const style = { objectPosition: wide ? '50% 50%' : '50% 62%' }
+  return (
+    <div className="fixed inset-0 pointer-events-none">
+      {reduce || saveData ? (
+        <img src={poster} alt="" className="w-full h-full object-cover" style={style} />
+      ) : (
+        <video key={src} src={src} poster={poster} autoPlay muted loop playsInline preload="auto" className="w-full h-full object-cover" style={style} aria-hidden="true" />
+      )}
+    </div>
+  )
+}
+
+function Tile({ icon: Icon, label, sub, onClick, delay }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      className="panel-soft rounded-2xl p-3.5 text-left flex flex-col gap-2 min-h-[92px] transition-colors"
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      whileTap={{ scale: 0.97 }}
+    >
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgb(212 166 74 / 0.12)', border: '1px solid rgb(212 166 74 / 0.25)' }}>
+        <Icon className="w-[18px] h-[18px] text-gold-hi" />
+      </span>
+      <span>
+        <span className="block text-[14px] font-bold leading-tight">{label}</span>
+        {sub && <span className="block text-[11.5px] text-faint mt-0.5">{sub}</span>}
+      </span>
+    </motion.button>
+  )
+}
 
 export default function Landing({
   user,
   profile,
+  deck,
   onPlayOnline,
-  onQuickGame,
+  onPractice,
   onOpenAuth,
-  onOpenDeckThemes,
-  onOpenTableThemes,
+  onOpenDecks,
+  onOpenTables,
   onOpenRules,
   onOpenChallenges,
   onOpenProfile,
   onOpenLeaderboard,
   rejoinableRoom,
   onRejoin,
+  savedPractice,
+  onResumePractice,
 }) {
-  const avatar = profile ? parseAvatar(profile.avatar_url) : null
-  const [hoveredCard, setHoveredCard] = useState(null)
-  const [pinnedCard, setPinnedCard] = useState(null)
-  const PILLS = [
-    { icon: Trophy, label: 'Leaderboard', onClick: onOpenLeaderboard },
-    { icon: Bot, label: 'AI Bots', onClick: onQuickGame },
-    { icon: CreditCard, label: '38 Deck Themes', onClick: onOpenDeckThemes },
-    { icon: Settings2, label: 'Custom Rules', onClick: onOpenRules },
-    { icon: Flame, label: 'Challenges', onClick: onOpenChallenges },
-    { icon: Globe, label: 'Multiplayer', onClick: onPlayOnline },
-    { icon: Palette, label: 'Table Themes', onClick: onOpenTableThemes },
-  ]
+  const name = profile?.username || user?.email?.split('@')[0]
   return (
-    <div className="min-h-full flex flex-col items-center px-6 py-6 text-center relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(167,139,250,0.18), transparent 60%)' }} />
+    <div className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-ink">
+      {/* key art: a seamless 5s loop (sun shimmer, drifting mist), poster-first */}
+      <HeroArt />
+      <div className="fixed inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgb(11 10 8 / 0.05) 0%, rgb(11 10 8 / 0.2) 45%, rgb(11 10 8 / 0.85) 76%, #0b0a08 100%)' }} />
+      <div
+        className="fixed inset-x-[-10%] top-[30%] h-40 pointer-events-none opacity-40"
+        style={{ background: 'radial-gradient(50% 50% at 50% 50%, rgb(243 234 219 / 0.25), transparent 70%)', filter: 'blur(20px)', animation: 'mistDrift 14s ease-in-out infinite alternate' }}
+      />
 
-      <div className="w-full flex items-center justify-between flex-wrap gap-y-2 max-w-3xl mb-10 relative z-10">
-        <div className="flex items-center gap-2 font-display font-bold text-sm sm:text-base whitespace-nowrap shrink-0">
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0" style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', color: '#000' }}>
-            ♠
-          </span>
-          Amaterasuu <span style={{ color: '#818cf8' }}>Noir</span> Spades
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-          <button onClick={onOpenDeckThemes} title="Deck Themes" aria-label="Deck Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
-            <Layers className="w-4 h-4" />
-          </button>
-          <button onClick={onOpenTableThemes} title="Table Themes" aria-label="Table Themes" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
-            <Palette className="w-4 h-4" />
-          </button>
-          <button onClick={onOpenRules} title="Game Rules" aria-label="Game Rules" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 shrink-0">
-            <Sliders className="w-4 h-4" />
-          </button>
+      <div className="relative min-h-full flex flex-col max-w-xl mx-auto px-5 pb-[calc(2rem+var(--safe-b))] pt-[calc(1rem+var(--safe-t))]">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow opacity-80">amaterasuu.com</span>
           {user ? (
-            <div style={avatar?.border ? borderStyle(avatar.border, 36) : undefined} className="shrink-0">
-              <button
-                onClick={onOpenProfile}
-                title="Profile"
-                aria-label="Profile"
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
-                style={avatar?.kind === 'emoji' ? { background: `${avatar.color}33`, border: `1px solid ${avatar.color}66` } : { background: 'rgba(99,102,241,0.3)' }}
-              >
-                {avatar?.kind === 'photo' ? (
-                  <img src={avatar.url} alt="" className="w-full h-full object-cover" />
-                ) : avatar ? (
-                  <span className="text-sm">{avatar.emoji}</span>
-                ) : (
-                  <User className="w-4 h-4 text-white/80" />
-                )}
-              </button>
-            </div>
+            <button onClick={onOpenProfile} className="flex items-center gap-2 panel-soft rounded-full pl-1 pr-3 py-1" aria-label="Profile">
+              <Avatar avatarUrl={profile?.avatar_url} size={32} />
+              <span className="text-[13px] font-semibold max-w-[110px] truncate">{name}</span>
+            </button>
           ) : (
-            <button
-              onClick={onOpenAuth}
-              title="Sign In"
-              aria-label="Sign In"
-              className="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 text-xs font-semibold whitespace-nowrap shrink-0"
-              style={{ background: 'linear-gradient(90deg,#a78bfa,#38bdf8)', color: '#0a0812' }}
-            >
-              <User className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Sign In</span>
+            <button onClick={onOpenAuth} className="btn btn-ghost !min-h-10 !px-4 !text-[13px]">
+              <LogIn className="w-4 h-4" /> Sign in
             </button>
           )}
         </div>
-      </div>
 
-      <div className="relative z-10 flex flex-col items-center max-w-md mt-4">
-        <div className="relative w-full flex items-end justify-center" style={{ height: 150 }}>
-          {FAN_CARDS.map((c, i) => {
-            const isUp = hoveredCard === i || pinnedCard === i
-            return (
-              <div
-                key={`${c.suit}${c.value}`}
-                className="absolute bottom-4 left-1/2 animate-fadeIn transition-transform duration-200 ease-out"
-                style={{
-                  transform: `translateX(-50%) translateX(${c.x}px) rotate(${isUp ? c.rotate * 0.4 : c.rotate}deg) translateY(${isUp ? -14 : 0}px) scale(${isUp ? 1.12 : 1})`,
-                  transformOrigin: 'bottom center',
-                  animationDelay: c.delay,
-                  zIndex: isUp ? 40 : i,
+        <div className="flex-1 flex flex-col items-center justify-end pt-[20vh] sm:pt-[16vh] pb-6 text-center">
+          <div className="relative h-[150px] w-[260px] mb-2">
+            {HERO_CARDS.map(({ card, r, x, y, d }) => (
+              <motion.div
+                key={card.id}
+                className="absolute left-1/2 top-0"
+                initial={{ opacity: 0, y: 60, rotate: 0, x: '-50%' }}
+                animate={{ opacity: 1, y: [y, y - 8, y], rotate: r, x: `calc(-50% + ${x}px)` }}
+                transition={{
+                  opacity: { delay: 0.2 + d * 0.15, duration: 0.5 },
+                  rotate: { delay: 0.2 + d * 0.15, type: 'spring', stiffness: 120, damping: 14 },
+                  x: { delay: 0.2 + d * 0.15, type: 'spring', stiffness: 120, damping: 14 },
+                  y: { delay: 1 + d, duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
                 }}
-                onMouseEnter={() => setHoveredCard(i)}
-                onMouseLeave={() => setHoveredCard((prev) => (prev === i ? null : prev))}
+                style={{ zIndex: card.value === 'Q' ? 3 : 2 }}
               >
-                <div className="hero-card-float" style={{ animationDelay: c.delay }}>
-                  <PlayingCard
-                    suit={c.suit}
-                    value={c.value}
-                    size="lg"
-                    accentColor={c.accentColor}
-                    selected={isUp}
-                    onClick={() => setPinnedCard((prev) => (prev === i ? null : i))}
-                  />
-                </div>
-              </div>
-            )
-          })}
+                <Card card={card} deck={HERO_DECK ?? deck} width={card.value === 'Q' ? 92 : 84} />
+              </motion.div>
+            ))}
+          </div>
+          <motion.h1
+            className="text-[46px] sm:text-[58px] font-extrabold leading-[0.95] leaf-shimmer"
+            initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            transition={{ delay: 0.35, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Amaterasuu
+          </motion.h1>
+          <motion.p
+            className="font-display tracking-[0.5em] text-[13px] sm:text-[15px] text-paper/85 mt-2 pl-[0.5em]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+          >
+            NOIR SPADES
+          </motion.p>
+          <motion.p className="text-[13.5px] text-muted mt-3 max-w-[320px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1, duration: 0.8 }}>
+            Spades with your people — online tables, sharp AI partners, gold-leaf decks.
+          </motion.p>
         </div>
-        <div
-          className="w-20 h-20 -mt-2 rounded-3xl flex items-center justify-center text-3xl mb-6 relative z-10 animate-float"
-          style={{ background: 'linear-gradient(135deg,#a78bfa,#38bdf8)', boxShadow: '0 0 60px rgba(167,139,250,0.5)', color: '#000' }}
-        >
-          ♠
-        </div>
-        <h1 className="font-display text-4xl sm:text-5xl font-extrabold leading-tight mb-3">
-          Amaterasuu <span style={{ background: 'linear-gradient(90deg,#a78bfa,#38bdf8)', WebkitBackgroundClip: 'text', color: 'transparent' }}>Noir</span> Spades
-        </h1>
-        <p className="text-white/50 text-sm mb-8">
-          The premium Spades experience on amaterasuu.com — compete, customize, conquer.
-        </p>
 
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="flex flex-col gap-2 mb-3">
           {rejoinableRoom && (
-            <button
-              onClick={onRejoin}
-              className="rounded-2xl py-3.5 font-semibold text-sm flex items-center justify-center gap-2 animate-pulseGlow"
-              style={{ background: 'linear-gradient(90deg,#22c55e,#4ade80)', color: '#0a0812' }}
-            >
-              <Undo2 className="w-4 h-4" /> Rejoin Game in Progress · {rejoinableRoom.code}
-            </button>
+            <motion.button onClick={onRejoin} className="btn btn-verm w-full" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
+              <RotateCcw className="w-4 h-4" /> Rejoin table {rejoinableRoom.code}
+            </motion.button>
           )}
-          <button
-            onClick={onPlayOnline}
-            className="rounded-2xl py-3.5 font-semibold text-sm"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.4)' }}
-          >
-            {user ? 'Play Now ♠' : 'Find a Match ♠'}
-          </button>
-          <button
-            onClick={onQuickGame}
-            className="rounded-2xl py-3.5 font-semibold text-sm flex items-center justify-center gap-2"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(56,189,248,0.4)' }}
-          >
-            <Sparkles className="w-4 h-4" /> Quick Game vs AI
-          </button>
+          {savedPractice && (
+            <motion.button onClick={onResumePractice} className="btn btn-ghost w-full !text-[14px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <RotateCcw className="w-4 h-4 text-gold" /> Resume practice · round {savedPractice.full.pub.round} · {savedPractice.full.pub.scores.A.total}–{savedPractice.full.pub.scores.B.total}
+            </motion.button>
+          )}
         </div>
 
-        {!user && <p className="text-white/25 text-xs mt-4">Sign in to save progress</p>}
+        <motion.div className="grid gap-2.5" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
+          <button onClick={onPlayOnline} className="btn btn-gold w-full !min-h-[56px] !text-[16px]">
+            <Users className="w-5 h-5" /> Play online
+          </button>
+          <button onClick={onPractice} className="btn btn-ghost w-full !min-h-[52px]">
+            <Bot className="w-5 h-5 text-gold" /> Practice vs AI
+          </button>
+          {!user && <p className="text-center text-[12px] text-faint">Sign in to play online and keep your stats.</p>}
+        </motion.div>
 
-        <div className="flex flex-wrap justify-center gap-2 mt-8 max-w-sm">
-          {PILLS.map(({ icon: Icon, label, onClick }) => (
-            <button
-              key={label}
-              onClick={onClick}
-              disabled={!onClick}
-              className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-white/50 transition-colors hover:bg-white/10 hover:text-white/75 disabled:cursor-default disabled:hover:bg-white/5 disabled:hover:text-white/50"
-            >
-              <Icon className="w-3 h-3" /> {label}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2.5 mt-6">
+          <Tile icon={Layers} label="Decks" sub="40 painted decks" onClick={onOpenDecks} delay={1.05} />
+          <Tile icon={Palette} label="Tables" sub="15 surfaces" onClick={onOpenTables} delay={1.1} />
+          <Tile icon={BookOpen} label="House rules" sub="Nil, bags, JD" onClick={onOpenRules} delay={1.15} />
+          <Tile icon={Trophy} label="Leaderboard" onClick={onOpenLeaderboard} delay={1.2} />
+          <Tile icon={Flame} label="Challenges" onClick={onOpenChallenges} delay={1.25} />
+          <Tile icon={User} label={user ? 'Profile' : 'Sign in'} onClick={user ? onOpenProfile : onOpenAuth} delay={1.3} />
         </div>
       </div>
     </div>

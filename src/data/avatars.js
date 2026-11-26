@@ -19,21 +19,38 @@ export const AVATAR_COLORS = [
 
 export const DEFAULT_AVATAR = { kind: 'emoji', emoji: '🎩', color: '#a78bfa', border: null }
 
-const BOT_AVATAR_EMOJIS = ['🤖', '👾', '🦾', '🎲', '🧠', '🔮', '🦉', '🐺', '🦊', '🐉', '🦁', '🧿', '⚙️', '🎯', '🐙']
 
 // A stable-per-name hash so the same bot always gets the same face across
 // renders and games, instead of a single generic robot icon for all of them
 // — makes a table of bots feel like distinct opponents rather than clones.
-export function botAvatar(name) {
-  const clean = (name ?? '').replace(/^[^\p{L}\p{N}]+/u, '').trim() || 'Bot'
+// Ink-and-gold animal medallions painted in Qalam (public/art/avatars).
+export const ART_AVATARS = [
+  'owl', 'kestrel', 'lion', 'crane', 'wolf', 'hare', 'tiger', 'fox',
+  'koi', 'dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'monkey', 'deer',
+].map((id) => ({ id, src: `/art/avatars/${id}.webp`, label: id[0].toUpperCase() + id.slice(1) }))
+
+const BOT_ART = { nyx: 'owl', kestrel: 'kestrel', osiris: 'lion', sora: 'crane', noctis: 'wolf', sakura: 'hare', kenji: 'tiger', hoshi: 'fox', ren: 'koi' }
+
+function nameHash(name) {
+  const clean = (name ?? '').replace(/^[^\p{L}\p{N}]+/u, '').replace(/ \(Bot\)$/, '').trim() || 'Bot'
   let hash = 0
   for (let i = 0; i < clean.length; i++) hash = (hash * 31 + clean.charCodeAt(i)) >>> 0
-  return {
-    kind: 'emoji',
-    emoji: BOT_AVATAR_EMOJIS[hash % BOT_AVATAR_EMOJIS.length],
-    color: AVATAR_COLORS[hash % AVATAR_COLORS.length],
-    border: null,
-  }
+  return { clean, hash }
+}
+
+// A stable illustrated face per bot name, so a table of bots reads as
+// distinct opponents rather than clones.
+export function botAvatar(name) {
+  const { clean, hash } = nameHash(name)
+  const id = BOT_ART[clean.toLowerCase()] ?? ART_AVATARS[hash % ART_AVATARS.length].id
+  return { kind: 'art', src: `/art/avatars/${id}.webp`, border: null }
+}
+
+// Players who never picked an avatar get a medallion chosen from their name.
+export function defaultArtAvatar(name) {
+  const { hash } = nameHash(name)
+  const pool = ['dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'monkey', 'deer', 'crane', 'koi', 'fox']
+  return { kind: 'art', src: `/art/avatars/${pool[hash % pool.length]}.webp`, border: null }
 }
 
 const PHOTO_SIZE = 160
@@ -88,6 +105,7 @@ export function parseAvatar(avatarUrl) {
   try {
     const parsed = JSON.parse(avatarUrl)
     if (parsed?.kind === 'photo' && parsed.url) return { kind: 'photo', url: parsed.url, border: parsed.border ?? null }
+    if (parsed?.kind === 'art' && parsed.src) return { kind: 'art', src: parsed.src, border: parsed.border ?? null }
     if (parsed?.emoji && parsed?.color) return { kind: 'emoji', emoji: parsed.emoji, color: parsed.color, border: parsed.border ?? null }
   } catch {
     // legacy/plain-string avatar_url values fall through to the default
@@ -96,6 +114,7 @@ export function parseAvatar(avatarUrl) {
 }
 
 export function serializeAvatar(avatar) {
+  if (avatar.kind === 'art') return JSON.stringify({ kind: 'art', src: avatar.src, border: avatar.border ?? null })
   if (avatar.kind === 'photo') {
     return JSON.stringify({ kind: 'photo', url: avatar.url, border: avatar.border ?? null })
   }

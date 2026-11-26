@@ -1,91 +1,166 @@
-import { useState } from 'react'
-import { X, Flame, Zap } from 'lucide-react'
+import { useId, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Check, Flame, Hourglass } from 'lucide-react'
+import Sheet from './ui/Sheet'
 import { WEEKLY_CHALLENGES } from '../data/challenges'
+
+const CARD = { background: 'rgb(243 234 219 / 0.03)', border: '1px solid rgb(212 166 74 / 0.22)' }
+const CARD_DONE = { background: 'linear-gradient(180deg, rgb(212 166 74 / 0.1), rgb(212 166 74 / 0.03))', border: '1px solid rgb(212 166 74 / 0.5)' }
+const TABS = [
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'season', label: 'Season' },
+]
+
+// Gold-leaf progress bar on a lacquer track.
+function Bar({ pct, delay = 0 }) {
+  return (
+    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgb(0 0 0 / 0.4)', boxShadow: 'inset 0 1px 2px rgb(0 0 0 / 0.6)' }}>
+      <motion.div
+        className="h-full rounded-full"
+        style={{ background: 'var(--gold-leaf)', boxShadow: '0 0 10px rgb(241 210 138 / 0.35)' }}
+        initial={{ width: 0 }}
+        animate={{ width: `${pct}%` }}
+        transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      />
+    </div>
+  )
+}
+
+function Tabs({ value, onChange }) {
+  const id = useId()
+  return (
+    <div role="tablist" aria-label="Challenge period" className="flex gap-1 p-1 rounded-[14px]" style={{ background: 'rgb(0 0 0 / 0.35)', border: '1px solid rgb(212 166 74 / 0.2)' }}>
+      {TABS.map((t) => {
+        const active = value === t.id
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.id)}
+            className="relative flex-1 min-h-11 rounded-[10px] text-[14px] font-bold transition-colors"
+            style={{ color: active ? '#1b1307' : 'rgb(243 234 219 / 0.62)' }}
+          >
+            {active && (
+              <motion.span
+                layoutId={`challenge-tab-${id}`}
+                className="absolute inset-0 rounded-[10px]"
+                style={{ background: 'var(--gold-leaf)', boxShadow: '0 6px 16px -8px rgb(212 166 74 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.5)' }}
+                transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+              />
+            )}
+            <span className="relative">{t.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function ChallengesModal({ onClose, user, progress = {} }) {
   const [tab, setTab] = useState('weekly')
   const completed = WEEKLY_CHALLENGES.filter((c) => (progress[c.id] ?? 0) >= c.target).length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="w-full sm:max-w-sm sm:rounded-2xl rounded-t-3xl p-5 max-h-[88vh] overflow-y-auto animate-fadeUp" style={{ background: 'rgba(12,10,20,0.98)', border: '1px solid rgba(251,146,60,0.25)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(251,146,60,0.15)' }}>
-              <Flame className="w-5 h-5 text-orange-400" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold">Challenges</h3>
-              <p className="text-xs text-white/40">6 days left this week</p>
-            </div>
+    <Sheet open onClose={onClose} eyebrow="Rewards" title="Challenges">
+      <div className="rounded-2xl p-4" style={CARD}>
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center"
+            style={{ background: 'radial-gradient(circle at 35% 30%, rgb(255 106 79 / 0.35), rgb(224 68 46 / 0.1) 70%)', border: '1px solid rgb(224 68 46 / 0.45)' }}
+          >
+            <Flame className="w-5 h-5 text-verm-hi" />
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="rounded-xl bg-white/5 px-4 py-3 mb-4 flex items-center gap-3">
-          <span className="text-[11px] tracking-widest text-white/40 font-semibold uppercase flex-1">This Week</span>
-          <span className="text-sm font-bold">{completed} / {WEEKLY_CHALLENGES.length}</span>
-          <Zap className="w-4 h-4 text-orange-400" />
-        </div>
-        <div className="h-1.5 rounded-full bg-white/10 mb-5 -mt-3 overflow-hidden">
-          <div className="h-full rounded-full bg-orange-400" style={{ width: `${(completed / WEEKLY_CHALLENGES.length) * 100}%` }} />
-        </div>
-
-        <div className="flex rounded-xl bg-white/5 p-1 mb-4">
-          {['weekly', 'season'].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="flex-1 rounded-lg py-2 text-xs font-semibold capitalize"
-              style={{ background: tab === t ? 'rgba(251,146,60,0.2)' : 'transparent', color: tab === t ? '#fdba74' : 'rgba(255,255,255,0.4)' }}
-            >
-              {t === 'season' ? '🏆 Season' : '📋 Weekly'}
-            </button>
-          ))}
-        </div>
-
-        {!user && (
-          <div className="rounded-xl bg-orange-400/10 border border-orange-400/20 text-center text-xs text-orange-200/80 py-2.5 mb-4">
-            Sign in to track challenge progress and claim rewards
+          <div className="flex-1 min-w-0">
+            <p className="eyebrow">This week</p>
+            <p className="text-[12.5px] text-muted mt-0.5">6 days left this week</p>
           </div>
-        )}
+          <p className="font-display font-extrabold tabular-nums leading-none">
+            <span className="gold-text text-[28px]">{completed}</span>
+            <span className="text-faint text-lg"> / {WEEKLY_CHALLENGES.length}</span>
+          </p>
+        </div>
+        <div className="mt-3.5">
+          <Bar pct={(completed / WEEKLY_CHALLENGES.length) * 100} />
+        </div>
+      </div>
 
+      <div className="mt-4">
+        <Tabs value={tab} onChange={setTab} />
+      </div>
+
+      {!user && (
+        <div className="mt-4 rounded-2xl px-4 py-3 text-center text-[13px] text-muted" style={{ background: 'rgb(212 166 74 / 0.07)', border: '1px solid rgb(212 166 74 / 0.3)' }}>
+          Sign in to track challenge progress and claim rewards
+        </div>
+      )}
+
+      <AnimatePresence mode="wait" initial={false}>
         {tab === 'weekly' ? (
-          <div className="flex flex-col gap-3">
-            {WEEKLY_CHALLENGES.map((c) => {
+          <motion.div
+            key="weekly"
+            className="flex flex-col gap-3 mt-4"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{ duration: 0.2 }}
+          >
+            {WEEKLY_CHALLENGES.map((c, i) => {
               const value = progress[c.id] ?? 0
               const pct = Math.min(100, (value / c.target) * 100)
+              const done = value >= c.target
               return (
-                <div key={c.id} className="rounded-xl bg-white/5 p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}22` }}>
+                <motion.div
+                  key={c.id}
+                  className="rounded-2xl p-4"
+                  style={done ? CARD_DONE : CARD}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 + i * 0.05, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center text-xl" style={{ background: 'rgb(0 0 0 / 0.35)', border: '1px solid rgb(212 166 74 / 0.22)' }}>
                       {c.icon}
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold">{c.title}</p>
-                      <p className="text-[11px] text-white/40">{c.description}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14.5px] font-bold text-paper">{c.title}</p>
+                      <p className="text-[12px] leading-snug text-muted">{c.description}</p>
                     </div>
-                    <span className="text-xs font-bold" style={{ color: c.color }}>
-                      {value} / {c.target}
+                    <span className="shrink-0 flex items-center gap-1 font-display font-bold text-[15px] tabular-nums text-gold-hi">
+                      {done && <Check className="w-4 h-4" aria-label="Complete" />}
+                      {value}
+                      <span className="text-faint"> / {c.target}</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
+                  <div className="mt-3">
+                    <Bar pct={pct} delay={0.1 + i * 0.05} />
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-white/30">
-                    <span className="uppercase tracking-widest">Reward</span>
-                    <span className="text-white/60 font-medium">{c.reward}</span>
+                  <div className="flex items-center justify-between mt-2.5">
+                    <span className="text-[10.5px] uppercase tracking-[0.2em] font-bold text-faint">Reward</span>
+                    <span className="text-[13px] font-semibold text-paper">{c.reward}</span>
                   </div>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
         ) : (
-          <p className="text-center text-white/30 text-sm py-8">Season challenges reset every 90 days. Check back soon.</p>
+          <motion.div
+            key="season"
+            className="flex flex-col items-center text-center gap-3 py-10"
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 12 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgb(212 166 74 / 0.08)', border: '1px solid rgb(212 166 74 / 0.3)' }}>
+              <Hourglass className="w-6 h-6 text-gold" />
+            </div>
+            <p className="text-[14px] text-muted max-w-[260px]">Season challenges reset every 90 days. Check back soon.</p>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+      <div aria-hidden="true" style={{ height: 'var(--safe-b)' }} />
+    </Sheet>
   )
 }

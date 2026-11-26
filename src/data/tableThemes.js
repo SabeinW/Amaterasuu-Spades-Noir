@@ -1,15 +1,18 @@
-// Static and GIF uploads for a custom table background — same reasoning as
-// the avatar uploader (see src/data/avatars.js): no Storage bucket, so the
-// image is downsampled and stored as a data: URI directly. A GIF is kept
-// as-is (no canvas pass) so it stays animated; a static image is capped on
-// its longer edge and re-encoded to keep the stored string small.
+// Tables and decks — the Sun & Ink lacquer revamp (Nov 2026).
+//
+// Every theme keeps its old `id` so a player's saved choice still resolves,
+// but each one now has its own painted art made in Qalam:
+//   tables → /art/tables/<id>.webp   (top-down surface, cover-fitted)
+//   decks  → /art/backs/<id>.webp    (card back), faces drawn in CSS with the
+//            illustrated court cards from /art/court/<washi|noir>/<card>.webp
+// The `art` text on each entry is the prompt motif it was painted from (see
+// scripts/art/prompts.mjs), so the picker description and the art agree.
+
+// ── Custom uploaded tables (unchanged behaviour) ───────────────────────────
 const TABLE_IMAGE_MAX_EDGE = 900
 const TABLE_IMAGE_QUALITY = 0.78
 const MAX_TABLE_IMAGE_BYTES = 550_000
 const MAX_TABLE_GIF_BYTES = 1_200_000
-// Everything here lands in localStorage as data: URIs, which shares a
-// browser's typical 5-10MB per-origin quota with the rest of this app's
-// saved preferences — cap how many a person can bank at once.
 export const MAX_CUSTOM_TABLES = 4
 
 export function fileToTableBackgroundDataUrl(file) {
@@ -39,8 +42,7 @@ export function fileToTableBackgroundDataUrl(file) {
       const canvas = document.createElement('canvas')
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, w, h)
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
       const dataUrl = canvas.toDataURL('image/jpeg', TABLE_IMAGE_QUALITY)
       if (dataUrl.length > MAX_TABLE_IMAGE_BYTES) {
         reject(new Error('That image is too large — try a different one.'))
@@ -56,500 +58,307 @@ export function fileToTableBackgroundDataUrl(file) {
   })
 }
 
-// A user can save several uploaded tables (not just one overwritable slot),
-// so each needs its own stable id — callers pass one when reconstructing a
-// saved entry, or omit it to mint a fresh one for a brand-new upload.
 export function customTableTheme(imageDataUrl, id = `custom-${Date.now()}`, name = 'Your Custom Table') {
   return {
     id,
     name,
     tag: 'CUSTOM',
     description: 'Your own uploaded image or GIF',
-    // A single `background` shorthand (not separate backgroundImage/-Size/
-    // -Position) so this works wherever a theme's `tableStyle` is consumed —
-    // some spots only pull `tableStyle.background` specifically.
-    tableStyle: {
-      background: `url(${imageDataUrl}) center / cover no-repeat`,
-      border: '1px solid rgba(255,255,255,0.12)',
-    },
-    centerGlow: 'radial-gradient(ellipse, rgba(0,0,0,0.35), transparent)',
-    accentColor: '#a78bfa',
+    image: imageDataUrl,
+    base: '#0b0a08',
+    accentColor: '#d4a64a',
     custom: true,
     imageDataUrl,
   }
 }
 
+// ── Tables ─────────────────────────────────────────────────────────────────
+const table = (id, name, tag, base, accentColor, art, description) => ({
+  id,
+  name,
+  tag,
+  base,
+  accentColor,
+  art,
+  description,
+  image: `/art/tables/${id}.webp`,
+  thumb: `/art/tables/thumb/${id}.webp`,
+})
+
 export const TABLE_THEMES = [
-  {
-    id: 'classic-felt',
-    name: 'Classic Felt Green',
-    tag: 'Default',
-    description: 'Traditional casino table warmth',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #1b4d3e 0%, #0d2a21 100%)', border: '1px solid rgba(255,255,255,0.08)' },
-    centerGlow: 'radial-gradient(ellipse, #22c55e33, transparent)',
-    accentColor: '#22c55e',
-  },
-  {
-    id: 'midnight-velvet',
-    name: 'Midnight Velvet',
-    tag: null,
-    description: 'Deep luxurious purple sophistication',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #2e1065 0%, #120629 100%)', border: '1px solid rgba(255,255,255,0.08)' },
-    centerGlow: 'radial-gradient(ellipse, #a855f733, transparent)',
-    accentColor: '#a855f7',
-  },
-  {
-    id: 'deep-space',
-    name: 'Deep Space Gradient',
-    tag: null,
-    description: 'Cosmic nebula, stars & infinity',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #0c4a6e 0%, #020617 100%)', border: '1px solid rgba(255,255,255,0.08)' },
-    centerGlow: 'radial-gradient(ellipse, #38bdf833, transparent)',
-    accentColor: '#38bdf8',
-  },
-  {
-    id: 'frosted-glass',
-    name: 'Frosted Glass Studio',
-    tag: null,
-    description: 'Light, airy & ultra-modern clarity',
-    tableStyle: { background: 'linear-gradient(160deg, #334155 0%, #1e293b 100%)', border: '1px solid rgba(255,255,255,0.12)' },
-    centerGlow: 'radial-gradient(ellipse, #ffffff22, transparent)',
-    accentColor: '#e2e8f0',
-  },
-  {
-    id: 'royal-crimson',
-    name: 'Royal Crimson',
-    tag: 'Premium',
-    description: 'Deep velvet red with silver luxury accents',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #7f1d1d 0%, #1f0a0a 100%)', border: '1px solid rgba(255,255,255,0.08)' },
-    centerGlow: 'radial-gradient(ellipse, #ef444433, transparent)',
-    accentColor: '#ef4444',
-  },
-  {
-    id: 'cyber-neon',
-    name: 'Cyber Neon',
-    tag: 'Premium',
-    description: 'Charcoal dark with hot pink & cyan grid lines',
-    tableStyle: { background: 'linear-gradient(160deg, #18181b 0%, #09090b 100%)', border: '1px solid rgba(236,72,153,0.25)' },
-    centerGlow: 'radial-gradient(ellipse, #ec489944, transparent)',
-    accentColor: '#ec4899',
-  },
+  table('sun-lacquer', 'Sun Lacquer', 'Signature', '#0b0a08', '#d4a64a',
+    'glossy black urushi lacquer with a faint hammered gold-leaf sun disc at the center and very thin gold rays, sparse gold-dust flecks',
+    'Black lacquer with a gold-leaf sun'),
+  table('classic-felt', 'Pine Felt', 'Classic', '#0f2a20', '#5f9e7d',
+    'deep forest-green wool felt with fine gold pine-needle embroidery around the outer edge',
+    'Green felt stitched with gold pine'),
+  table('midnight-velvet', 'Midnight Velvet', null, '#1d0f2e', '#a78bfa',
+    'deep purple crushed velvet with faint silver wisteria sprays near the edges',
+    'Purple velvet, silver wisteria'),
+  table('deep-space', 'Ink Night Sky', null, '#070b16', '#7aa2e3',
+    'sumi-e ink-wash night sky in deep blue-black with gold-dust stars and a soft milky band of mist',
+    'Ink-wash night with gold-dust stars'),
+  table('frosted-glass', 'Frosted Silver', null, '#22262b', '#cfd6dd',
+    'frosted silver-grey lacquer with snow-like silver flecks and a soft cool glow in the center',
+    'Silver-grey lacquer, frost flecks'),
+  table('royal-crimson', 'Royal Crimson', 'Premium', '#3a0d0a', '#e0442e',
+    'rich vermilion-red lacquer with a faint gold sun disc at the center and a thin gold band at the edges',
+    'Vermilion lacquer with a gold sun'),
+  table('cyber-neon', 'Neon Raden', 'Premium', '#09080c', '#ec4899',
+    'black lacquer with hot-pink and cyan mother-of-pearl (raden) inlay lines sweeping around the edges',
+    'Pink & cyan mother-of-pearl inlay'),
 ]
 
 export const MASTER_THEMES = [
-  {
-    id: 'obsidian-gold',
-    name: 'Obsidian Gold',
-    tag: 'LUXE',
-    description: 'Black obsidian with heavy metallic gold',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #1c1710 0%, #050403 100%)', border: '1px solid rgba(245,217,10,0.18)' },
-    centerGlow: 'radial-gradient(ellipse, #f5d90a33, transparent)',
-    accentColor: '#f5d90a',
-  },
-  {
-    id: 'royal-crimson-m',
-    name: 'Royal Crimson',
-    tag: 'ROYAL',
-    description: 'Deep velvet red with antique silver',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #6b1414 0%, #1a0505 100%)', border: '1px solid rgba(226,232,240,0.14)' },
-    centerGlow: 'radial-gradient(ellipse, #ef444433, transparent)',
-    accentColor: '#ef4444',
-  },
-  {
-    id: 'cyber-neon-m',
-    name: 'Cyber Neon',
-    tag: 'NEON',
-    description: 'Pure black with hot pink & cyan glow',
-    tableStyle: { background: 'linear-gradient(160deg, #0c0a12 0%, #030303 100%)', border: '1px solid rgba(236,72,153,0.3)' },
-    centerGlow: 'radial-gradient(ellipse, #ec489944, #22d3ee22, transparent)',
-    accentColor: '#ec4899',
-  },
-  {
-    id: 'classic-emerald',
-    name: 'Classic Emerald',
-    tag: 'CASINO',
-    description: 'Premium dark casino felt with white',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #064e3b 0%, #021410 100%)', border: '1px solid rgba(255,255,255,0.1)' },
-    centerGlow: 'radial-gradient(ellipse, #10b98133, transparent)',
-    accentColor: '#10b981',
-  },
-  {
-    id: 'arctic-frost-m',
-    name: 'Arctic Frost',
-    tag: 'FROST',
-    description: 'Icy blue with frosted glass clarity',
-    tableStyle: { background: 'linear-gradient(160deg, #0e2a3d 0%, #04121c 100%)', border: '1px solid rgba(125,211,252,0.2)' },
-    centerGlow: 'radial-gradient(ellipse, #7dd3fc33, transparent)',
-    accentColor: '#7dd3fc',
-  },
-  {
-    id: 'midnight-amethyst-m',
-    name: 'Midnight Amethyst',
-    tag: 'DARK',
-    description: 'Deep violet & indigo with silver glow',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #3b1e6e 0%, #0f0620 100%)', border: '1px solid rgba(167,139,250,0.2)' },
-    centerGlow: 'radial-gradient(ellipse, #a78bfa33, transparent)',
-    accentColor: '#a78bfa',
-  },
-  {
-    id: 'inferno-amber',
-    name: 'Inferno Amber',
-    tag: 'FIRE',
-    description: 'Smoldering dark red/orange with black',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #7c2d12 0%, #1a0a02 100%)', border: '1px solid rgba(249,115,22,0.2)' },
-    centerGlow: 'radial-gradient(ellipse, #f9731633, transparent)',
-    accentColor: '#f97316',
-  },
-  {
-    id: 'midnight-galaxy',
-    name: 'Midnight Galaxy',
-    tag: 'GALAXY',
-    description: 'Matte black with holographic accents',
-    tableStyle: { background: 'radial-gradient(ellipse at center, #1e1b4b 0%, #020617 100%)', border: '1px solid rgba(129,140,248,0.2)' },
-    centerGlow: 'radial-gradient(ellipse, #818cf833, #ec489922, transparent)',
-    accentColor: '#818cf8',
-  },
+  table('obsidian-gold', 'Obsidian Gold', 'LUXE', '#0a0806', '#d4a64a',
+    'polished black obsidian with a heavy hammered gold-leaf band framing the edges',
+    'Black obsidian, heavy gold leaf'),
+  table('royal-crimson-m', 'Crimson Silk', 'ROYAL', '#2a0607', '#e0442e',
+    'deep crimson silk brocade with a subtle antique-silver cloud pattern',
+    'Crimson silk with silver clouds'),
+  table('cyber-neon-m', 'Neon Rain', 'NEON', '#06060a', '#22d3ee',
+    'rain-wet black lacquer with soft abstract streaks of pink and cyan light reflected in it',
+    'Rain-wet lacquer, neon streaks'),
+  table('classic-emerald', 'Emerald Lacquer', 'CLASSIC', '#062018', '#34d399',
+    'deep emerald-green lacquer with gold cloud scrolls in the corners',
+    'Emerald lacquer, gold clouds'),
+  table('arctic-frost-m', 'Arctic Frost', 'FROST', '#0b1d2b', '#7dd3fc',
+    'icy blue lacquer with delicate silver frost-crystal patterns spreading from the edges',
+    'Ice-blue lacquer, frost crystals'),
+  table('midnight-amethyst-m', 'Midnight Amethyst', 'DARK', '#170b2a', '#a78bfa',
+    'violet-indigo lacquer with fine silver star dust',
+    'Violet lacquer, silver star dust'),
+  table('inferno-amber', 'Kintsugi Ember', 'FIRE', '#140703', '#f97316',
+    'cracked black lacquer repaired with glowing amber-gold kintsugi seams running across the surface',
+    'Black lacquer, glowing gold seams'),
+  table('midnight-galaxy', 'Midnight Galaxy', 'GALAXY', '#05060f', '#818cf8',
+    'matte black lacquer with a faint iridescent violet-and-teal galaxy haze and tiny gold stars',
+    'Matte black, iridescent haze'),
 ]
+
+// ── Decks ──────────────────────────────────────────────────────────────────
+// face: card stock ('washi' warm paper | 'ivory' bright paper | 'noir' black lacquer)
+// ink:  suit colours; court: which illustrated court set the face uses.
+export const INK = {
+  sumi: '#1a1714',
+  verm: '#c8321f',
+  ochre: '#a8741a',
+  jade: '#2c7a55',
+  silver: '#efe6d6',
+}
+const fourColour = { S: INK.sumi, H: INK.verm, D: INK.ochre, C: INK.jade }
+const twoColour = { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }
+
+const deck = (id, name, tag, family, opts) => ({
+  id,
+  name,
+  tag,
+  family,
+  face: opts.face ?? 'washi',
+  ink: opts.ink ?? fourColour,
+  edge: opts.edge ?? '#d4a64a',
+  court: opts.court ?? ((opts.face ?? 'washi') === 'noir' ? 'noir' : 'washi'),
+  // Which illustrated J/Q/K/Joker set the faces use (subfolder of /art/court).
+  courtSet: opts.courtSet ?? null,
+  backTint: opts.backTint ?? '#0b0a08',
+  art: opts.art,
+  description: opts.description,
+  backImage: `/art/backs/${id}.webp`,
+  // Legacy shape some older components still read.
+  back: { from: opts.backTint ?? '#0b0a08', to: '#050403', border: opts.edge ?? '#d4a64a' },
+})
+
+const noirInk = (accent) => ({ S: INK.silver, C: INK.silver, H: accent, D: accent })
+const paperMetalInk = (metal) => ({ S: INK.sumi, C: INK.sumi, H: metal, D: metal })
 
 export const DECK_THEMES = [
-  {
-    id: 'noir-classic',
-    name: 'Noir Classic',
-    description: 'Dark violet neon glow, purple-blue gradient backs',
-    back: { from: '#7c3aed', to: '#1e1b4b', border: '#a78bfa88' },
-  },
-  {
-    id: 'crimson-royale',
-    name: 'Crimson Royale',
-    description: 'Deep red backs with gold filigree, crimson neon glow',
-    back: { from: '#b91c1c', to: '#3f0d0d', border: '#facc1599' },
-  },
-  {
-    id: 'arctic-frost',
-    name: 'Arctic Frost',
-    description: 'Icy blue backs, frosted cyan neon glow',
-    back: { from: '#38bdf8', to: '#0f172a', border: '#7dd3fc99' },
-  },
-  {
-    id: 'emerald-casino',
-    name: 'Emerald Casino',
-    description: 'Classic green felt backs, emerald neon glow',
-    back: { from: '#16a34a', to: '#052e1a', border: '#4ade8099' },
-  },
-  {
-    id: 'obsidian-gold',
-    name: 'Obsidian Gold',
-    description: 'Black backs with metallic gold trim, gold neon glow',
-    back: { from: '#1c1917', to: '#000000', border: '#f5d90aa0' },
-  },
-  {
-    id: 'cyber-neon',
-    name: 'Cyber Neon',
-    description: 'Hot pink & cyan grid backs, hot pink neon glow',
-    back: { from: '#ec4899', to: '#0f172a', border: '#22d3ee99' },
-  },
-  {
-    id: 'royal-sapphire',
-    name: 'Royal Sapphire',
-    description: 'Deep sapphire blue backs, sapphire neon glow',
-    back: { from: '#1d4ed8', to: '#0b1230', border: '#93c5fd99' },
-  },
-  {
-    id: 'midnight-amethyst',
-    name: 'Midnight Amethyst',
-    description: 'Violet-indigo backs, amethyst neon glow',
-    back: { from: '#6d28d9', to: '#170b2e', border: '#c4b5fd99' },
-  },
-  {
-    id: 'inferno-amber',
-    name: 'Inferno Amber',
-    description: 'Smoldering orange embers on black, amber neon glow',
-    back: { from: '#ea580c', to: '#1a0a02', border: '#fb923c99' },
-  },
-  {
-    id: 'rose-quartz',
-    name: 'Rose Quartz',
-    description: 'Blush pink backs with rose-gold trim, rose neon glow',
-    back: { from: '#f472b6', to: '#3f0f28', border: '#fbcfe899' },
-  },
-  {
-    id: 'platinum-silver',
-    name: 'Platinum Silver',
-    description: 'Cool metallic silver backs, silver neon glow',
-    back: { from: '#94a3b8', to: '#1e293b', border: '#e2e8f0aa' },
-  },
-  {
-    id: 'jade-imperial',
-    name: 'Jade Imperial',
-    description: 'Imperial jade green with gold filigree, jade neon glow',
-    back: { from: '#0d9488', to: '#052e2b', border: '#facc1590' },
-  },
-  {
-    id: 'galaxy-holo',
-    name: 'Galaxy Holo',
-    description: 'Indigo-black backs with holographic shimmer, indigo neon glow',
-    back: { from: '#4338ca', to: '#020617', border: '#818cf8aa' },
-  },
+  deck('sun-court', 'Sun Court', 'New', 'standard', {
+    ink: twoColour, backTint: '#0b0a08', courtSet: 'sun-court',
+    art: 'a large hammered gold-leaf sun with a vermilion inner disc, ringed by gold interlocking-circle (shippo) pattern on black lacquer, gold chrysanthemum corners',
+    description: 'Black royals in silk court robes, ink and gold leaf',
+  }),
+  deck('sun-ink', 'Sun & Ink', 'Signature', 'standard', {
+    ink: twoColour, backTint: '#0b0a08',
+    art: 'a hammered gold-leaf sun disc at the center with fine radiating rays on glossy black lacquer, bands of gold seigaiha waves top and bottom, a tiny vermilion dot at the sun\'s center',
+    description: 'Gold-leaf sun on black lacquer, washi faces',
+  }),
+  deck('noir-classic', 'Noir Classic', null, 'standard', {
+    backTint: '#0b0a08',
+    art: 'a fine gold asanoha (hemp-leaf) geometric lattice over glossy black lacquer with a small vermilion sun disc at the center',
+    description: 'Gold hemp-leaf lattice on black',
+  }),
+  deck('crimson-royale', 'Crimson Royale', null, 'standard', {
+    backTint: '#8f1d12', edge: '#e0442e',
+    art: 'vermilion-red lacquer with ornate gold filigree scrollwork and stylised camellia blossoms',
+    description: 'Vermilion lacquer, gold filigree',
+  }),
+  deck('arctic-frost', 'Arctic Frost', null, 'standard', {
+    backTint: '#1b2a4a', edge: '#9cc7f0',
+    art: 'deep indigo lacquer with silver snowflake-ring crests (yukiwa) and fine silver wave lines',
+    description: 'Indigo lacquer, silver snow crests',
+  }),
+  deck('emerald-casino', 'Emerald Pine', null, 'standard', {
+    backTint: '#0f3a29', edge: '#5f9e7d',
+    art: 'deep green lacquer with a symmetric gold pine-branch pattern',
+    description: 'Green lacquer, gold pine branches',
+  }),
+  deck('obsidian-gold', 'Obsidian Gold', null, 'standard', {
+    backTint: '#0a0806',
+    art: 'polished black obsidian lacquer with a heavy hammered gold-leaf frame and a central gold crest of interlocking circles (shippo)',
+    description: 'Black obsidian, heavy gold crest',
+  }),
+  deck('cyber-neon', 'Neon Raden', null, 'standard', {
+    backTint: '#120914', edge: '#ec4899',
+    art: 'black lacquer with iridescent hot-pink and cyan mother-of-pearl (raden) inlay in a symmetric wave pattern',
+    description: 'Pink & cyan mother-of-pearl inlay',
+  }),
+  deck('royal-sapphire', 'Royal Sapphire', null, 'standard', {
+    backTint: '#13245c', edge: '#93c5fd',
+    art: 'sapphire-blue lacquer with gold seigaiha waves covering the field',
+    description: 'Sapphire lacquer, gold waves',
+  }),
+  deck('midnight-amethyst', 'Midnight Amethyst', null, 'standard', {
+    backTint: '#2a1450', edge: '#c4b5fd',
+    art: 'violet-indigo lacquer with cascading silver wisteria sprays mirrored top and bottom',
+    description: 'Violet lacquer, silver wisteria',
+  }),
+  deck('inferno-amber', 'Inferno Amber', null, 'standard', {
+    backTint: '#3a1405', edge: '#fb923c',
+    art: 'black lacquer with drifting orange ember flecks and gold flame scrolls rising from the bottom and mirrored at the top',
+    description: 'Embers and gold flame scrolls',
+  }),
+  deck('rose-quartz', 'Rose Quartz', null, 'standard', {
+    backTint: '#5a2238', edge: '#f9a8d4',
+    art: 'blush-pink lacquer with rose-gold cherry blossoms and fine rose-gold lines',
+    description: 'Blush lacquer, rose-gold blossoms',
+  }),
+  deck('platinum-silver', 'Platinum Silver', null, 'standard', {
+    backTint: '#3b4048', edge: '#e2e8f0',
+    art: 'brushed silver-grey lacquer with a fine platinum kumiko woodwork lattice',
+    description: 'Silver lacquer, kumiko lattice',
+  }),
+  deck('jade-imperial', 'Jade Imperial', null, 'standard', {
+    backTint: '#0c3b35', edge: '#facc15',
+    art: 'imperial jade-green lacquer with gold auspicious cloud scrolls',
+    description: 'Jade lacquer, gold cloud scrolls',
+  }),
+  deck('galaxy-holo', 'Galaxy Holo', null, 'standard', {
+    backTint: '#14123a', edge: '#a5b4fc',
+    art: 'deep indigo-black lacquer with a field of gold-dust stars and a silver crescent moon at the center',
+    description: 'Gold-dust stars and a silver moon',
+  }),
 ]
 
-// Master decks use a real card-stock face (`face`: 'white' | 'black') with a
-// `metal` accent for the border, ink, and suit trim — instead of the
-// standard decks' dark neon-tinted face — for an actual premium card
-// material look rather than a glowing translucent one.
 export const MASTER_DECK_THEMES = [
-  {
-    id: 'inferno-blaze-m',
-    name: 'Inferno Blaze',
-    tag: 'FIRE',
-    description: 'Matte black card stock, molten orange-gold metal trim',
-    face: 'black',
-    metal: '#f97316',
-    back: { from: '#dc2626', to: '#1a0502', border: '#f97316cc' },
-  },
-  {
-    id: 'glacier-frost-m',
-    name: 'Glacier Frost',
-    tag: 'FROST',
-    description: 'Frosted white card stock, polished ice-blue metal trim',
-    face: 'white',
-    metal: '#0ea5e9',
-    back: { from: '#67e8f9', to: '#031a26', border: '#a5f3fcdd' },
-  },
-  {
-    id: 'onyx-sovereign-m',
-    name: 'Onyx Sovereign',
-    tag: 'LUXE',
-    description: 'Polished black onyx card stock, heavy 24k gold trim',
-    face: 'black',
-    metal: '#f5d90a',
-    back: { from: '#0a0a0a', to: '#000000', border: '#f5d90ac0' },
-  },
-  {
-    id: 'venom-toxic-m',
-    name: 'Venom Toxic',
-    tag: 'TOXIC',
-    description: 'Matte black card stock, radioactive acid-green metal trim',
-    face: 'black',
-    metal: '#84cc16',
-    back: { from: '#84cc16', to: '#0a1400', border: '#bef264cc' },
-  },
-  {
-    id: 'imperial-amethyst-m',
-    name: 'Imperial Amethyst',
-    tag: 'ROYAL',
-    description: 'Ivory-white card stock, deep royal purple metal trim',
-    face: 'white',
-    metal: '#9333ea',
-    back: { from: '#7e22ce', to: '#170626', border: '#facc15aa' },
-  },
-  {
-    id: 'blood-moon-m',
-    name: 'Blood Moon',
-    tag: 'CRIMSON',
-    description: 'Eclipse-black card stock, blood-crimson metal trim',
-    face: 'black',
-    metal: '#ef4444',
-    back: { from: '#991b1b', to: '#0d0000', border: '#fca5a5cc' },
-  },
-  {
-    id: 'solar-flare-m',
-    name: 'Solar Flare',
-    tag: 'SOLAR',
-    description: 'Radiant white card stock, amber-gold metal trim',
-    face: 'white',
-    metal: '#f59e0b',
-    back: { from: '#fbbf24', to: '#1a0f00', border: '#fde68acc' },
-  },
-  {
-    id: 'abyssal-tide-m',
-    name: 'Abyssal Tide',
-    tag: 'OCEAN',
-    description: 'Deep-sea black card stock, bioluminescent cyan metal trim',
-    face: 'black',
-    metal: '#22d3ee',
-    back: { from: '#0e7490', to: '#020a12', border: '#67e8f9cc' },
-  },
-  {
-    id: 'rose-gold-elite-m',
-    name: 'Rose Gold Elite',
-    tag: 'ELITE',
-    description: 'Satin white card stock, luxury rose-gold metal trim',
-    face: 'white',
-    metal: '#e0a899',
-    back: { from: '#fb7185', to: '#2a0a12', border: '#fbcfe8cc' },
-  },
-  {
-    id: 'shadow-viper-m',
-    name: 'Shadow Viper',
-    tag: 'STEALTH',
-    description: 'Matte graphite card stock, venomous green metal trim',
-    face: 'black',
-    metal: '#4ade80',
-    back: { from: '#134e2a', to: '#050805', border: '#4ade80cc' },
-  },
+  deck('inferno-blaze-m', 'Inferno Blaze', 'FIRE', 'master', {
+    face: 'noir', ink: noirInk('#f97316'), edge: '#f97316', backTint: '#2a0a02',
+    art: 'molten orange-gold flame waves rolling across black lacquer, mirrored top and bottom',
+    description: 'Black stock, molten orange-gold',
+  }),
+  deck('glacier-frost-m', 'Glacier Frost', 'FROST', 'master', {
+    face: 'ivory', ink: paperMetalInk('#0e7fb8'), edge: '#38bdf8', backTint: '#0c2a3a',
+    art: 'pale ice-blue lacquer with silver frost crystals spreading from the center',
+    description: 'Bright stock, polished ice-blue',
+  }),
+  deck('onyx-sovereign-m', 'Onyx Sovereign', 'LUXE', 'master', {
+    face: 'noir', ink: noirInk('#e8c066'), edge: '#d4a64a', backTint: '#050403',
+    art: 'polished black onyx with a heavy 24k gold-leaf border and a large ornate gold medallion at the center',
+    description: 'Black onyx, heavy 24k gold',
+  }),
+  deck('venom-toxic-m', 'Venom Toxic', 'TOXIC', 'master', {
+    face: 'noir', ink: noirInk('#a3e635'), edge: '#84cc16', backTint: '#0a1400',
+    art: 'black lacquer with acid-green scale-pattern (uroko triangles) glowing softly',
+    description: 'Black stock, acid-green scales',
+  }),
+  deck('imperial-amethyst-m', 'Imperial Amethyst', 'ROYAL', 'master', {
+    face: 'ivory', ink: paperMetalInk('#7e22ce'), edge: '#a855f7', backTint: '#2a0c44',
+    art: 'deep royal-purple lacquer with gold paulownia-leaf crests in a symmetric arrangement',
+    description: 'Bright stock, royal purple and gold',
+  }),
+  deck('blood-moon-m', 'Blood Moon', 'CRIMSON', 'master', {
+    face: 'noir', ink: noirInk('#ef4444'), edge: '#ef4444', backTint: '#1a0202',
+    art: 'black lacquer with a large crimson moon disc at the center veiled by thin silver cloud wisps',
+    description: 'Black stock, crimson moon',
+  }),
+  deck('solar-flare-m', 'Solar Flare', 'SOLAR', 'master', {
+    face: 'ivory', ink: paperMetalInk('#c2410c'), edge: '#f59e0b', backTint: '#3a2200',
+    art: 'a radiant amber-gold sun bursting outward across a black-to-amber lacquer gradient',
+    description: 'Bright stock, amber-gold sunburst',
+  }),
+  deck('abyssal-tide-m', 'Abyssal Tide', 'OCEAN', 'master', {
+    face: 'noir', ink: noirInk('#22d3ee'), edge: '#22d3ee', backTint: '#021018',
+    art: 'deep-sea black lacquer with curling bioluminescent cyan wave crests',
+    description: 'Black stock, bioluminescent waves',
+  }),
+  deck('rose-gold-elite-m', 'Rose Gold Elite', 'ELITE', 'master', {
+    face: 'ivory', ink: paperMetalInk('#be5a6a'), edge: '#e0a899', backTint: '#3a1520',
+    art: 'satin blush lacquer with overlapping rose-gold folding-fan (ogi) shapes',
+    description: 'Bright stock, rose-gold fans',
+  }),
+  deck('shadow-viper-m', 'Shadow Viper', 'STEALTH', 'master', {
+    face: 'noir', ink: noirInk('#4ade80'), edge: '#4ade80', backTint: '#07120a',
+    art: 'graphite lacquer with dark green bamboo stalks and leaves in shadow, edged in venom-green light',
+    description: 'Graphite stock, green bamboo shadows',
+  }),
 ]
 
-// OG's: true classic black/red suit ink on real white or black card stock —
-// no neon tint, no colored suit reassignment, just high-quality traditional
-// playing cards with a premium back design.
 export const OG_DECK_THEMES = [
-  {
-    id: 'og-vegas-white',
-    name: 'Vegas White',
-    tag: 'VEGAS',
-    description: 'Classic white card stock, deep casino-red gold-trimmed back',
-    face: 'white',
-    classicColors: true,
-    metal: '#facc15',
-    back: { from: '#7f1d1d', to: '#450a0a', border: '#facc1599' },
-  },
-  {
-    id: 'og-casino-black',
-    name: 'Casino Black',
-    tag: 'CASINO',
-    description: 'Classic black card stock, sapphire-blue silver-trimmed back',
-    face: 'black',
-    classicColors: true,
-    metal: '#93c5fd',
-    back: { from: '#1e3a8a', to: '#0c1e4a', border: '#93c5fd99' },
-  },
-  {
-    id: 'og-parlor-ivory',
-    name: 'Parlor Ivory',
-    tag: 'PARLOR',
-    description: 'Classic ivory card stock, traditional forest-green back',
-    face: 'white',
-    classicColors: true,
-    metal: '#facc15',
-    back: { from: '#14532d', to: '#052e12', border: '#facc1590' },
-  },
-  {
-    id: 'og-midnight-noir',
-    name: 'Midnight Noir',
-    tag: 'NOIR',
-    description: 'Classic black card stock, graphite-silver back',
-    face: 'black',
-    classicColors: true,
-    metal: '#e2e8f0',
-    back: { from: '#27272a', to: '#09090b', border: '#e2e8f0aa' },
-  },
-  {
-    id: 'og-royal-burgundy',
-    name: 'Royal Burgundy',
-    tag: 'ROYAL',
-    description: 'Classic white card stock, ornate burgundy gold-trimmed back',
-    face: 'white',
-    classicColors: true,
-    metal: '#facc15',
-    back: { from: '#831843', to: '#3f0a1e', border: '#facc1599' },
-  },
-  {
-    id: 'og-ace-gold',
-    name: 'Ace Gold',
-    tag: 'GOLD',
-    description: 'Classic black card stock, antique gold-on-black back',
-    face: 'black',
-    classicColors: true,
-    metal: '#fde68a',
-    back: { from: '#a16207', to: '#1c1305', border: '#fde68a' },
-  },
+  deck('og-vegas-white', 'Vegas White', 'VEGAS', 'og', {
+    face: 'ivory', ink: twoColour, edge: '#d4a64a', backTint: '#6e1610',
+    art: 'deep red lacquer with a classic symmetric gold filigree playing-card pattern and gold border',
+    description: 'Classic red-and-gold back, white faces',
+  }),
+  deck('og-casino-black', 'Casino Black', 'CLASSIC', 'og', {
+    face: 'noir', ink: { S: INK.silver, C: INK.silver, H: '#ef4444', D: '#ef4444' }, edge: '#93c5fd', backTint: '#0f1e4a',
+    art: 'sapphire-navy lacquer with a classic fine silver lattice playing-card pattern',
+    description: 'Navy-and-silver back, black faces',
+  }),
+  deck('og-parlor-ivory', 'Parlor Ivory', 'PARLOR', 'og', {
+    face: 'washi', ink: twoColour, edge: '#d4a64a', backTint: '#123d22',
+    art: 'forest-green lacquer with a classic gold lattice playing-card pattern',
+    description: 'Forest-green back, ivory faces',
+  }),
+  deck('og-midnight-noir', 'Midnight Noir', 'NOIR', 'og', {
+    face: 'noir', ink: { S: INK.silver, C: INK.silver, H: '#ef4444', D: '#ef4444' }, edge: '#e2e8f0', backTint: '#18181b',
+    art: 'graphite lacquer with a classic silver lattice playing-card pattern',
+    description: 'Graphite-and-silver back, black faces',
+  }),
+  deck('og-royal-burgundy', 'Royal Burgundy', 'ROYAL', 'og', {
+    face: 'ivory', ink: twoColour, edge: '#d4a64a', backTint: '#5a0f2c',
+    art: 'burgundy lacquer with ornate gold damask and a gold border',
+    description: 'Burgundy damask back, white faces',
+  }),
+  deck('og-ace-gold', 'Ace Gold', 'GOLD', 'og', {
+    face: 'noir', ink: { S: '#f1d28a', C: '#f1d28a', H: '#ef4444', D: '#ef4444' }, edge: '#f1d28a', backTint: '#1c1305',
+    art: 'antique gold ornament on black lacquer, an ornate symmetric gold frame with a gold spade-shaped crest at the center',
+    description: 'Antique gold on black',
+  }),
 ]
 
-// Midnight family: every entry is Midnight Noir's exact matte-black
-// card-stock construction — the only thing that changes per theme is the
-// accent color, carried through the border, joker glow, AND the
-// hearts/diamonds ink itself (`suitInk`) instead of the classic red.
-// Spades/clubs stay on the same neutral silver-on-black used by Midnight
-// Noir, so the accent swap reads clearly against a constant baseline.
+const midnight = (id, name, tag, accent, motif) =>
+  deck(id, name, tag, 'midnight', {
+    face: 'noir', ink: noirInk(accent), edge: accent, backTint: '#09090b',
+    art: `black lacquer with a fine ${motif} drawn in thin glowing lines`,
+    description: `Black stock, ${name.replace('Midnight ', '').toLowerCase()} ink`,
+  })
+
 export const MIDNIGHT_DECK_THEMES = [
-  {
-    id: 'midnight-sapphire',
-    name: 'Midnight Sapphire',
-    tag: 'BLUE',
-    description: 'Midnight Noir\'s black card stock — sapphire-blue ink & trim instead of red',
-    face: 'black',
-    suitInk: '#3b82f6',
-    metal: '#3b82f6',
-    back: { from: '#1e3a5f', to: '#09090b', border: '#3b82f6aa' },
-  },
-  {
-    id: 'midnight-orchid',
-    name: 'Midnight Orchid',
-    tag: 'PURPLE',
-    description: 'Midnight Noir\'s black card stock — orchid-purple ink & trim instead of red',
-    face: 'black',
-    suitInk: '#a855f7',
-    metal: '#a855f7',
-    back: { from: '#3b1e5f', to: '#09090b', border: '#a855f7aa' },
-  },
-  {
-    id: 'midnight-jade',
-    name: 'Midnight Jade',
-    tag: 'GREEN',
-    description: 'Midnight Noir\'s black card stock — jade-green ink & trim instead of red',
-    face: 'black',
-    suitInk: '#22c55e',
-    metal: '#22c55e',
-    back: { from: '#14432b', to: '#09090b', border: '#22c55eaa' },
-  },
-  {
-    id: 'midnight-gold',
-    name: 'Midnight Gold',
-    tag: 'GOLD',
-    description: 'Midnight Noir\'s black card stock — antique-gold ink & trim instead of red',
-    face: 'black',
-    suitInk: '#f5d90a',
-    metal: '#f5d90a',
-    back: { from: '#4a3a0a', to: '#09090b', border: '#f5d90aaa' },
-  },
-  {
-    id: 'midnight-cyan',
-    name: 'Midnight Cyan',
-    tag: 'CYAN',
-    description: 'Midnight Noir\'s black card stock — electric-cyan ink & trim instead of red',
-    face: 'black',
-    suitInk: '#22d3ee',
-    metal: '#22d3ee',
-    back: { from: '#0e3a44', to: '#09090b', border: '#22d3eeaa' },
-  },
-  {
-    id: 'midnight-rose',
-    name: 'Midnight Rose',
-    tag: 'ROSE',
-    description: 'Midnight Noir\'s black card stock — hot-rose ink & trim instead of red',
-    face: 'black',
-    suitInk: '#ec4899',
-    metal: '#ec4899',
-    back: { from: '#4a1530', to: '#09090b', border: '#ec4899aa' },
-  },
-  {
-    id: 'midnight-ember',
-    name: 'Midnight Ember',
-    tag: 'AMBER',
-    description: 'Midnight Noir\'s black card stock — burning-ember ink & trim instead of red',
-    face: 'black',
-    suitInk: '#f97316',
-    metal: '#f97316',
-    back: { from: '#4a2410', to: '#09090b', border: '#f97316aa' },
-  },
-  {
-    id: 'midnight-teal',
-    name: 'Midnight Teal',
-    tag: 'TEAL',
-    description: 'Midnight Noir\'s black card stock — deep-teal ink & trim instead of red',
-    face: 'black',
-    suitInk: '#14b8a6',
-    metal: '#14b8a6',
-    back: { from: '#0f3d38', to: '#09090b', border: '#14b8a6aa' },
-  },
-  {
-    id: 'midnight-platinum',
-    name: 'Midnight Platinum',
-    tag: 'PLATINUM',
-    description: 'Midnight Noir\'s black card stock — icy-platinum ink & trim instead of red',
-    face: 'black',
-    suitInk: '#cbd5e1',
-    metal: '#cbd5e1',
-    back: { from: '#3a4048', to: '#09090b', border: '#cbd5e1aa' },
-  },
+  midnight('midnight-sapphire', 'Midnight Sapphire', 'BLUE', '#3b82f6', 'sapphire-blue seigaiha wave pattern'),
+  midnight('midnight-orchid', 'Midnight Orchid', 'PURPLE', '#a855f7', 'orchid-purple wisteria pattern'),
+  midnight('midnight-jade', 'Midnight Jade', 'GREEN', '#22c55e', 'jade-green bamboo pattern'),
+  midnight('midnight-gold', 'Midnight Gold', 'GOLD', '#f5c84a', 'gold asanoha hemp-leaf pattern'),
+  midnight('midnight-cyan', 'Midnight Cyan', 'CYAN', '#22d3ee', 'electric-cyan flowing water pattern'),
+  midnight('midnight-rose', 'Midnight Rose', 'ROSE', '#ec4899', 'hot-rose cherry-blossom pattern'),
+  midnight('midnight-ember', 'Midnight Ember', 'AMBER', '#f97316', 'ember-orange flame pattern'),
+  midnight('midnight-teal', 'Midnight Teal', 'TEAL', '#14b8a6', 'deep-teal pine-needle pattern'),
+  midnight('midnight-platinum', 'Midnight Platinum', 'PLATINUM', '#cbd5e1', 'platinum kumiko lattice pattern'),
+]
+
+export const ALL_DECKS = [...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
+export const ALL_TABLES = [...TABLE_THEMES, ...MASTER_THEMES]
+export const DECK_FAMILIES = [
+  { id: 'standard', label: 'Lacquer', decks: DECK_THEMES },
+  { id: 'master', label: 'Master', decks: MASTER_DECK_THEMES },
+  { id: 'og', label: "OG's", decks: OG_DECK_THEMES },
+  { id: 'midnight', label: 'Midnight', decks: MIDNIGHT_DECK_THEMES },
 ]

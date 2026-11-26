@@ -1,20 +1,49 @@
 @import "tailwindcss";
 
+/* ── Sun & Ink lacquer design system ───────────────────────────────────
+   Black urushi lacquer, hammered gold leaf, vermilion seals and warm washi
+   paper. Every screen pulls from these tokens; nothing outside this file
+   should hard-code a colour except per-theme art. */
+
+@theme {
+  --font-display: 'Shippori Mincho B1', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Zen Kaku Gothic New', 'Inter', system-ui, sans-serif;
+
+  --color-ink: #0b0a08;
+  --color-ink-2: #14110d;
+  --color-ink-3: #1d1913;
+  --color-ink-4: #2a241b;
+  --color-gold: #d4a64a;
+  --color-gold-hi: #f1d28a;
+  --color-gold-lo: #8a6a2b;
+  --color-verm: #e0442e;
+  --color-verm-hi: #ff6a4f;
+  --color-verm-lo: #9e2a1c;
+  --color-washi: #f4ebdd;
+  --color-washi-2: #e8dbc4;
+  --color-sumi: #1a1714;
+  --color-jade: #5f9e7d;
+  --color-indigo: #3d4f7c;
+  --color-paper: #f3eadb;
+  --color-muted: rgb(243 234 219 / 0.62);
+  --color-faint: rgb(243 234 219 / 0.36);
+}
+
 :root {
-  --bg-dark: #08060f;
-  --text-primary: rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.32);
-  --gold: #fbbf24;
-  --purple: #a78bfa;
-  --cyan: #38bdf8;
-  --error: #f87171;
-  --success: #4ade80;
   color-scheme: dark;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --gold-leaf: linear-gradient(135deg, #f6dc9a 0%, #d4a64a 38%, #a37a2c 62%, #f1d28a 100%);
+  --lacquer: radial-gradient(120% 90% at 50% 0%, #1d1913 0%, #0b0a08 60%, #050403 100%);
+  --hairline: rgb(212 166 74 / 0.28);
+  --hairline-soft: rgb(243 234 219 / 0.08);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
 }
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -22,14 +51,16 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
-  background: var(--bg-dark);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  background: #070605;
+  color: var(--color-paper);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
@@ -37,7 +68,22 @@ h2,
 h3,
 h4,
 .font-display {
-  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-hi);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(212 166 74 / 0.35);
 }
 
 ::-webkit-scrollbar {
@@ -45,108 +91,237 @@ h4,
   height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgb(212 166 74 / 0.25);
   border-radius: 999px;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
-  -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-@keyframes fadeUp {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
+/* ── Surfaces ─────────────────────────────────────────────────────────── */
+
+.lacquer {
+  background: var(--lacquer);
+}
+
+/* Fine paper grain for washi surfaces (pure CSS, no image request). */
+.washi {
+  background-color: var(--color-washi);
+  background-image:
+    radial-gradient(120% 80% at 30% 20%, rgb(255 255 255 / 0.55), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.36  0 0 0 0 0.24  0 0 0 0.10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.panel {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.035), transparent 40%),
+    linear-gradient(180deg, #17130f 0%, #0e0c09 100%);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    0 24px 60px -20px rgb(0 0 0 / 0.8),
+    inset 0 1px 0 rgb(241 210 138 / 0.12);
+}
+
+.panel-soft {
+  background: rgb(20 17 13 / 0.72);
+  border: 1px solid var(--hairline-soft);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.gold-text {
+  background: var(--gold-leaf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gold-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-gold) 20%, var(--color-gold-hi) 50%, var(--color-gold) 80%, transparent);
+  opacity: 0.6;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition:
+    transform 160ms var(--ease-out),
+    filter 160ms ease,
+    background 160ms ease,
+    box-shadow 200ms ease;
+  user-select: none;
+  cursor: pointer;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-gold {
+  color: #1b1307;
+  background: var(--gold-leaf);
+  background-size: 200% 200%;
+  box-shadow:
+    0 10px 26px -10px rgb(212 166 74 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    inset 0 -2px 0 rgb(0 0 0 / 0.18);
+}
+@media (hover: hover) {
+  .btn-gold:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow:
+      0 14px 34px -10px rgb(212 166 74 / 0.9),
+      inset 0 1px 0 rgb(255 255 255 / 0.6),
+      inset 0 -2px 0 rgb(0 0 0 / 0.18);
   }
-  100% {
+}
+
+.btn-verm {
+  color: #fff4ee;
+  background: linear-gradient(180deg, #ef5a41 0%, #c7361f 100%);
+  box-shadow:
+    0 10px 24px -10px rgb(224 68 46 / 0.8),
+    inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+
+.btn-ghost {
+  color: var(--color-paper);
+  background: rgb(243 234 219 / 0.04);
+  border: 1px solid var(--hairline);
+}
+@media (hover: hover) {
+  .btn-ghost:hover:not(:disabled) {
+    background: rgb(212 166 74 / 0.1);
+  }
+}
+
+.btn-icon {
+  min-height: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--color-gold-hi);
+  background: rgb(20 17 13 / 0.7);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(8px);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  background: rgb(243 234 219 / 0.05);
+  border: 1px solid var(--hairline-soft);
+}
+
+.field {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 1rem;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid var(--hairline);
+  color: var(--color-paper);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.field:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgb(212 166 74 / 0.18);
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 @keyframes fadeIn {
-  0% {
+  from {
     opacity: 0;
   }
-  100% {
+  to {
     opacity: 1;
   }
 }
-@keyframes rankPop {
-  0% {
-    opacity: 0;
-    transform: scale(0.4) translateY(10px);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.08) translateY(0);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-@keyframes pulseGlow {
+@keyframes sunBreath {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
-  }
-}
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-@keyframes cardFloat {
-  0% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(-12px) scale(1.02);
-  }
-  100% {
-    transform: translateY(0) scale(1);
-  }
-}
-@keyframes cardSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes dealCard {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  80% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes trickSweep {
-  0% {
-    opacity: 1;
     transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+@keyframes raysTurn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes leafShimmer {
+  0% {
+    background-position: 0% 50%;
   }
   100% {
-    opacity: 0;
-    transform: scale(0.8);
+    background-position: 200% 50%;
+  }
+}
+@keyframes turnPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(241 210 138 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(241 210 138 / 0);
+  }
+}
+@keyframes inkReveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.2;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
   }
 }
 @keyframes floatUpFade {
@@ -163,59 +338,39 @@ h4,
     transform: translateY(-70px) scale(1.1);
   }
 }
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
+@keyframes mistDrift {
+  from {
+    transform: translateX(-6%);
   }
-  100% {
-    background-position: 200% 0;
-  }
-}
-@keyframes heroCardFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
+  to {
+    transform: translateX(6%);
   }
 }
 
 .animate-fadeUp {
-  animation: fadeUp 0.5s ease both;
+  animation: fadeUp 0.45s var(--ease-out) both;
 }
 .animate-fadeIn {
-  animation: fadeIn 0.4s ease both;
+  animation: fadeIn 0.35s ease both;
 }
-.animate-float {
-  animation: float 4s ease-in-out infinite;
+.ink-reveal {
+  animation: inkReveal 0.9s var(--ease-out) both;
 }
-.animate-cardFloat {
-  animation: cardFloat 2.4s ease-in-out infinite;
-}
-.animate-pulseGlow {
-  animation: pulseGlow 2.2s ease-in-out infinite;
-}
-.hero-card-float {
-  animation: heroCardFloat 3.6s ease-in-out infinite;
+.leaf-shimmer {
+  background: linear-gradient(100deg, #a37a2c 0%, #f1d28a 20%, #d4a64a 40%, #fff1c9 50%, #d4a64a 60%, #a37a2c 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: leafShimmer 6s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-float,
-  .animate-cardFloat,
-  .animate-pulseGlow,
-  .hero-card-float {
-    animation: none !important;
-  }
-}
-
-/* Desktop-only card hover lift. Scoped to (hover: hover) so a tap on a
-   touchscreen never leaves a card stuck in a "hovered" look — touch devices
-   don't reliably fire mouseleave, so :hover alone would stick until the
-   next unrelated tap. `!important` is required to win over PlayingCard's
-   own inline `transform` (used for the click-to-select lift). */
-@media (hover: hover) and (pointer: fine) {
-  .pc-hover-card:hover:not(:disabled) {
-    transform: translateY(-8px) scale(1.05) !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
