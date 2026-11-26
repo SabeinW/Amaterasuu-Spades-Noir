@@ -8,6 +8,8 @@ const ProfileModal = lazy(() => import('./components/ProfileModal'))
 const LeaderboardModal = lazy(() => import('./components/LeaderboardModal'))
 import Lobby from './components/online/Lobby'
 const WaitingRoom = lazy(() => import('./components/online/WaitingRoom'))
+const CardGallery = lazy(() => import('./components/CardGallery'))
+const showGallery = new URLSearchParams(window.location.search).has('gallery')
 const OnlineTable = lazy(() => import('./components/table/Tables').then((m) => ({ default: m.OnlineTable })))
 const PracticeTable = lazy(() => import('./components/table/Tables').then((m) => ({ default: m.PracticeTable })))
 import { DeckPicker, TablePicker } from './components/ThemePickers'
@@ -15,7 +17,7 @@ import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './
 import { supabaseEnabled } from './lib/supabase'
 import { fetchRoom, joinTable } from './lib/online'
 import { clearSavedPractice, loadSavedPractice } from './game/useLocalGame'
-import { ALL_DECKS, ALL_TABLES, DECK_THEMES, TABLE_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
+import { ALL_DECKS, ALL_TABLES, DEFAULT_DECK, TABLE_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
 
 const PREFS_KEY = 'amaterasuu-noir-spades:preferences'
@@ -66,7 +68,7 @@ export default function App() {
   const [rules, setRules] = useState({ ...DEFAULT_GAME_RULES, ...prefs.gameSettings })
   const [customTables, setCustomTables] = useState(storedCustomTables(prefs))
   const [table, setTable] = useState(() => resolveTable(prefs.tableThemeId, storedCustomTables(prefs)))
-  const [deck, setDeck] = useState(() => ALL_DECKS.find((d) => d.id === prefs.deckThemeId) ?? DECK_THEMES[0])
+  const [deck, setDeck] = useState(() => ALL_DECKS.find((d) => d.id === prefs.deckThemeId) ?? DEFAULT_DECK)
   const [room, setRoom] = useState(null)
   const [rejoinable, setRejoinable] = useState(null)
   const [practice, setPractice] = useState(null) // { key, resume }
@@ -185,7 +187,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <Suspense fallback={<div className="fixed inset-0 lacquer" />}>
-      {view === 'landing' && (
+      {showGallery && <CardGallery />}
+      {view === 'landing' && !showGallery && (
         <Landing
           user={user}
           profile={profile}

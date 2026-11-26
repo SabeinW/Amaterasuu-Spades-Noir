@@ -20,7 +20,7 @@ const tablePrompt = (t) =>
 const items =
   kind === 'tables'
     ? ALL_TABLES.map((t) => ({ name: t.id, model: 'gpt-image-2.6', settings: { aspectRatio: '1:1', quality: 'high' }, prompt: tablePrompt(t) }))
-    : ALL_DECKS.filter((d) => d.id !== 'sun-ink' && d.id !== 'sun-court').map((d) => ({
+    : ALL_DECKS.filter((d) => d.id !== 'sun-ink' && d.family !== 'mythic').map((d) => ({
         name: d.id,
         model: 'gpt-image-2.6',
         settings: { aspectRatio: '3:4', quality: 'high' },

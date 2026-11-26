@@ -1,23 +1,30 @@
-// One playing card in the Sun & Ink style. Pure presentation: size comes
-// from `width` (height is 1.4×), look from the deck theme.
-import { memo } from 'react'
+// One playing card. Pure presentation: size comes from `width` (height is
+// 1.4×); the look comes from the deck theme and its card family (see
+// data/cardFamilies.js): paper, metal trim, illustrated court + Ace of
+// Spades, number-card emblem or classic pips, and a living effect on the
+// picture cards.
+import { memo, useState } from 'react'
 import Suit from './Suit'
-import { DECK_THEMES } from '../../data/tableThemes'
+import Motif from './Motif'
+import CardFx from './CardFx'
+import { ALL_DECKS } from '../../data/tableThemes'
+import { courtImage, familyOf } from '../../data/cardFamilies'
 
-const DEFAULT_DECK = DECK_THEMES[0]
-const COURT = new Set(['J', 'Q', 'K'])
+const DEFAULT_DECK = ALL_DECKS[0]
 
-const FACE = {
-  washi: { className: 'washi', ink: '#1a1714' },
-  ivory: { className: '', bg: 'linear-gradient(160deg,#fffdf8 0%,#f6f0e4 60%,#ece3d2 100%)', ink: '#14110d' },
-  noir: { className: '', bg: 'radial-gradient(120% 90% at 30% 0%,#2a241b 0%,#12100c 55%,#070605 100%)', ink: '#efe6d6' },
-}
+const NOIR_FACE = 'radial-gradient(120% 90% at 30% 0%,#2a241b 0%,#12100c 55%,#070605 100%)'
 
-export function courtArt(card, deck) {
-  const dir = deck?.courtSet ? `/art/court/${deck.courtSet}` : '/art/court'
-  if (card.suit === 'JOKER') return `${dir}/${card.value === 'BIG' ? 'JOKER_BIG' : 'JOKER_SMALL'}.webp`
-  if (COURT.has(card.value)) return `${dir}/${card.value}${card.suit}.webp`
-  return null
+// Classic pip positions (x%, y%) for 2–10; pips below the middle are flipped.
+const PIPS = {
+  2: [[50, 18], [50, 82]],
+  3: [[50, 18], [50, 50], [50, 82]],
+  4: [[30, 18], [70, 18], [30, 82], [70, 82]],
+  5: [[30, 18], [70, 18], [50, 50], [30, 82], [70, 82]],
+  6: [[30, 18], [70, 18], [30, 50], [70, 50], [30, 82], [70, 82]],
+  7: [[30, 18], [70, 18], [50, 34], [30, 50], [70, 50], [30, 82], [70, 82]],
+  8: [[30, 18], [70, 18], [50, 34], [30, 50], [70, 50], [50, 66], [30, 82], [70, 82]],
+  9: [[30, 16], [70, 16], [30, 38], [70, 38], [50, 50], [30, 62], [70, 62], [30, 84], [70, 84]],
+  10: [[30, 16], [70, 16], [50, 27], [30, 38], [70, 38], [30, 62], [70, 62], [50, 73], [30, 84], [70, 84]],
 }
 
 function CardBack({ width, deck, style, className }) {
@@ -39,7 +46,7 @@ function CardBack({ width, deck, style, className }) {
   )
 }
 
-function Index({ card, ink, width, flip, faceKind, onArt }) {
+function Index({ card, ink, width, flip, noir, onArt, classic }) {
   const isJoker = card.suit === 'JOKER'
   const rankSize = Math.max(10, width * (card.value === '10' ? 0.23 : 0.27))
   const suitSize = Math.max(8, width * 0.17)
@@ -47,6 +54,7 @@ function Index({ card, ink, width, flip, faceKind, onArt }) {
     <div
       className="absolute flex flex-col items-center leading-none"
       style={{
+        zIndex: 4,
         top: flip ? undefined : width * 0.05,
         left: flip ? undefined : width * 0.05,
         bottom: flip ? width * 0.05 : undefined,
@@ -54,20 +62,21 @@ function Index({ card, ink, width, flip, faceKind, onArt }) {
         transform: flip ? 'rotate(180deg)' : undefined,
         padding: onArt ? `${width * 0.03}px ${width * 0.025}px` : 0,
         borderRadius: width * 0.05,
-        background: onArt ? (faceKind === 'noir' ? 'rgb(12 10 8 / 0.86)' : 'rgb(248 241 229 / 0.9)') : undefined,
+        background: onArt ? (noir ? 'rgb(12 10 8 / 0.86)' : 'rgb(250 245 235 / 0.92)') : undefined,
+        boxShadow: onArt ? '0 1px 3px rgb(0 0 0 / 0.25)' : undefined,
         minWidth: width * 0.2,
       }}
     >
       {isJoker ? (
-        <span
-          className="font-display font-extrabold tracking-tight"
-          style={{ fontSize: Math.max(8, width * 0.13), color: ink, writingMode: 'vertical-rl', letterSpacing: '0.04em' }}
-        >
+        <span className="font-display font-extrabold tracking-tight" style={{ fontSize: Math.max(8, width * 0.13), color: ink, writingMode: 'vertical-rl', letterSpacing: '0.04em' }}>
           JOKER
         </span>
       ) : (
         <>
-          <span className="font-display font-extrabold" style={{ fontSize: rankSize, color: ink, letterSpacing: card.value === '10' ? '-0.06em' : 0 }}>
+          <span
+            className={classic ? 'font-extrabold' : 'font-display font-extrabold'}
+            style={{ fontSize: rankSize, color: ink, letterSpacing: card.value === '10' ? '-0.06em' : 0, fontFamily: classic ? 'Georgia, "Times New Roman", serif' : undefined }}
+          >
             {card.value}
           </span>
           <Suit suit={card.suit} color={ink} size={suitSize} style={{ marginTop: width * 0.015 }} />
@@ -77,72 +86,87 @@ function Index({ card, ink, width, flip, faceKind, onArt }) {
   )
 }
 
-function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel }) {
+function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false }) {
+  const [failed, setFailed] = useState(null)
   if (faceDown || !card) return <CardBack width={width} deck={deck} style={style} className={className} />
 
-  const face = FACE[deck.face] ?? FACE.washi
+  const fam = familyOf(deck)
+  const noir = deck.face === 'noir'
   const r = Math.max(4, width * 0.075)
   const isJoker = card.suit === 'JOKER'
-  const ink = isJoker ? (card.value === 'BIG' ? '#c8321f' : face.ink) : deck.ink?.[card.suit] ?? face.ink
-  const art = courtArt(card, deck)
-  const big = card.value === 'A'
+  const faceInk = noir ? '#efe6d6' : '#1a1714'
+  const ink = isJoker ? (card.value === 'BIG' ? '#c8321f' : faceInk) : deck.ink?.[card.suit] ?? faceInk
+  const metal = deck.edge ?? fam.metal
+  const wanted = courtImage(fam, card)
+  // If a family's painting is missing, fall back to the plain design.
+  const art = wanted && failed !== wanted ? wanted : null
+  const isAce = card.value === 'A'
+  const n = Number(card.value)
   const Tag = onClick ? 'button' : 'div'
+  const pipLayout = fam.pips && PIPS[n]
+  const living = !still && art && fam.effect && width >= 40
 
   return (
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`relative shrink-0 select-none overflow-hidden text-left ${face.className} ${className}`}
+      className={`relative shrink-0 select-none overflow-hidden text-left ${className}`}
       style={{
         width,
         height: width * 1.4,
         borderRadius: r,
-        background: face.bg,
+        background: noir ? NOIR_FACE : fam.paper,
         boxShadow: selected
-          ? `0 0 0 2px ${'#f1d28a'}, 0 14px 28px -8px rgb(212 166 74 / 0.75), 0 2px 4px rgb(0 0 0 / 0.4)`
-          : `0 0 0 1px ${deck.edge}66, 0 2px 3px rgb(0 0 0 / 0.35), 0 10px 20px -10px rgb(0 0 0 / 0.75)`,
+          ? '0 0 0 2px #f1d28a, 0 14px 28px -8px rgb(212 166 74 / 0.75), 0 2px 4px rgb(0 0 0 / 0.4)'
+          : `0 0 0 1px ${metal}66, 0 2px 3px rgb(0 0 0 / 0.35), 0 10px 20px -10px rgb(0 0 0 / 0.75)`,
         filter: dim ? 'brightness(0.55) saturate(0.6)' : undefined,
         transition: 'filter 180ms ease, box-shadow 180ms ease',
         ...style,
       }}
     >
-      {/* fine metal inner rule */}
-      <div className="absolute pointer-events-none" style={{ inset: width * 0.035, borderRadius: r * 0.7, border: `1px solid ${deck.edge}${deck.face === 'noir' ? '80' : '55'}` }} />
+      {/* paper grain on light stock */}
+      {!noir && <div className="absolute inset-0 washi opacity-40 mix-blend-multiply pointer-events-none" />}
+      {/* fine metal inner rule (double on classic) */}
+      <div className="absolute pointer-events-none" style={{ inset: width * 0.035, borderRadius: r * 0.7, border: `1px solid ${metal}${noir ? '90' : '70'}` }} />
+      {fam.pips && <div className="absolute pointer-events-none" style={{ inset: width * 0.055, borderRadius: r * 0.55, border: `1px solid ${metal}40` }} />}
 
       {art ? (
-        <div
-          className="absolute overflow-hidden washi"
-          style={{ inset: width * 0.06, borderRadius: r * 0.6, boxShadow: `0 0 0 1px ${deck.edge}88` }}
-        >
-          <img src={art} alt="" draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" style={{ objectPosition: '50% 18%' }} />
+        <div className="absolute overflow-hidden" style={{ inset: width * 0.06, borderRadius: r * 0.6, boxShadow: `0 0 0 1px ${metal}99`, background: fam.paper }}>
+          <img src={art} alt="" draggable={false} loading="lazy" decoding="async" onError={() => setFailed(art)} className="w-full h-full object-cover" style={{ objectPosition: card.value === 'A' ? '50% 50%' : '50% 18%' }} />
+          {living && <CardFx effect={fam.effect} id={`${deck.id}-${card.id}`} radius={r * 0.6} />}
+        </div>
+      ) : pipLayout ? (
+        <div className="absolute" style={{ inset: `${width * 0.12}px ${width * 0.2}px` }}>
+          {pipLayout.map(([x, y], i) => (
+            <Suit
+              key={i}
+              suit={card.suit}
+              color={ink}
+              size={width * 0.17}
+              style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, transform: `translate(-50%, -50%)${y > 50 ? ' rotate(180deg)' : ''}` }}
+            />
+          ))}
         </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
-          {big && (
-            <div
-              className="absolute rounded-full"
-              style={{
-                width: width * 0.62,
-                height: width * 0.62,
-                background: card.suit === 'S' ? 'radial-gradient(circle at 35% 30%, #f6dc9a, #d4a64a 55%, #a37a2c 100%)' : 'transparent',
-                boxShadow: card.suit === 'S' ? '0 0 0 1px rgb(138 106 43 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.4)' : `0 0 0 1.5px ${ink}55`,
-                opacity: card.suit === 'S' ? 1 : 0.9,
-              }}
-            />
+          {fam.motif && <Motif motif={fam.motif} color={noir ? metal : fam.metal} size={width * (isAce ? 0.86 : 0.78)} opacity={noir ? 0.4 : isAce ? 0.36 : 0.3} />}
+          {isAce && (
+            <div className="absolute rounded-full" style={{ width: width * 0.62, height: width * 0.62, boxShadow: `0 0 0 1.5px ${ink}55` }} />
           )}
-          <Suit suit={card.suit} color={big && card.suit === 'S' ? '#14110d' : ink} size={width * (big ? 0.4 : 0.44)} style={{ position: 'relative', marginTop: width * 0.06, filter: 'drop-shadow(0 1px 0 rgb(255 255 255 / 0.25))' }} />
+          <Suit suit={card.suit} color={ink} size={width * (isAce ? 0.4 : 0.44)} style={{ position: 'relative', marginTop: width * 0.06, filter: 'drop-shadow(0 1px 0 rgb(255 255 255 / 0.25))' }} />
         </div>
       )}
 
-      <Index card={card} ink={ink} width={width} faceKind={deck.face} onArt={!!art} />
-      <Index card={card} ink={ink} width={width} faceKind={deck.face} onArt={!!art} flip />
+      <Index card={card} ink={ink} width={width} noir={noir} onArt={!!art} classic={fam.pips} />
+      <Index card={card} ink={ink} width={width} noir={noir} onArt={!!art} classic={fam.pips} flip />
 
       {trumpHint && (
         <div
           className="absolute flex items-center justify-center rounded-full"
           title="Trump (plays as a spade)"
           style={{
+            zIndex: 5,
             left: width * 0.06,
             top: width * 0.56,
             width: Math.max(12, width * 0.2),
@@ -156,7 +180,7 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
       )}
 
       {/* lacquer sheen */}
-      <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: r, background: 'linear-gradient(135deg, rgb(255 255 255 / 0.22) 0%, transparent 30%, transparent 70%, rgb(0 0 0 / 0.06) 100%)' }} />
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 6, borderRadius: r, background: 'linear-gradient(135deg, rgb(255 255 255 / 0.22) 0%, transparent 30%, transparent 70%, rgb(0 0 0 / 0.06) 100%)' }} />
     </Tag>
   )
 }

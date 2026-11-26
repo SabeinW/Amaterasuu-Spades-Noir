@@ -9,6 +9,7 @@ import { ALL_TABLES, DECK_FAMILIES, MAX_CUSTOM_TABLES, customTableTheme, fileToT
 const SAMPLE = [
   { suit: 'S', value: 'A', id: 'AS' },
   { suit: 'H', value: 'Q', id: 'QH' },
+  { suit: 'S', value: 'K', id: 'KS' },
   { suit: 'D', value: '7', id: '7D' },
 ]
 
@@ -19,10 +20,10 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
   return (
     <Sheet open={open} onClose={onClose} eyebrow="Decks" title="Choose your deck" wide>
       {current && (
-        <div className="flex items-end justify-center gap-2 mb-4 h-[120px]">
-          <Card faceDown deck={current} width={70} style={{ transform: 'rotate(-8deg) translateY(6px)' }} />
+        <div className="flex items-end justify-center gap-1.5 mb-4 h-[124px]">
+          <Card faceDown deck={current} width={70} style={{ transform: 'rotate(-10deg) translateY(8px)' }} />
           {SAMPLE.map((c, i) => (
-            <Card key={c.id} card={c} deck={current} width={70} style={{ transform: `rotate(${(i - 1) * 5}deg)` }} />
+            <Card key={c.id} card={c} deck={current} width={70} style={{ transform: `rotate(${(i - 1.5) * 5}deg) translateY(${Math.abs(i - 1.5) * 4}px)` }} />
           ))}
         </div>
       )}
@@ -52,6 +53,10 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
             >
               <div className="relative rounded-xl p-1" style={{ background: active ? 'linear-gradient(135deg,#f6dc9a,#8a6a2b)' : 'transparent' }}>
                 <Card faceDown deck={d} width={200} style={{ width: '100%', height: 'auto', aspectRatio: '5 / 7' }} />
+                {/* the deck's Queen of Hearts peeks out so each deck shows its own court */}
+                <div className="absolute -right-1 -bottom-1" style={{ transform: 'rotate(8deg)' }}>
+                  <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still />
+                </div>
                 {active && (
                   <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center text-ink shadow-lg">
                     <Check className="w-4 h-4" />

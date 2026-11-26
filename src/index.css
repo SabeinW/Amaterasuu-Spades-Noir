@@ -374,3 +374,269 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Living card effects (cards/CardFx.jsx) ───────────────────────────────
+   Only transform/opacity/background-position animate, so a hand of
+   picture cards stays smooth. --fx-phase staggers cards; particles use
+   --x/--y (position), --d (delay), --t (duration), --s (scale). */
+
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.fx-layer::before,
+.fx-layer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.fx-p {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: scale(var(--s));
+}
+
+/* metallic sheen sweep, shared by several finishes */
+@keyframes fxSweep {
+  0%, 62% { background-position: 160% 0; }
+  100% { background-position: -60% 0; }
+}
+.fx-gold::before,
+.fx-jade::before,
+.fx-moon::before,
+.fx-eclipse::before,
+.fx-starfall::before {
+  background: linear-gradient(110deg, transparent 38%, var(--sheen) 50%, transparent 62%);
+  background-size: 260% 100%;
+  mix-blend-mode: soft-light;
+  animation: fxSweep 6s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-gold { --sheen: rgb(255 228 160 / 0.9); }
+.fx-jade { --sheen: rgb(200 255 220 / 0.7); }
+.fx-moon { --sheen: rgb(235 242 255 / 0.9); }
+.fx-eclipse { --sheen: rgb(255 210 120 / 0.9); }
+.fx-starfall { --sheen: rgb(230 220 255 / 0.85); }
+
+/* gold: a slow breathing glow at the top */
+.fx-gold::after {
+  background: radial-gradient(60% 35% at 50% 0%, rgb(255 214 120 / 0.35), transparent 70%);
+  animation: fxBreath 4.5s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+@keyframes fxBreath {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* moon + starfall: twinkling stars */
+@keyframes fxTwinkle {
+  0%, 100% { opacity: 0; transform: scale(calc(var(--s) * 0.4)) rotate(0deg); }
+  50% { opacity: 1; transform: scale(var(--s)) rotate(45deg); }
+}
+.fx-moon .fx-p,
+.fx-starfall .fx-p,
+.fx-frost .fx-p {
+  width: 7px;
+  height: 7px;
+  background: radial-gradient(circle, #fff 0 22%, transparent 24%), conic-gradient(from 0deg, transparent 0 10%, #fff 12% 13%, transparent 15% 35%, #fff 37% 38%, transparent 40% 60%, #fff 62% 63%, transparent 65% 85%, #fff 87% 88%, transparent 90%);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 3px rgb(220 235 255 / 0.9));
+  animation: fxTwinkle var(--t) ease-in-out infinite;
+  animation-delay: var(--d);
+}
+.fx-starfall .fx-p { filter: drop-shadow(0 0 3px rgb(255 220 140 / 0.95)); }
+
+/* starfall: a shooting star crossing now and then */
+@keyframes fxShoot {
+  0%, 78% { transform: translate(-30%, -30%) rotate(30deg) scaleX(0.2); opacity: 0; }
+  82% { opacity: 1; }
+  100% { transform: translate(160%, 90%) rotate(30deg) scaleX(1); opacity: 0; }
+}
+.fx-starfall::after {
+  inset: auto;
+  left: 0;
+  top: 8%;
+  width: 55%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 236 180 / 0.95));
+  border-radius: 2px;
+  animation: fxShoot 7s ease-in infinite;
+  animation-delay: var(--fx-phase);
+}
+
+/* ember: a flickering heat glow from below + rising sparks */
+@keyframes fxFlicker {
+  0%, 100% { opacity: 0.55; }
+  20% { opacity: 0.9; }
+  35% { opacity: 0.6; }
+  55% { opacity: 1; }
+  80% { opacity: 0.7; }
+}
+.fx-ember::before {
+  background: radial-gradient(90% 45% at 50% 105%, rgb(255 120 40 / 0.55), rgb(255 60 20 / 0.15) 55%, transparent 75%);
+  mix-blend-mode: screen;
+  animation: fxFlicker 1.6s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+@keyframes fxRise {
+  0% { transform: translate(0, 0) scale(var(--s)); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translate(8px, -120px) scale(calc(var(--s) * 0.3)); opacity: 0; }
+}
+.fx-ember .fx-p {
+  top: 96%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffd08a;
+  box-shadow: 0 0 6px 2px rgb(255 140 50 / 0.9);
+  animation: fxRise var(--t) ease-out infinite;
+  animation-delay: var(--d);
+}
+
+/* tide: moving water light */
+@keyframes fxCaustic {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 120px 60px, -90px 120px; }
+}
+.fx-tide::before {
+  background:
+    radial-gradient(circle at 30% 30%, rgb(190 245 255 / 0.5) 0 6%, transparent 18%),
+    radial-gradient(circle at 70% 60%, rgb(160 230 255 / 0.45) 0 5%, transparent 16%);
+  background-size: 60px 50px, 70px 64px;
+  mix-blend-mode: soft-light;
+  animation: fxCaustic 9s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-tide::after {
+  background: linear-gradient(180deg, transparent 60%, rgb(80 190 230 / 0.18));
+}
+
+/* frost: cold glints + a breathing icy edge */
+.fx-frost::before {
+  box-shadow: inset 0 0 14px 3px rgb(210 240 255 / 0.7);
+  animation: fxBreath 3.8s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+
+/* bloom: drifting petals */
+@keyframes fxPetal {
+  0% { transform: translate(-20px, -20px) rotate(0deg) scale(var(--s)); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translate(40px, 140px) rotate(320deg) scale(var(--s)); opacity: 0; }
+}
+.fx-bloom .fx-p {
+  top: -6%;
+  width: 7px;
+  height: 5px;
+  border-radius: 70% 10% 70% 10%;
+  background: linear-gradient(135deg, #ffd6e0, #f08aa6);
+  box-shadow: 0 1px 2px rgb(150 40 70 / 0.25);
+  animation: fxPetal var(--t) linear infinite;
+  animation-delay: var(--d);
+}
+
+/* storm: lightning flash with a bolt */
+@keyframes fxFlash {
+  0%, 88%, 100% { opacity: 0; }
+  89% { opacity: 0.9; }
+  90% { opacity: 0.15; }
+  92% { opacity: 1; }
+  95% { opacity: 0; }
+}
+.fx-storm::before {
+  background: radial-gradient(70% 60% at 60% 20%, rgb(230 220 255 / 0.95), rgb(140 200 255 / 0.4) 50%, transparent 75%);
+  mix-blend-mode: screen;
+  animation: fxFlash 6.5s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-bolt {
+  position: absolute;
+  left: 52%;
+  top: 2%;
+  width: 22%;
+  height: 46%;
+  fill: #f4f0ff;
+  filter: drop-shadow(0 0 6px #b9a8ff) drop-shadow(0 0 2px #7ad7ff);
+  opacity: 0;
+  animation: fxFlash 6.5s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+
+/* eclipse: a corona that pulses */
+@keyframes fxCorona {
+  0%, 100% { transform: scale(0.92); opacity: 0.55; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+.fx-eclipse::after {
+  inset: -20% 10% auto 10%;
+  height: 70%;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 38%, rgb(255 200 90 / 0.5) 44%, transparent 62%);
+  mix-blend-mode: screen;
+  animation: fxCorona 4s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+
+/* aurora: shifting curtains of light */
+@keyframes fxAurora {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+.fx-aurora::before {
+  background: linear-gradient(100deg, transparent 10%, rgb(60 230 190 / 0.35) 25%, rgb(220 90 220 / 0.3) 40%, transparent 55%, rgb(80 200 255 / 0.3) 70%, transparent 85%);
+  background-size: 200% 100%;
+  mix-blend-mode: screen;
+  filter: blur(4px);
+  animation: fxAurora 10s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+
+/* dune: drifting sand + warm haze */
+@keyframes fxSand {
+  0% { transform: translate(-30px, 0) scale(var(--s)); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translate(110px, -10px) scale(var(--s)); opacity: 0; }
+}
+.fx-dune::before {
+  background: radial-gradient(80% 40% at 50% 100%, rgb(255 190 110 / 0.3), transparent 70%);
+  animation: fxBreath 5s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-dune .fx-p {
+  left: -4%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f3c98a;
+  box-shadow: 0 0 3px rgb(240 180 90 / 0.8);
+  animation: fxSand var(--t) linear infinite;
+  animation-delay: var(--d);
+}
+
+/* cloud: puffs drifting by + a happy bob */
+@keyframes fxPuff {
+  0% { transform: translate(-40px, 0) scale(var(--s)); opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { transform: translate(120px, -14px) scale(calc(var(--s) * 1.3)); opacity: 0; }
+}
+.fx-cloud .fx-p {
+  left: -10%;
+  width: 26px;
+  height: 12px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 40%, #fff, rgb(255 255 255 / 0.6) 60%, transparent 72%);
+  filter: blur(0.5px) drop-shadow(0 0 4px rgb(255 255 255 / 0.8));
+  animation: fxPuff var(--t) ease-in-out infinite;
+  animation-delay: var(--d);
+}
+.fx-cloud::before {
+  background: radial-gradient(60% 40% at 50% 10%, rgb(255 240 200 / 0.45), transparent 70%);
+  animation: fxBreath 3s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}

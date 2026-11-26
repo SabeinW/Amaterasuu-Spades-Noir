@@ -170,7 +170,7 @@ export default function Landing({
         </motion.div>
 
         <div className="grid grid-cols-3 gap-2.5 mt-6">
-          <Tile icon={Layers} label="Decks" sub="40 painted decks" onClick={onOpenDecks} delay={1.05} />
+          <Tile icon={Layers} label="Decks" sub="52 decks, 14 courts" onClick={onOpenDecks} delay={1.05} />
           <Tile icon={Palette} label="Tables" sub="15 surfaces" onClick={onOpenTables} delay={1.1} />
           <Tile icon={BookOpen} label="House rules" sub="Nil, bags, JD" onClick={onOpenRules} delay={1.15} />
           <Tile icon={Trophy} label="Leaderboard" onClick={onOpenLeaderboard} delay={1.2} />

@@ -149,6 +149,21 @@ export const INK = {
 const fourColour = { S: INK.sumi, H: INK.verm, D: INK.ochre, C: INK.jade }
 const twoColour = { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }
 
+// Which card family (court art, emblem, effect) each deck uses — see
+// cardFamilies.js. Every family's court is Black royals by default.
+const STYLE_BY_ID = {
+  'sun-ink': 'sun', 'noir-classic': 'sun', 'crimson-royale': 'ember', 'arctic-frost': 'frost',
+  'emerald-casino': 'jade', 'obsidian-gold': 'eclipse', 'cyber-neon': 'storm', 'royal-sapphire': 'tide',
+  'midnight-amethyst': 'moon', 'inferno-amber': 'ember', 'rose-quartz': 'bloom', 'platinum-silver': 'moon',
+  'jade-imperial': 'jade', 'galaxy-holo': 'starfall',
+  'inferno-blaze-m': 'ember', 'glacier-frost-m': 'frost', 'onyx-sovereign-m': 'eclipse', 'venom-toxic-m': 'jade',
+  'imperial-amethyst-m': 'aurora', 'blood-moon-m': 'moon', 'solar-flare-m': 'dune', 'abyssal-tide-m': 'tide',
+  'rose-gold-elite-m': 'bloom', 'shadow-viper-m': 'storm',
+  'midnight-sapphire': 'tide', 'midnight-orchid': 'aurora', 'midnight-jade': 'jade', 'midnight-gold': 'sun',
+  'midnight-cyan': 'tide', 'midnight-rose': 'bloom', 'midnight-ember': 'ember', 'midnight-teal': 'aurora',
+  'midnight-platinum': 'frost',
+}
+
 const deck = (id, name, tag, family, opts) => ({
   id,
   name,
@@ -158,8 +173,7 @@ const deck = (id, name, tag, family, opts) => ({
   ink: opts.ink ?? fourColour,
   edge: opts.edge ?? '#d4a64a',
   court: opts.court ?? ((opts.face ?? 'washi') === 'noir' ? 'noir' : 'washi'),
-  // Which illustrated J/Q/K/Joker set the faces use (subfolder of /art/court).
-  courtSet: opts.courtSet ?? null,
+  style: opts.style ?? STYLE_BY_ID[id] ?? (family === 'og' ? 'classic' : 'sun'),
   backTint: opts.backTint ?? '#0b0a08',
   art: opts.art,
   description: opts.description,
@@ -172,11 +186,6 @@ const noirInk = (accent) => ({ S: INK.silver, C: INK.silver, H: accent, D: accen
 const paperMetalInk = (metal) => ({ S: INK.sumi, C: INK.sumi, H: metal, D: metal })
 
 export const DECK_THEMES = [
-  deck('sun-court', 'Sun Court', 'New', 'standard', {
-    ink: twoColour, backTint: '#0b0a08', courtSet: 'sun-court',
-    art: 'a large hammered gold-leaf sun with a vermilion inner disc, ringed by gold interlocking-circle (shippo) pattern on black lacquer, gold chrysanthemum corners',
-    description: 'Black royals in silk court robes, ink and gold leaf',
-  }),
   deck('sun-ink', 'Sun & Ink', 'Signature', 'standard', {
     ink: twoColour, backTint: '#0b0a08',
     art: 'a hammered gold-leaf sun disc at the center with fine radiating rays on glossy black lacquer, bands of gold seigaiha waves top and bottom, a tiny vermilion dot at the sun\'s center',
@@ -247,6 +256,27 @@ export const DECK_THEMES = [
     art: 'deep indigo-black lacquer with a field of gold-dust stars and a silver crescent moon at the center',
     description: 'Gold-dust stars and a silver moon',
   }),
+]
+
+// Mythic Courts — the showcase class: each deck has its own family of
+// illustrated Black royals, its own back, and the strongest living effects.
+const mythic = (id, name, tag, style, backTint, edge, description) =>
+  deck(id, name, tag, 'mythic', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+
+export const MYTHIC_DECK_THEMES = [
+  mythic('sun-court', 'Sun Court', 'SOLAR', 'sun', '#0b0a08', '#d4a64a', 'Gold-leaf sun royals with a breathing golden glow'),
+  mythic('mythic-moon', 'Lunar Veil', 'LUNAR', 'moon', '#141b34', '#aab6d3', 'Moonlit royals in indigo and pearl; stars twinkle'),
+  mythic('mythic-ember', 'Ember Crown', 'FIRE', 'ember', '#2a0a02', '#e0743a', 'Fire-forged royals; embers glow and sparks rise'),
+  mythic('mythic-tide', 'Tidecaller', 'WATER', 'tide', '#062033', '#3f9fc4', 'Sea royals among waves and koi; light ripples'),
+  mythic('mythic-frost', 'Frostborne', 'ICE', 'frost', '#16283a', '#9cc9e4', 'Winter royals in white and ice; frost glints'),
+  mythic('mythic-jade', 'Jade Grove', 'FOREST', 'jade', '#0c2a1c', '#4f9a6c', 'Forest royals among bamboo and pine'),
+  mythic('mythic-bloom', 'Sakura Bloom', 'BLOSSOM', 'bloom', '#3a1a26', '#d98aa2', 'Blossom royals; petals drift across the cards'),
+  mythic('mythic-storm', 'Stormcaller', 'THUNDER', 'storm', '#160f2e', '#8b7bf0', 'Storm royals; lightning flashes on the cards'),
+  mythic('mythic-eclipse', 'Eclipse', 'SHADOW', 'eclipse', '#050403', '#c9962e', 'Black-and-gold royals under a pulsing corona'),
+  mythic('mythic-aurora', 'Aurora', 'LIGHTS', 'aurora', '#071a26', '#3fb8a8', 'Northern-lights royals; curtains of light shift'),
+  mythic('mythic-starfall', 'Starfall', 'COSMIC', 'starfall', '#0a0c26', '#c9a24d', 'Cosmic royals; shooting stars cross the cards'),
+  mythic('mythic-dune', 'Dune Kingdom', 'DESERT', 'dune', '#3a1e08', '#c98a3a', 'Desert royals in saffron and teal; sand drifts'),
+  mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#12304e', '#7fb2e0', 'Joyful white-haired royals and silverback spirits; clouds burst'),
 ]
 
 export const MASTER_DECK_THEMES = [
@@ -354,9 +384,11 @@ export const MIDNIGHT_DECK_THEMES = [
   midnight('midnight-platinum', 'Midnight Platinum', 'PLATINUM', '#cbd5e1', 'platinum kumiko lattice pattern'),
 ]
 
-export const ALL_DECKS = [...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
+export const ALL_DECKS = [...MYTHIC_DECK_THEMES, ...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
+export const DEFAULT_DECK = MYTHIC_DECK_THEMES[0]
 export const ALL_TABLES = [...TABLE_THEMES, ...MASTER_THEMES]
 export const DECK_FAMILIES = [
+  { id: 'mythic', label: 'Mythic Courts', decks: MYTHIC_DECK_THEMES },
   { id: 'standard', label: 'Lacquer', decks: DECK_THEMES },
   { id: 'master', label: 'Master', decks: MASTER_DECK_THEMES },
   { id: 'og', label: "OG's", decks: OG_DECK_THEMES },
