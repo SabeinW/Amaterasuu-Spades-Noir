@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as E from '../../lib/engine'
 import { playSound, isMuted, setMuted } from '../../lib/sound'
 import { useEventPlayer } from '../../game/useEventPlayer'
+import { T } from '../../game/timing'
 import { fetchAvatars, leaveTable, openTableChannel, recordPracticeResult, renameAtTable } from '../../lib/online'
 import { fetchProfile } from '../../lib/auth'
 import { checkAndUnlockAchievements, listFriends, unlockAchievementNow } from '../../lib/social'
@@ -148,6 +149,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
   const [present, setPresent] = useState(null)
   const [avatars, setAvatars] = useState({})
   const [rankUp, setRankUp] = useState(null)
+  // A won trick is in flight to this seat: hold its count back until it lands.
+  const [pendingWin, setPendingWin] = useState(null)
+  const [burst, setBurst] = useState(null)
   const fromRects = useRef({})
   const streakRef = useRef(0)
   const maxDeficitRef = useRef(0)
@@ -180,8 +184,14 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         case 'play':
           playSound('play')
           break
-        case 'trick':
-          playSound('sweep', { delay: 620 })
+        case 'trick': {
+          const flyAt = T.sweep * T.sweepGather * 1000
+          playSound('sweep', { delay: flyAt - 120 })
+          setPendingWin({ seat: ev.winner, seq: ev.seq })
+          setTimeout(() => {
+            setPendingWin((p) => (p?.seq === ev.seq ? null : p))
+            setBurst({ seat: ev.winner, key: ev.seq })
+          }, T.sweep * 1000 - 80)
           if (ev.winner === mySeat) {
             streakRef.current += 1
             if (streakRef.current === 4 && user?.id) {
@@ -189,6 +199,7 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
             }
           } else streakRef.current = 0
           break
+        }
         case 'round': {
           const deficit = ev.result[theirTeam].total - ev.result[myTeam].total
           maxDeficitRef.current = Math.max(maxDeficitRef.current, deficit)
@@ -223,11 +234,11 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
     if (!view) return
     const key = `${view.seq}`
     const mine = view.turn === mySeat && (view.phase === 'playing' || view.phase === 'bidding')
-    if (mine && lastTurnSoundRef.current !== key && view.phase === 'playing' && view.trick.length === 0) {
+    if (mine && event?.t !== 'trick' && lastTurnSoundRef.current !== key && view.phase === 'playing' && view.trick.length === 0) {
       lastTurnSoundRef.current = key
       playSound('turn', { delay: 250 })
     }
-  }, [view, mySeat])
+  }, [view, mySeat, event?.t])
 
   // Clear optimistic plays once the server's hand no longer has them.
   useEffect(() => {
@@ -310,7 +321,8 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
   // ── derived state ──────────────────────────────────────────────────────
   const handCards = hand.round === view.round ? hand.cards.filter((c) => !pending.has(c.id)) : []
   const myBidTurn = view.phase === 'bidding' && view.turn === mySeat && pub.phase === 'bidding' && pub.turn === mySeat
-  const myPlayTurn = view.phase === 'playing' && view.turn === mySeat && pub.phase === 'playing' && pub.turn === mySeat && view.trick.length < 4
+  // (not while the last trick is still being collected — you'd play over the animation)
+  const myPlayTurn = view.phase === 'playing' && view.turn === mySeat && pub.phase === 'playing' && pub.turn === mySeat && view.trick.length < 4 && event?.t !== 'trick'
   const blindPending = rules.blindNil && view.phase === 'bidding' && view.bids[mySeat] === null && revealedRound !== view.round
   const playable = myPlayTurn ? new Set(handCards.filter((c) => E.isPlayable(c, hand.cards, view.trick, view.broken, rules.jokers, rules.spadesBreak)).map((c) => c.id)) : null
   const trumpIds = rules.jokers ? new Set(handCards.filter((c) => c.suit === 'D' && c.value === '2').map((c) => c.id)) : null
@@ -379,7 +391,8 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
       avatarUrl: avatarFor(p),
       bid: view.bids[seat],
       blind: view.blind[seat],
-      tricks: view.tricks[seat],
+      tricks: view.tricks[seat] - (pendingWin?.seat === seat ? 1 : 0),
+      burst: burst?.seat === seat ? burst.key : null,
       isTurn: view.turn === seat && (view.phase === 'bidding' || view.phase === 'playing'),
       isDealer: view.dealer === seat,
       isPartner: seat === partnerSeat,
@@ -446,7 +459,18 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
           )
         })}
 
-        <TrickArea view={view} event={event} mySeat={mySeat} w={stage.w} h={stage.h} cw={cw} deck={deck} fromRects={fromRects} />
+        <TrickArea
+          view={view}
+          event={event}
+          mySeat={mySeat}
+          partnerSeat={partnerSeat}
+          nameOf={(s) => seatPlayer(s)?.name ?? 'They'}
+          w={stage.w}
+          h={stage.h}
+          cw={cw}
+          deck={deck}
+          fromRects={fromRects}
+        />
         {dealing && stage.w > 0 && <DealLayer key={dealing.key} dealer={dealing.dealer} mySeat={mySeat} w={stage.w} h={stage.h} cw={cw} deck={deck} />}
 
         <AnimatePresence>
@@ -597,7 +621,8 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
       )}
 
       {/* toasts & rank-up */}
-      <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex flex-col items-center gap-2 w-[min(92vw,440px)]" style={{ top: 'calc(78px + var(--safe-t))' }}>
+      {/* notices sit just above your hand, clear of the seats and the trick */}
+      <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex flex-col-reverse items-center gap-2 w-[min(92vw,440px)]" style={{ bottom: `calc(${Math.round(hw * 1.4 + 96)}px + var(--safe-b))` }}>
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
             <motion.div

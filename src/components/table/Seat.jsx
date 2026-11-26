@@ -33,7 +33,7 @@ function TurnRing({ size, deadline, total, serverNow }) {
   )
 }
 
-export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, isTurn, isDealer, isPartner, deadline, total, serverNow, phase, emote, online = true, compact = false }) {
+export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burst, isTurn, isDealer, isPartner, deadline, total, serverNow, phase, emote, online = true, compact = false }) {
   const size = compact ? 40 : 52
   const bidLabel = bid === null || bid === undefined ? null : bid === 0 ? (blind ? 'Blind Nil' : 'Nil') : bid
   const away = player?.left
@@ -45,6 +45,17 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, isTu
       <div className="relative" style={{ width: size, height: size }}>
         <Avatar avatarUrl={avatarUrl} name={player?.name} bot={isBot} size={size} />
         {isTurn && phase !== 'round_over' && <TurnRing size={size} deadline={deadline} total={total} serverNow={serverNow} />}
+        {/* a won trick just landed here */}
+        {burst && (
+          <motion.span
+            key={burst}
+            className="absolute rounded-full pointer-events-none"
+            style={{ inset: -4 }}
+            initial={{ opacity: 1, scale: 0.85, boxShadow: '0 0 0 3px #f1d28a, 0 0 28px 10px rgb(241 210 138 / 0.75)' }}
+            animate={{ opacity: 0, scale: 1.7, boxShadow: '0 0 0 1px #f1d28a, 0 0 40px 16px rgb(241 210 138 / 0)' }}
+            transition={{ duration: 1, ease: 'easeOut' }}
+          />
+        )}
         {isDealer && (
           <span
             className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold font-display"
@@ -88,8 +99,15 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, isTu
           {bidLabel === null ? (
             <span className="italic opacity-70">{phase === 'bidding' ? (isTurn ? 'bidding…' : 'waiting') : '—'}</span>
           ) : (
-            <motion.span key={`${bidLabel}`} initial={{ scale: 1.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }}>
-              <span className="text-paper font-bold">{tricks ?? 0}</span>
+            <motion.span key={`${bidLabel}-${tricks}`} initial={{ scale: 1.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 420, damping: 16 }}>
+              <motion.span
+                className="font-bold"
+                initial={{ color: tricks ? '#f6dc9a' : '#f3eadb' }}
+                animate={{ color: '#f3eadb' }}
+                transition={{ duration: 1.2 }}
+              >
+                {tricks ?? 0}
+              </motion.span>
               <span className="opacity-60">/{bidLabel}</span>
             </motion.span>
           )}

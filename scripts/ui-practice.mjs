@@ -29,7 +29,7 @@ await shot('03-dealt')
 // Play the whole first round, choosing legal cards, until the round summary.
 let guard = 0
 let midShot = false
-while (guard++ < 120) {
+while (guard++ < 300) {
   if (await page.getByRole('button', { name: /Deal next round/ }).isVisible().catch(() => false)) break
   const bidBtn = page.getByRole('button', { name: /^Bid / })
   if (await bidBtn.isVisible().catch(() => false)) {

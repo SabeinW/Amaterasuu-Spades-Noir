@@ -40,7 +40,7 @@ function DealLayer({ dealer, mySeat, w, h, cw, deck }) {
             opacity: [0, 1, 1, 0],
             scale: 0.62,
           }}
-          transition={{ delay: (i * DEAL_STAGGER) / 1000, duration: DEAL_FLIGHT / 1000, ease: [0.2, 0.7, 0.3, 1], opacity: { times: [0, 0.1, 0.85, 1], delay: (i * DEAL_STAGGER) / 1000, duration: DEAL_FLIGHT / 1000 + 0.05 } }}
+          transition={{ delay: (i * DEAL_STAGGER) / 1000, duration: DEAL_FLIGHT / 1000, ease: [0.22, 0.8, 0.3, 1], opacity: { times: [0, 0.1, 0.85, 1], delay: (i * DEAL_STAGGER) / 1000, duration: DEAL_FLIGHT / 1000 + 0.05 } }}
         >
           <CardBack width={cw} deck={deck} />
         </motion.div>

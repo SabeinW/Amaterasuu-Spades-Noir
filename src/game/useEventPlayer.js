@@ -7,6 +7,7 @@
 // If we fall too far behind (a reconnect, a sleeping tab) it just snaps.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyEvent } from '../lib/engine'
+import { DEAL_TOTAL, T } from './timing'
 
 const MAX_QUEUE = 40
 
@@ -18,17 +19,17 @@ export function durationFor(ev, mySeat, fast) {
   const k = fast ? 0.55 : 1
   switch (ev.t) {
     case 'deal':
-      return 2100 * (fast ? 0.7 : 1)
+      return (DEAL_TOTAL + 250) * (fast ? 0.7 : 1)
     case 'bid':
-      return (ev.seat === mySeat ? 250 : 650) * k
+      return (ev.seat === mySeat ? T.bidMine : T.bid) * k
     case 'play':
-      return (ev.seat === mySeat ? 380 : 620) * k
+      return (ev.seat === mySeat ? T.playMine : T.play) * k
     case 'trick':
-      return 1300 * k
+      return T.trick * k
     case 'round':
-      return 450
+      return T.round
     case 'game':
-      return 300
+      return T.game
     default:
       return 0
   }
@@ -76,10 +77,21 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
     }
     const skipIdx = skipRef.current.findIndex((s) => ev.t === 'play' && s.seat === ev.seat && s.cardId === ev.card?.id)
     if (skipIdx >= 0) {
-      // Already on screen from playOptimistic — just adopt the server's numbering.
-      skipRef.current.splice(skipIdx, 1)
+      // Already on screen from playOptimistic — adopt the server's numbering,
+      // but give your card its full flight before whatever comes next (the
+      // trick being won, the next player's card), so you always see it land.
+      const [{ at }] = skipRef.current.splice(skipIdx, 1)
       viewRef.current = { ...viewRef.current, seq: ev.seq }
-      pump()
+      const wait = T.playMine - (Date.now() - at)
+      if (wait <= 0) {
+        pump()
+        return
+      }
+      busyRef.current = true
+      timerRef.current = setTimeout(() => {
+        busyRef.current = false
+        pump()
+      }, wait)
       return
     }
     const next = applyEvent(viewRef.current, ev)
@@ -145,7 +157,7 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
   const playOptimistic = useCallback(
     (seat, card) => {
       const ev = { t: 'play', seat, card, seq: (viewRef.current?.seq ?? 0) + 0.5, local: true }
-      skipRef.current.push({ seat, cardId: card.id })
+      skipRef.current.push({ seat, cardId: card.id, at: Date.now() })
       const next = applyEvent(viewRef.current, ev)
       next.seq = viewRef.current.seq // keep server numbering intact
       set(next, ev)

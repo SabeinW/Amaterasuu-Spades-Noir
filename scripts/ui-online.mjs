@@ -89,7 +89,7 @@ async function step(page) {
 
 let midHost = false
 let summaries = 0
-for (let i = 0; i < 260 && summaries < 2; i++) {
+for (let i = 0; i < 700 && summaries < 2; i++) {
   const [a, b] = await Promise.all([step(host), step(guest)])
   if (!midHost && i > 25) {
     midHost = true

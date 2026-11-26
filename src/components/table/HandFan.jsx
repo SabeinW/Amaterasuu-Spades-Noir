@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Card from '../cards/Card'
 import { dealArrival } from './geometry'
+import { T } from '../../game/timing'
 
 const FINE_POINTER = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches
 
@@ -100,7 +101,7 @@ export default function HandFan({
                 : false
             }
             animate={{ x: p.x, y: p.y - (isSel ? cw * 0.3 : 0), rotate: isSel ? 0 : p.r, scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30, delay: dealing ? delay : 0 }}
+            transition={dealing ? { duration: T.dealFlight / 1000, ease: [0.22, 0.8, 0.3, 1], delay } : { type: 'spring', stiffness: 300, damping: 30 }}
             whileHover={FINE_POINTER && playable && legal && !disabled ? { y: p.y - cw * 0.16 } : undefined}
             drag={!FINE_POINTER && playable && legal && !disabled ? 'y' : false}
             dragSnapToOrigin
@@ -142,4 +143,4 @@ export default function HandFan({
   )
 }
 
-const DEAL_FLIGHT_MS = 340
+const DEAL_FLIGHT_MS = T.dealFlight

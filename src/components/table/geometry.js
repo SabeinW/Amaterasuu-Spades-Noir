@@ -1,3 +1,5 @@
+import { T } from '../../game/timing'
+
 // Table layout maths. Seats are numbered 0..3 by the server; on screen your
 // own seat is always at the bottom and the rest follow clockwise.
 export const SLOTS = ['bottom', 'left', 'top', 'right']
@@ -32,6 +34,23 @@ export function seatAnchor(slot, w, h, cw) {
   }
 }
 
+// Where a won trick's stack lands: just beside each seat's nameplate.
+export function pileAnchor(slot, w, h, cw) {
+  const ch = cw * 1.4
+  switch (slot) {
+    case 'bottom':
+      return { x: w / 2, y: h - ch * 0.2 }
+    case 'top':
+      return { x: w / 2, y: ch * 0.7 }
+    case 'left':
+      return { x: cw * 0.9, y: h * 0.46 }
+    case 'right':
+      return { x: w - cw * 0.9, y: h * 0.46 }
+    default:
+      return { x: w / 2, y: h / 2 }
+  }
+}
+
 export function tableCenter(w, h) {
   return { x: w / 2, y: h * 0.48 }
 }
@@ -61,8 +80,8 @@ export function jitter(id, amount = 1) {
 }
 
 // Arrival time (ms after the deal starts) of the k-th card a seat receives.
-export const DEAL_STAGGER = 30
-export const DEAL_FLIGHT = 340
+export const DEAL_STAGGER = T.dealStagger
+export const DEAL_FLIGHT = T.dealFlight
 export function dealArrival(seat, k, dealer) {
   const offset = (seat - dealer - 1 + 8) % 4
   return (k * 4 + offset) * DEAL_STAGGER + DEAL_FLIGHT
