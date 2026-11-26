@@ -1,10 +1,11 @@
 // Deck and table pickers (used from the home screen and from the table menu).
 import { motion } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ImagePlus, Trash2 } from 'lucide-react'
 import Sheet from './ui/Sheet'
 import Card from './cards/Card'
 import { ALL_TABLES, DECK_FAMILIES, MAX_CUSTOM_TABLES, customTableTheme, fileToTableBackgroundDataUrl } from '../data/tableThemes'
+import { preloadDeckArt } from '../data/cardFamilies'
 
 const SAMPLE = [
   { suit: 'S', value: 'A', id: 'AS' },
@@ -17,13 +18,24 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
   const [family, setFamily] = useState(() => DECK_FAMILIES.find((f) => f.decks.some((d) => d.id === selectedId))?.id ?? 'standard')
   const decks = DECK_FAMILIES.find((f) => f.id === family)?.decks ?? []
   const current = DECK_FAMILIES.flatMap((f) => f.decks).find((d) => d.id === selectedId)
+  // One pick per opening: a slow phone mustn't turn a double tap into a second deck.
+  const picked = useRef(false)
+  useEffect(() => {
+    if (open) picked.current = false
+  }, [open])
+  const pick = (d) => {
+    if (picked.current) return
+    picked.current = true
+    preloadDeckArt(d)
+    onSelect(d)
+  }
   return (
     <Sheet open={open} onClose={onClose} eyebrow="Decks" title="Choose your deck" wide>
       {current && (
         <div className="flex items-end justify-center gap-1.5 mb-4 h-[124px]">
           <Card faceDown deck={current} width={70} style={{ transform: 'rotate(-10deg) translateY(8px)' }} />
           {SAMPLE.map((c, i) => (
-            <Card key={c.id} card={c} deck={current} width={70} style={{ transform: `rotate(${(i - 1.5) * 5}deg) translateY(${Math.abs(i - 1.5) * 4}px)` }} />
+            <Card key={c.id} card={c} deck={current} width={70} eager style={{ transform: `rotate(${(i - 1.5) * 5}deg) translateY(${Math.abs(i - 1.5) * 4}px)` }} />
           ))}
         </div>
       )}
@@ -39,23 +51,17 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-        {decks.map((d, i) => {
+      {/* The decks fade in together and never move, so a tap lands where it looks. */}
+      <motion.div key={family} className="grid grid-cols-3 sm:grid-cols-5 gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
+        {decks.map((d) => {
           const active = d.id === selectedId
           return (
-            <motion.button
-              key={d.id}
-              onClick={() => onSelect(d)}
-              className="text-left group"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.02 }}
-            >
+            <button key={d.id} onClick={() => pick(d)} className="text-left group">
               <div className="relative rounded-xl p-1" style={{ background: active ? 'linear-gradient(135deg,#f6dc9a,#8a6a2b)' : 'transparent' }}>
                 <Card faceDown deck={d} width={200} style={{ width: '100%', height: 'auto', aspectRatio: '5 / 7' }} />
                 {/* the deck's Queen of Hearts peeks out so each deck shows its own court */}
                 <div className="absolute -right-1 -bottom-1" style={{ transform: 'rotate(8deg)' }}>
-                  <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still />
+                  <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still thumb eager />
                 </div>
                 {active && (
                   <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center text-ink shadow-lg">
@@ -65,10 +71,10 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
               </div>
               <p className="text-[12.5px] font-bold mt-1.5 truncate">{d.name}</p>
               <p className="text-[11px] text-faint truncate">{d.description}</p>
-            </motion.button>
+            </button>
           )
         })}
-      </div>
+      </motion.div>
     </Sheet>
   )
 }

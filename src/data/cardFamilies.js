@@ -37,10 +37,28 @@ export const FAMILIES = {
 
 export const familyOf = (deck) => FAMILIES[deck?.style] ?? FAMILIES.sun
 
-export function courtImage(family, card) {
+// `thumb` asks for the small copy (QH-sm.webp); only the Queen of Hearts has
+// one, for the little card that peeks out of each deck in the deck picker.
+export function courtImage(family, card, { thumb = false } = {}) {
   const dir = `/art/court/${family.courtSet}`
   if (card.suit === 'JOKER') return `${dir}/${card.value === 'BIG' ? 'JOKER_BIG' : 'JOKER_SMALL'}.webp`
-  if (['J', 'Q', 'K'].includes(card.value)) return `${dir}/${card.value}${card.suit}.webp`
+  if (['J', 'Q', 'K'].includes(card.value)) return `${dir}/${card.value}${card.suit}${thumb && card.id === 'QH' ? '-sm' : ''}.webp`
   if (card.value === 'A' && card.suit === 'S') return `${dir}/AS.webp`
   return null
+}
+
+// Warm the browser cache with a deck's back and the court cards the deck
+// picker shows, so picking a deck never opens on empty frames.
+const warmed = new Set()
+export function preloadDeckArt(deck) {
+  if (typeof Image === 'undefined' || !deck || warmed.has(deck.id)) return
+  warmed.add(deck.id)
+  const fam = familyOf(deck)
+  const srcs = [deck.backImage, ...['AS', 'QH', 'KS'].map((id) => courtImage(fam, { suit: id[1], value: id[0], id }))]
+  for (const src of srcs) {
+    if (!src) continue
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = src
+  }
 }

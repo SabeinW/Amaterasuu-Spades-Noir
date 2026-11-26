@@ -3,7 +3,7 @@
 // renders/animates whatever that source says, sending moves back through
 // `act`. All rules live in the engine; nothing here decides who won.
 import { AnimatePresence, motion } from 'motion/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import * as E from '../../lib/engine'
 import { playSound, isMuted, setMuted } from '../../lib/sound'
 import { useEventPlayer } from '../../game/useEventPlayer'
@@ -571,8 +571,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         open={menu === 'deck'}
         selectedId={deck.id}
         onSelect={(d) => {
-          onChangeDeck(d)
+          // Close first; redrawing the whole table in the new deck can wait a beat.
           setMenu(null)
+          startTransition(() => onChangeDeck(d))
         }}
         onClose={() => setMenu('menu')}
       />

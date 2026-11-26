@@ -86,8 +86,10 @@ function Index({ card, ink, width, flip, noir, onArt, classic }) {
   )
 }
 
-function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false }) {
-  const [failed, setFailed] = useState(null)
+function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false, eager = false, thumb = false }) {
+  // A painting that won't load gets one retry before the card falls back to its
+  // plain design, so a dropped request on a phone doesn't leave a court empty.
+  const [miss, setMiss] = useState({ src: null, tries: 0 })
   if (faceDown || !card) return <CardBack width={width} deck={deck} style={style} className={className} />
 
   const fam = familyOf(deck)
@@ -97,9 +99,15 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
   const faceInk = noir ? '#efe6d6' : '#1a1714'
   const ink = isJoker ? (card.value === 'BIG' ? '#c8321f' : faceInk) : deck.ink?.[card.suit] ?? faceInk
   const metal = deck.edge ?? fam.metal
-  const wanted = courtImage(fam, card)
-  // If a family's painting is missing, fall back to the plain design.
-  const art = wanted && failed !== wanted ? wanted : null
+  const wanted = courtImage(fam, card, { thumb })
+  const tries = miss.src === wanted ? miss.tries : 0
+  const art = wanted && tries < 2 ? wanted : null
+  const artSrc = art && tries === 1 ? `${art}?retry=1` : art
+  const onArtError = (e) => {
+    // Ignore errors from a picture this card has since swapped away from.
+    if (!art || !e.currentTarget.src.includes(art)) return
+    setMiss({ src: art, tries: tries + 1 })
+  }
   const isAce = card.value === 'A'
   const n = Number(card.value)
   const Tag = onClick ? 'button' : 'div'
@@ -133,7 +141,16 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
 
       {art ? (
         <div className="absolute overflow-hidden" style={{ inset: width * 0.06, borderRadius: r * 0.6, boxShadow: `0 0 0 1px ${metal}99`, background: fam.paper }}>
-          <img src={art} alt="" draggable={false} loading="lazy" decoding="async" onError={() => setFailed(art)} className="w-full h-full object-cover" style={{ objectPosition: card.value === 'A' ? '50% 50%' : '50% 18%' }} />
+          <img
+            src={artSrc}
+            alt=""
+            draggable={false}
+            loading={eager ? 'eager' : 'lazy'}
+            decoding="async"
+            onError={onArtError}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: card.value === 'A' ? '50% 50%' : '50% 18%' }}
+          />
           {living && <CardFx effect={fam.effect} id={`${deck.id}-${card.id}`} radius={r * 0.6} />}
         </div>
       ) : pipLayout ? (

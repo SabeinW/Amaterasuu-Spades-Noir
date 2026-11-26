@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from 'react'
 import { MotionConfig } from 'motion/react'
 import Landing from './components/Landing'
 const AuthModal = lazy(() => import('./components/AuthModal'))
@@ -239,7 +239,7 @@ export default function App() {
           }}
         />
       )}
-      <DeckPicker open={modal === 'deck'} selectedId={deck.id} onSelect={(d) => { chooseDeck(d); setModal(null) }} onClose={() => setModal(null)} />
+      <DeckPicker open={modal === 'deck'} selectedId={deck.id} onSelect={(d) => { setModal(null); startTransition(() => chooseDeck(d)) }} onClose={() => setModal(null)} />
       <TablePicker open={modal === 'table'} selectedId={table.id} customTables={customThemes} onDeleteCustom={deleteCustomTable} onSelect={(t) => { chooseTable(t); setModal(null) }} onClose={() => setModal(null)} />
       </Suspense>
     </MotionConfig>
