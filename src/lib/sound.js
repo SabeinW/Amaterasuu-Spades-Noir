@@ -3,8 +3,8 @@
 // Web Audio so 52 quick deal flicks don't stutter on phones.
 const NAMES = {
   shuffle: ['shuffle'],
-  deal: ['deal1', 'deal2', 'deal3', 'deal'],
-  play: ['play1', 'play2', 'play'],
+  deal: ['deal1', 'deal2', 'deal3'],
+  play: ['play1', 'play2'],
   sweep: ['sweep'],
   bid: ['bid'],
   turn: ['turn'],
