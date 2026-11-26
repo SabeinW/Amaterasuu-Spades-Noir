@@ -27,6 +27,11 @@ export const FAMILIES = {
   starfall: { id: 'starfall', name: 'Starfall Court', courtSet: 'starfall', paper: paper('#f8f7fb', '#e9e7f3', '#d8d4ea'), metal: '#c9a24d', motif: 'star', effect: 'starfall' },
   dune: { id: 'dune', name: 'Dune Court', courtSet: 'dune', paper: paper('#fff8ee', '#f5e6cf', '#e8d0ab'), metal: '#c98a3a', motif: 'dune', effect: 'dune' },
   cloudborn: { id: 'cloudborn', name: 'Cloudborn', courtSet: 'cloudborn', paper: paper('#ffffff', '#f3effc', '#e2d9f5'), metal: '#8f6fd6', motif: 'cloud', effect: 'cloud' },
+  // Concrete Crowns (modern streetwear) and Capes & Chaos (original heroes and villains)
+  shibuya: { id: 'shibuya', name: 'Shibuya Drip', courtSet: 'shibuya', paper: paper('#fbfbfe', '#efedf6', '#dedbec'), metal: '#e0409a', motif: 'drip', effect: 'neon' },
+  uptown: { id: 'uptown', name: 'Uptown Royalty', courtSet: 'uptown', paper: paper('#fffaf2', '#f4ead8', '#e7d5b8'), metal: '#9e3b34', motif: 'crown', effect: 'mural' },
+  heroes: { id: 'heroes', name: 'Hero League', courtSet: 'heroes', paper: paper('#ffffff', '#eef2fb', '#dbe3f3'), metal: '#2f62d8', motif: 'burst', effect: 'hero' },
+  villains: { id: 'villains', name: 'Rogue Syndicate', courtSet: 'villains', paper: paper('#faf7f8', '#eee4e7', '#dccdd2'), metal: '#b51f35', motif: 'mask', effect: 'venom' },
   classic: { id: 'classic', name: 'Classic Court', courtSet: 'classic', paper: 'linear-gradient(160deg, #fffdf7 0%, #f7f1e3 60%, #eee4cf 100%)', metal: '#c9a24d', motif: null, effect: null, pips: true },
 }
 

@@ -19,6 +19,10 @@ const STYLE = {
   starfall: { look: 'deep cosmic navy and violet ink with gold-leaf constellations and soft nebula washes', world: 'a starry cosmos, constellation lines and shooting stars' },
   dune: { look: 'warm sumi-e ink with terracotta, saffron, sand gold and deep teal, gold-leaf accents', world: 'golden dunes, a low desert sun and drifting sand' },
   cloudborn: { look: 'joyful, bold illustration with clean expressive line work; royal purple and pearl white with electric-blue details and silver highlights, soft glowing light', world: 'billowing white storm clouds bursting outward with crackling violet and blue lightning' },
+  shibuya: { modern: true, look: 'sleek modern anime-influenced illustration with crisp line work and cel shading; neon magenta, electric cyan, black and white with chrome highlights', world: 'a rainy Tokyo side street at night glowing with abstract neon shapes (no letters or signs with writing) and reflections on the wet pavement' },
+  uptown: { modern: true, look: 'bold modern illustration with clean line work and warm golden-hour light; burgundy, olive, cream, denim blue and white with silver highlights, crisp sneaker-culture finish', world: 'a city block of brownstones with a fire escape and a colourful abstract mural (no letters) in warm sunset light' },
+  heroes: { modern: true, look: 'bold modern comic-book illustration with dynamic inking, halftone shading and vivid saturated colour; royal blue, white, crimson and silver', world: 'a city skyline at dusk with dramatic light rays, action lines and flying debris' },
+  villains: { modern: true, look: 'dark, dramatic modern comic-book illustration with heavy inks and sharp shadows; black, crimson, toxic green and deep purple with chrome highlights', world: 'a stormy city night with crimson-lit smoke, shattered glass and creeping black tendrils' },
 }
 
 // Who sits on each card, per family. Kings: older men with beards. Queens:
@@ -196,6 +200,73 @@ Object.assign(CAST, {
     JC: 'a relaxed young Black wanderer with dark brown skin and two-strand twists, sand robes, a tall staff with a water gourd',
     JOKER_BIG: 'a joyful Black acrobat-jester with deep brown skin leaping over a dune in a saffron and teal patchwork costume with long sleeves and a soft cap, tossing a gold coin',
   },
+  // Concrete Crowns: modern Tokyo and US streetwear. Men wear silver, never gold.
+  shibuya: {
+    QH: 'a radiant Black queen with deep brown skin and a big coily afro with a pink streak, in an oversized pastel-pink and white bomber jacket with abstract embroidered patches, wide-leg trousers and platform sneakers, a small silver crown hair clip, laughing as she flashes a peace sign',
+    KS: 'a cool, broad-shouldered Black king with deep brown skin, a neat grey beard and short locs, in an oversized black techwear jacket with straps and buckles, cargo trousers and chunky sneakers, a small silver crown pendant, arms crossed under a neon-lit awning',
+    QS: 'a fierce Black queen with brown skin and long black box braids under a black bucket hat, in a long black-and-cyan windbreaker over a hoodie and wide cargo trousers, holding a closed umbrella like a sword in the rain',
+    JS: 'a young Black skater with brown skin, two-strand twists and a thin moustache, in a black-and-white hoodie with abstract shapes, baggy jeans and high-top sneakers, a skateboard on his shoulder',
+    KH: 'a warm Black king with rich brown skin, a full salt-and-pepper beard and a knit beanie, in a quilted burgundy-and-cream coach jacket over a turtleneck, holding a steaming paper cup of tea under neon lights',
+    JH: 'a young Black dancer with warm brown skin and cornrows, in a red and white track jacket, loose track trousers and sneakers, frozen mid-breakdance on one hand',
+    KD: 'a sharp Black king with deep brown skin, a bald head and a sculpted white beard, in a cream varsity-style jacket with a silver crown patch, tailored joggers and pristine white sneakers, flipping a silver coin',
+    QD: 'a stylish Black queen with brown skin and a sleek high puff with silver pins, in an oversized holographic lilac-and-cyan puffer jacket and wide trousers, holding up a glowing phone like a mirror',
+    JD: 'a cheerful young Black bike courier with brown skin and a high-top fade, in a neon-yellow and black utility jacket with reflective stripes, riding a fixed-gear bicycle with a bright headlamp',
+    KC: 'a wise Black elder king with dark brown skin, long grey locs tied back and a long grey beard, in a long olive kimono-cut coat over a black hoodie and wide trousers, holding a small bonsai tree',
+    QC: 'a calm Black queen with medium-brown skin and bantu knots, in a mint-green oversized cardigan over a white tee, a long pleated skirt and chunky sneakers, sketching in a sketchbook',
+    JC: 'a laid-back young Black film-camera fan with dark brown skin and a short afro, in a camo cargo jacket and bucket hat, raising a film camera',
+    JOKER_BIG: 'a laughing Black street-performer jester with deep brown skin mid-backflip, in a magenta, cyan and black patchwork hoodie and trousers with long sleeves and a soft jester beanie, neon light trails around him',
+    JOKER_SMALL: 'a grinning young Black kid-jester with brown skin and twists popping a wheelie on a skateboard, in a cyan and black patchwork tracksuit with a soft jester beanie',
+  },
+  uptown: {
+    QH: 'a radiant Black queen with deep brown skin and a big natural afro with a silver headband, in a burgundy puffer jacket over a long cream hoodie, wide-leg denim and fresh white sneakers, laughing on a brownstone stoop',
+    KS: 'a commanding Black king with deep brown skin, a full black beard and a black durag, in a black leather varsity jacket with a silver crown patch, black jeans and boots, leaning on a fire-escape rail',
+    QS: 'a confident Black queen with brown skin and long knotless braids, in a long black shearling coat over a charcoal hoodie, wide trousers and boots, arms folded in front of a mural',
+    JS: 'a young Black baller with brown skin, cornrows and a light beard, in an oversized black and white basketball warm-up jacket and joggers, spinning a basketball on one finger',
+    KH: 'a kindly Black king with rich brown skin, a grey beard and short waves, in a burgundy cardigan over a crisp white tee, cream trousers and loafers, carrying a paper bag of fresh fruit from the corner store',
+    JH: 'a young Black muralist with warm brown skin and two-strand twists, in a paint-splattered denim jacket and work pants, spray-painting a colourful abstract mural with no letters',
+    KD: 'a stylish Black king with deep brown skin, a bald head and a silver beard, in a camel overcoat over an olive hoodie, tailored trousers and suede sneakers, lifting the lid off a box of pristine white sneakers',
+    QD: 'a dazzling Black queen with brown skin and a sculpted twist-out, in a metallic silver puffer coat over an olive tracksuit and white sneakers, holding a sparkling cut diamond up to the light',
+    JD: 'a cheerful young Black sneaker runner with brown skin and a high-top fade, in a bright olive windbreaker and cargo pants, balancing a tall stack of sneaker boxes',
+    KC: 'a wise Black elder king with dark brown skin, white locs and a long white beard, in a tweed flat cap and an olive chore coat over a cream knit sweater, sitting on a park bench with a cane topped by a silver crown',
+    QC: 'a gentle Black queen with medium-brown skin and locs wrapped in an olive headwrap, in a long denim coat over a cream knit dress and sneakers, carrying sunflowers from a street flower stand',
+    JC: 'a relaxed young Black rider with dark brown skin and a short afro under a fitted cap, in a navy and cream tracksuit, sitting on a BMX bike',
+    JOKER_BIG: 'a laughing Black street-dancer jester with deep brown skin mid-spin, in a burgundy, olive and cream patchwork tracksuit with long sleeves and a soft jester beanie with pom-poms',
+    JOKER_SMALL: 'a grinning young Black kid-jester with brown skin and twists doing a handstand on a basketball, in a cream and burgundy patchwork hoodie and a soft jester beanie',
+  },
+  // Capes & Chaos: original heroes and villains (no existing comic characters,
+  // logos or costumes). Faces stay human; no monsters, no gods, no magic.
+  heroes: {
+    QH: 'a heroic Black queen with deep brown skin and a big natural afro, in a modest armoured royal-blue and white hero suit with a long flowing silver-lined cape and an abstract glowing heart crest, raising a shimmering force-field shield of light with one hand, smiling with confidence',
+    KS: 'a towering, immensely muscular Black hero with deep brown skin, a grey beard and a shaved head, in a battle-worn armoured navy and emerald combat suit, emerald energy crackling around his huge fists as he lifts a broken steel girder; fully human, noble and determined',
+    QS: 'a fearless Black queen with brown skin and long box braids, in a modest midnight-blue armoured hero suit with a long dark coat, landing in a crouch with two glowing energy batons',
+    JS: 'an agile young Black hero with brown skin and two-strand twists, in a sleek charcoal and electric-teal suit with a hexagon texture and his mask pushed up onto his forehead, swinging between rooftops on a glowing grapple line, grinning',
+    KH: 'a noble Black hero-king with rich brown skin and a full white beard, in silver plate armour with a deep blue cape, lightning crackling from his raised armoured gauntlets as storm clouds gather',
+    JH: 'a young Black speedster with warm brown skin and cornrows, in a crimson and white aerodynamic suit, racing forward trailing streaks of golden lightning',
+    KD: 'a brilliant Black inventor-hero with deep brown skin, a silver goatee and glasses, in sleek white and silver power armour with the helmet retracted and a glowing blue core in the chest plate, studying a holographic blueprint',
+    QD: 'a radiant Black queen with brown skin and a high afro puff, in a modest white and sunburst-orange hero suit with a long cape, glowing with sunlight as she soars upward',
+    JD: 'a cheerful young Black hero with brown skin and a high-top fade, in a yellow and navy suit with a domino mask, flying on glowing hover-boots',
+    KC: 'a wise Black elder hero with dark brown skin, white locs and a long white beard, in an olive and bronze armoured coat, standing guard with a tall bronze kite shield',
+    QC: 'a serene Black queen with medium-brown skin and bantu knots, in a forest-green and silver hero suit with a long hooded cloak, ribbons of glowing green energy flowing from her hands to heal a city tree',
+    JC: 'a laid-back young Black street hero with dark brown skin and a short afro, in a grey and orange armoured hoodie suit with heavy gloves, perched on a rooftop water tower',
+    JOKER_BIG: 'a laughing Black trickster hero with deep brown skin mid-somersault, in a blue, red and white patchwork hero suit with long sleeves, a domino mask and a soft jester hood, bouncing off a glowing energy disc',
+    JOKER_SMALL: 'a grinning young Black sidekick with brown skin and twists mid-flip, in a blue and yellow patchwork hero suit with a soft jester hood and a little cape',
+  },
+  villains: {
+    QH: 'a menacing but elegant Black villain queen with deep brown skin and a big natural afro streaked with crimson, in a modest armoured suit of glossy living black liquid metal with crimson veins and a long high-collared coat, black tendrils rippling from her shoulders, smiling coldly',
+    KS: 'a towering Black villain king with deep brown skin and a black beard, wrapped in glossy living black liquid armour that ripples into spikes and tendrils across his shoulders, the smooth black mask half-retracted to show his human face and a cold grin',
+    QS: 'a cunning Black villain queen with brown skin and long knotless braids, in a black and violet armoured coat, holding two glowing toxic-green flasks as green smoke curls around her',
+    JS: 'a wild young Black villain with brown skin and twists, wrapped in living crimson liquid armour that whips out into chaotic red tendrils, the mask pulled back to show a reckless grin',
+    KH: 'a cold Black villain king with rich brown skin and a white beard, in ice-blue and black cryo-armour with frost venting from his gauntlets, freezing the street around him',
+    JH: 'a young Black cat-burglar with warm brown skin and cornrows, in a black and crimson stealth suit, crouched on a ledge holding a glowing red gem',
+    KD: 'a ruthless Black tycoon-villain with deep brown skin, a bald head and a silver beard, in a black armoured suit with a purple-lined cape, levitating shards of metal with magnetic energy',
+    QD: 'a dazzling Black villain queen with brown skin and a crimson-tipped afro puff, in a modest black and purple armoured long coat, commanding a swarm of glowing red drones',
+    JD: 'a reckless young Black villain with brown skin and a high-top fade, in a toxic-green and black hazard suit with a gas mask pulled down, riding a smoking hover-bike',
+    KC: 'a grim Black warlord villain with dark brown skin, grey locs and a long grey beard, in heavy black iron armour with a tattered crimson cape, gripping a giant chained gauntlet',
+    QC: 'a sinister Black villain queen with medium-brown skin and bantu knots, in a deep-purple armoured coat, black shadows rising from the ground like smoke at her command',
+    JC: 'a brooding young Black villain with dark brown skin and a short afro, in a black hooded armoured jacket with glowing red seams, red energy crackling in his fist',
+    JOKER_BIG: 'a cackling Black trickster villain with deep brown skin mid-leap, in a black and crimson harlequin-pattern long coat with long sleeves and a cracked porcelain half-mask pushed up on his head, juggling glowing red orbs',
+    JOKER_SMALL: 'a mischievous young Black villain imp with brown skin and twists cartwheeling, in a black and toxic-green patchwork suit with a soft jester hood, trailing green smoke',
+  },
 })
 
 const CLASSIC = {
@@ -213,8 +284,8 @@ const CLASSIC = {
   JC: 'a young Black page with dark brown skin and box braids, scarlet and navy robes, holding an arrow',
 }
 
-const FULL = (who, look, world, title, joker) =>
-  `Playing-card center art, ${title}: ${who}${joker ? '' : ', in layered Japanese court robes'}; around them ${world}. ${look}, same finish and quality as the reference card but a different person, pose and composition. Half-length heraldic portrait, face in the upper third. Fully clothed, modest. No text, letters, numbers or border.`
+const FULL = (who, look, world, title, joker, modern) =>
+  `Playing-card center art, ${title}: ${who}${joker || modern ? '' : ', in layered Japanese court robes'}; around them ${world}. ${look}, same finish and quality as the reference card but a different person, pose and composition. Half-length heraldic portrait, face in the upper third. Fully clothed, modest. No text, letters, numbers or border.`
 
 const NAME = { K: 'King', Q: 'Queen', J: 'Jack' }
 const SUIT = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' }
@@ -233,13 +304,13 @@ function familyItems(fam) {
   const anchorsDone = fs.existsSync(`${ART}/${fam}_QH.png`)
   const cap = fam[0].toUpperCase() + fam.slice(1)
   return Object.entries(CAST[fam])
-    .filter(([card]) => (process.argv[3] === 'anchors' ? ['KS', 'QH'].includes(card) : !['KS', 'QH'].includes(card) || !anchorsDone))
+    .filter(([card]) => (process.argv[3] === 'anchors' ? ['KS', 'QH'].includes(card) : process.argv[3] === 'qh' ? card === 'QH' : process.argv[3] === 'rest' ? card !== 'QH' : !['KS', 'QH'].includes(card) || !anchorsDone))
     .map(([card, who]) => ({
       name: `${fam}_${card}`,
       model: 'gpt-image-2.6',
       settings: { aspectRatio: '3:4', quality: 'high' },
       ...(anchorsDone ? { references: [`${ART}/${fam}_QH.png`] } : {}),
-      prompt: FULL(who, s.look, s.world, card === 'JOKER_BIG' ? 'the Big Joker' : `${NAME[card[0]]} of ${SUIT[card[1]]} of the ${cap} Court`, card === 'JOKER_BIG'),
+      prompt: FULL(who, s.look, s.world, card === 'JOKER_BIG' ? 'the Big Joker' : card === 'JOKER_SMALL' ? 'the Little Joker' : `${NAME[card[0]]} of ${SUIT[card[1]]} of the ${cap} deck`, card.startsWith('JOKER'), s.modern),
     }))
 }
 
@@ -279,7 +350,11 @@ if (fam === 'extras') {
     aurora: 'the spade glowing with rippling teal and magenta aurora light, silver outline, snowy night',
     starfall: 'the spade made of a gold constellation of stars on deep navy, a shooting star across it',
     dune: 'the spade of polished brass engraved with geometric patterns, rising over golden dunes',
-    cloudborn: 'the spade formed from a billowing white cloud with a warm gold sunburst glowing behind it',
+    cloudborn: 'the spade formed from a billowing white storm cloud with violet and electric-blue lightning crackling through it, a warm gold sunburst glowing behind it',
+    shibuya: 'the spade built from glowing magenta and cyan neon tubes with chrome fittings, a soft neon haze around it',
+    uptown: 'the spade as a bold mural-style emblem in burgundy, olive and cream with a small silver crown on top and a few spray-paint drips',
+    heroes: 'the spade as a bold comic-book emblem in royal blue and white with a crimson action burst behind it, halftone dots and speed lines',
+    villains: 'the spade made of glossy living black liquid armour with glowing crimson veins, thin tendrils curling off its edges',
   }
   console.log(
     JSON.stringify(

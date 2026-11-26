@@ -279,6 +279,24 @@ export const MYTHIC_DECK_THEMES = [
   mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#2a1650', '#a98bff', 'Joyful white-haired royals in purple and white; clouds burst and lightning cracks'),
 ]
 
+// Concrete Crowns — modern streetwear royals (Tokyo and uptown US).
+const street = (id, name, tag, style, backTint, edge, description) =>
+  deck(id, name, tag, 'street', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+
+export const STREET_DECK_THEMES = [
+  street('street-shibuya', 'Shibuya Drip', 'TOKYO', 'shibuya', '#0c0a14', '#e0409a', 'Tokyo streetwear royals; neon hums and rain falls'),
+  street('street-uptown', 'Uptown Royalty', 'UPTOWN', 'uptown', '#3a1214', '#c98a5a', 'Uptown streetwear royals in golden-hour light; paint specks drift'),
+]
+
+// Capes & Chaos — original heroes and villains (no existing comic characters).
+const capes = (id, name, tag, style, backTint, edge, description) =>
+  deck(id, name, tag, 'capes', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+
+export const CAPES_DECK_THEMES = [
+  capes('capes-heroes', 'Hero League', 'HEROES', 'heroes', '#0b1a4a', '#4f86ff', 'Original heroes; action bursts flare across the cards'),
+  capes('capes-villains', 'Rogue Syndicate', 'VILLAINS', 'villains', '#140406', '#d0283f', 'Original villains; crimson pulses and dark smoke rises'),
+]
+
 export const MASTER_DECK_THEMES = [
   deck('inferno-blaze-m', 'Inferno Blaze', 'FIRE', 'master', {
     face: 'noir', ink: noirInk('#f97316'), edge: '#f97316', backTint: '#2a0a02',
@@ -384,11 +402,13 @@ export const MIDNIGHT_DECK_THEMES = [
   midnight('midnight-platinum', 'Midnight Platinum', 'PLATINUM', '#cbd5e1', 'platinum kumiko lattice pattern'),
 ]
 
-export const ALL_DECKS = [...MYTHIC_DECK_THEMES, ...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
+export const ALL_DECKS = [...MYTHIC_DECK_THEMES, ...STREET_DECK_THEMES, ...CAPES_DECK_THEMES, ...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
 export const DEFAULT_DECK = MYTHIC_DECK_THEMES[0]
 export const ALL_TABLES = [...TABLE_THEMES, ...MASTER_THEMES]
 export const DECK_FAMILIES = [
   { id: 'mythic', label: 'Mythic Courts', decks: MYTHIC_DECK_THEMES },
+  { id: 'street', label: 'Concrete Crowns', decks: STREET_DECK_THEMES },
+  { id: 'capes', label: 'Capes & Chaos', decks: CAPES_DECK_THEMES },
   { id: 'standard', label: 'Lacquer', decks: DECK_THEMES },
   { id: 'master', label: 'Master', decks: MASTER_DECK_THEMES },
   { id: 'og', label: "OG's", decks: OG_DECK_THEMES },
