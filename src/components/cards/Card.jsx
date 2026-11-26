@@ -68,7 +68,13 @@ function Index({ card, ink, width, flip, noir, onArt, classic, pillBg, ring }) {
       }}
     >
       {isJoker ? (
-        <span className="font-display font-extrabold tracking-tight" style={{ fontSize: Math.max(8, width * 0.13), color: ink, writingMode: 'vertical-rl', letterSpacing: '0.04em' }}>
+        // Two short columns, read top to bottom: "BIG / JOKER" or "LITTLE /
+        // JOKER". One long line would not fit down the card's edge, and the
+        // edge is all you see of a card in a fanned hand.
+        // The outer size sets each column's minimum width, so it stays small.
+        <span className="font-display font-extrabold" style={{ color: ink, writingMode: 'vertical-rl', letterSpacing: '0.04em', lineHeight: 1.05, fontSize: Math.max(7, width * 0.1) }}>
+          <span style={{ fontSize: Math.max(8, width * 0.12) }}>{card.value === 'BIG' ? 'BIG' : 'LITTLE'}</span>
+          <br />
           JOKER
         </span>
       ) : (
