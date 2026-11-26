@@ -276,7 +276,7 @@ export const MYTHIC_DECK_THEMES = [
   mythic('mythic-aurora', 'Aurora', 'LIGHTS', 'aurora', '#071a26', '#3fb8a8', 'Northern-lights royals; curtains of light shift'),
   mythic('mythic-starfall', 'Starfall', 'COSMIC', 'starfall', '#0a0c26', '#c9a24d', 'Cosmic royals; shooting stars cross the cards'),
   mythic('mythic-dune', 'Dune Kingdom', 'DESERT', 'dune', '#3a1e08', '#c98a3a', 'Desert royals in saffron and teal; sand drifts'),
-  mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#12304e', '#7fb2e0', 'Joyful white-haired royals and silverback spirits; clouds burst'),
+  mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#2a1650', '#a98bff', 'Joyful white-haired royals in purple and white; clouds burst and lightning cracks'),
 ]
 
 export const MASTER_DECK_THEMES = [

@@ -14,7 +14,7 @@ function seed(id) {
   }
 }
 
-const PARTICLES = { moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 4, storm: 1, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
+const PARTICLES = { moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 5, storm: 1, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
 
 function CardFx({ effect, id, radius }) {
   if (!effect) return null
@@ -36,7 +36,7 @@ function CardFx({ effect, id, radius }) {
           }}
         />
       ))}
-      {effect === 'storm' && (
+      {(effect === 'storm' || effect === 'cloud') && (
         <svg className="fx-bolt" viewBox="0 0 40 100" preserveAspectRatio="none">
           <path d="M26 0L8 46h12L6 100 34 38H20z" />
         </svg>

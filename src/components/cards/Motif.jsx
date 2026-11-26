@@ -83,7 +83,12 @@ const PATHS = {
       <path d="M4 88c20-12 40-10 56 0" fill="none" strokeWidth="3" />
     </>
   ),
-  cloud: <path d="M28 70a16 16 0 0 1 2-32 22 22 0 0 1 42-6 16 16 0 0 1 14 30 14 14 0 0 1-10 8H28z" />,
+  cloud: (
+    <>
+      <path d="M28 62a16 16 0 0 1 2-32 22 22 0 0 1 42-6 16 16 0 0 1 14 30 14 14 0 0 1-10 8H28z" />
+      <path d="M54 58L44 76h9l-7 18 18-24h-9l6-12z" />
+    </>
+  ),
 }
 
 export default function Motif({ motif, color, size, opacity = 0.16 }) {

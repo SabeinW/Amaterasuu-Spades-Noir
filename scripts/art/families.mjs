@@ -18,7 +18,7 @@ const STYLE = {
   aurora: { look: 'luminous ink wash with aurora teal, emerald, magenta and violet over deep night blue, silver-leaf accents', world: 'curtains of northern lights rippling over a snowy night' },
   starfall: { look: 'deep cosmic navy and violet ink with gold-leaf constellations and soft nebula washes', world: 'a starry cosmos, constellation lines and shooting stars' },
   dune: { look: 'warm sumi-e ink with terracotta, saffron, sand gold and deep teal, gold-leaf accents', world: 'golden dunes, a low desert sun and drifting sand' },
-  cloudborn: { look: 'joyful, bold illustration with clean expressive line work, pearl white, sky blue and warm gold with soft glowing highlights', world: 'billowing white clouds bursting outward, sunbursts and sparkles' },
+  cloudborn: { look: 'joyful, bold illustration with clean expressive line work; royal purple and pearl white with electric-blue details and silver highlights, soft glowing light', world: 'billowing white storm clouds bursting outward with crackling violet and blue lightning' },
 }
 
 // Who sits on each card, per family. Kings: older men with beards. Queens:
@@ -122,19 +122,19 @@ Object.assign(CAST, {
   // warriors. The kings are always fully human; a separate white cloud-ape
   // spirit looms behind them as a guardian (never the person as an ape).
   cloudborn: {
-    KS: 'a joyful, broad-shouldered Black king with deep brown skin, a big white cloud-like afro and a full white beard, sky-blue robes with gold trim, laughing with fists raised; behind him looms a giant guardian spirit shaped like a white silverback ape made of billowing cloud',
-    QH: 'a joyful Black queen with deep brown skin and a huge white cloud-like afro, sky-blue and white robes, laughing with her arms flung wide',
-    QS: 'a mischievous Black queen with brown skin and long white locs floating upward like steam, white and gold robes, winking, holding a closed fan',
-    JS: 'a grinning young Black warrior with brown skin and white two-strand twists floating upward, white robes with gold trim, leaping with a wooden sword',
-    KH: 'a jolly Black king with rich brown skin, a white cloud-like beard and white twists, white and coral robes, laughing so hard he holds his belly',
-    JH: 'a young Black archer with warm brown skin and white box braids, sky-blue robes, firing an arrow that bursts into a cloud',
-    KD: 'a grinning Black king with rich brown skin, white twists under a small gold crown and a white goatee, white and gold robes, flipping a gold coin; a huge white cloud-spirit ape guardian rises behind him',
-    QD: 'a radiant Black queen with brown skin and a white afro puff haloed in light, gold and white robes, blowing a puff that becomes a little cloud',
-    JD: 'a cheeky young Black courier with brown skin and a white high-top fade, sky-blue robes, riding a small cloud and swinging a lantern',
-    KC: 'a wise, smiling Black elder king with dark brown skin, long white locs and a long white beard, white and sky-blue robes, holding a calligraphy brush; a calm white cloud-spirit ape guardian sits behind him like a mountain of cloud',
-    QC: 'a playful Black queen with medium-brown skin and white bantu knots, white and mint robes, dancing on a cloud holding a sprig of white blossoms',
-    JC: 'a laid-back young Black wanderer with dark brown skin and white cornrows, white robes, lounging on a cloud with a staff',
-    JOKER_BIG: 'a laughing Black jester with deep brown skin and a white cloud-afro, bouncing high in a white and gold patchwork costume with long sleeves and a soft cap, clouds bursting around him',
+    KS: 'a joyful, broad-shouldered Black king with deep brown skin, a big white cloud-like afro and a full white beard, royal purple and white robes with electric-blue details, laughing with fists raised; behind him looms a giant guardian spirit shaped like a white silverback ape made of billowing cloud',
+    QH: 'a joyful Black queen with deep brown skin and a huge white cloud-like afro, royal purple and white robes with electric-blue details, laughing with her arms flung wide',
+    QS: 'a mischievous Black queen with brown skin and long white locs floating upward like steam, royal purple and white robes with electric-blue details, winking, holding a closed fan',
+    JS: 'a grinning young Black warrior with brown skin and white two-strand twists floating upward, royal purple and white robes with electric-blue details, leaping with a wooden sword',
+    KH: 'a jolly Black king with rich brown skin, a white cloud-like beard and white twists, royal purple and white robes with electric-blue details, laughing so hard he holds his belly',
+    JH: 'a young Black archer with warm brown skin and white box braids, royal purple and white robes with electric-blue details, firing an arrow that bursts into a cloud',
+    KD: 'a grinning Black king with rich brown skin, white twists under a small gold crown and a white goatee, royal purple and white robes with electric-blue details, flipping a gold coin; a huge white cloud-spirit ape guardian rises behind him',
+    QD: 'a radiant Black queen with brown skin and a white afro puff haloed in light, gold and royal purple and white robes with electric-blue details, blowing a puff that becomes a little cloud',
+    JD: 'a cheeky young Black courier with brown skin and a white high-top fade, royal purple and white robes with electric-blue details, riding a small cloud and swinging a lantern',
+    KC: 'a wise, smiling Black elder king with dark brown skin, long white locs and a long white beard, royal purple and white robes with electric-blue details, holding a calligraphy brush; a calm white cloud-spirit ape guardian sits behind him like a mountain of cloud',
+    QC: 'a playful Black queen with medium-brown skin and white bantu knots, royal purple and white robes with electric-blue details, dancing on a cloud holding a sprig of white blossoms',
+    JC: 'a laid-back young Black wanderer with dark brown skin and white cornrows, royal purple and white robes with electric-blue details, lounging on a cloud with a staff',
+    JOKER_BIG: 'a laughing Black jester with deep brown skin and a white cloud-afro, bouncing high in a purple and white patchwork costume with blue diamonds with long sleeves and a soft cap, clouds bursting around him',
   },
   eclipse: {
     KS: 'a formidable Black king with deep brown skin, long black locs and a full beard, black and burnished-gold robes, holding a black lacquer war fan edged in gold',

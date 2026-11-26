@@ -26,7 +26,7 @@ export const FAMILIES = {
   aurora: { id: 'aurora', name: 'Aurora Court', courtSet: 'aurora', paper: paper('#f6fbfb', '#e4f0f0', '#d4e2ea'), metal: '#3fb8a8', motif: 'aurora', effect: 'aurora' },
   starfall: { id: 'starfall', name: 'Starfall Court', courtSet: 'starfall', paper: paper('#f8f7fb', '#e9e7f3', '#d8d4ea'), metal: '#c9a24d', motif: 'star', effect: 'starfall' },
   dune: { id: 'dune', name: 'Dune Court', courtSet: 'dune', paper: paper('#fff8ee', '#f5e6cf', '#e8d0ab'), metal: '#c98a3a', motif: 'dune', effect: 'dune' },
-  cloudborn: { id: 'cloudborn', name: 'Cloudborn', courtSet: 'cloudborn', paper: paper('#ffffff', '#eef5fc', '#dceaf7'), metal: '#7fb2e0', motif: 'cloud', effect: 'cloud' },
+  cloudborn: { id: 'cloudborn', name: 'Cloudborn', courtSet: 'cloudborn', paper: paper('#ffffff', '#f3effc', '#e2d9f5'), metal: '#8f6fd6', motif: 'cloud', effect: 'cloud' },
   classic: { id: 'classic', name: 'Classic Court', courtSet: 'classic', paper: 'linear-gradient(160deg, #fffdf7 0%, #f7f1e3 60%, #eee4cf 100%)', metal: '#c9a24d', motif: null, effect: null, pips: true },
 }
 
