@@ -90,11 +90,16 @@ export function openTableChannel(roomId, me, handlers) {
 }
 
 const avatarCache = new Map()
+// Only real accounts have profiles. Bot seats (`__bot__2`) aren't UUIDs, and a
+// single one makes Postgres reject the whole lookup (HTTP 400).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function fetchAvatars(ids) {
-  const missing = ids.filter((id) => !avatarCache.has(id))
+  const missing = ids.filter((id) => UUID.test(id) && !avatarCache.has(id))
   if (missing.length && supabaseEnabled) {
-    const { data } = await supabase.from('profiles').select('id, avatar_url').in('id', missing)
-    for (const id of missing) avatarCache.set(id, data?.find((p) => p.id === id)?.avatar_url ?? '')
+    const { data, error } = await supabase.from('profiles').select('id, avatar_url').in('id', missing)
+    // Cache only a real answer: a failed lookup shouldn't blank everyone's avatar for the session.
+    if (!error) for (const id of missing) avatarCache.set(id, data?.find((p) => p.id === id)?.avatar_url ?? '')
   }
   return Object.fromEntries(ids.map((id) => [id, avatarCache.get(id) ?? '']))
 }

@@ -41,7 +41,7 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
     if (room.status === 'closed') onLeave?.(true)
   }, [room, onStart, onLeave])
 
-  const ids = room.players.map((p) => p.id).join(',')
+  const ids = room.players.filter((p) => !p.isBot).map((p) => p.id).join(',')
   useEffect(() => {
     if (ids) fetchAvatars(ids.split(',')).then(setAvatars)
   }, [ids])

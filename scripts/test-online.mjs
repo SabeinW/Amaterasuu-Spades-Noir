@@ -1,26 +1,15 @@
-// End-to-end check of online play against the LOCAL Supabase stack:
+// End-to-end check of online play, against the LOCAL Supabase stack:
 //   npx supabase start && npx supabase functions serve   (in another shell)
 //   node scripts/test-online.mjs
+// or against production with marked qa- accounts:  TARGET=prod node scripts/test-online.mjs
 //
 // Four real accounts create/join a room, play a whole match through the
 // `game` edge function, and the test checks the things that used to break:
 // hidden hands, server-side validation, nobody able to write rooms directly,
 // leave/rejoin mid-match, concurrent moves, realtime delivery, and stats.
-import { execSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 import * as E from '../supabase/functions/_shared/engine.js'
-
-const env = Object.fromEntries(
-  execSync('npx -y supabase@latest status -o env', { encoding: 'utf8' })
-    .split('\n')
-    .filter((l) => l.includes('='))
-    .map((l) => {
-      const i = l.indexOf('=')
-      return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')]
-    })
-)
-const URL = env.API_URL
-const KEY = env.ANON_KEY
+import { KEY, URL, emailFor, usernameFor } from './test-target.mjs'
 
 let failures = 0
 const check = (cond, msg) => {
@@ -32,10 +21,10 @@ const check = (cond, msg) => {
 
 async function makePlayer(label) {
   const client = createClient(URL, KEY, { auth: { persistSession: false } })
-  const email = `${label}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.local`
+  const email = emailFor(label)
   const { data, error } = await client.auth.signUp({ email, password: 'test-password-123' })
   if (error) throw error
-  await client.from('profiles').insert({ id: data.user.id, email, username: `${label}${Math.floor(Math.random() * 1e5)}` })
+  await client.from('profiles').insert({ id: data.user.id, email, username: usernameFor(label) })
   const call = async (body) => {
     const { data: res, error: err } = await client.functions.invoke('game', { body })
     if (err) {
@@ -218,7 +207,7 @@ for (const p of players) {
 {
   const { error } = await host.client.from('profiles').update({ wins: 999 }).eq('id', host.id)
   check(!!error, 'clients cannot edit their own win count')
-  const { error: e2 } = await host.client.from('profiles').update({ username: `host${Date.now() % 100000}` }).eq('id', host.id)
+  const { error: e2 } = await host.client.from('profiles').update({ username: usernameFor('host') }).eq('id', host.id)
   check(!e2, 'clients can still rename themselves')
 }
 

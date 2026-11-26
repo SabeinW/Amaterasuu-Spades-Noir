@@ -1,27 +1,25 @@
 // Two real browsers (host + guest) play an online table through the UI
-// against the LOCAL Supabase stack + `supabase functions serve`.
+// against the LOCAL Supabase stack + `supabase functions serve`, or against
+// the live site with TARGET=prod (see test-target.mjs).
 //   node scripts/ui-online.mjs [baseUrl] [outDir]
+//   TARGET=prod node scripts/ui-online.mjs https://amaterasuu-spades-noir.vercel.app scripts/shots/prod-online
 import { chromium } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
-import { execSync } from 'node:child_process'
 import fs from 'node:fs'
+import { KEY, URL, emailFor, storageKey, usernameFor } from './test-target.mjs'
 
 const base = process.argv[2] ?? 'http://localhost:5180'
 const out = process.argv[3] ?? 'scripts/shots/online'
 fs.mkdirSync(out, { recursive: true })
-const env = Object.fromEntries(
-  execSync('npx -y supabase@latest status -o env', { encoding: 'utf8' })
-    .split('\n')
-    .filter((l) => l.includes('='))
-    .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).replace(/^"|"$/g, '')])
-)
 
 async function session(label) {
-  const c = createClient(env.API_URL, env.ANON_KEY, { auth: { persistSession: false } })
-  const email = `${label}-${Date.now()}@test.local`
+  const c = createClient(URL, KEY, { auth: { persistSession: false } })
+  const email = emailFor(label)
   const { data, error } = await c.auth.signUp({ email, password: 'test-password-123' })
   if (error) throw error
-  await c.from('profiles').insert({ id: data.user.id, email, username: `${label}${String(Date.now()).slice(-4)}` })
+  // The host picks a non-default avatar so the guest's view can prove avatars load.
+  const avatar = label === 'host' ? JSON.stringify({ kind: 'art', src: '/art/avatars/tiger.webp', border: null }) : null
+  await c.from('profiles').insert({ id: data.user.id, email, username: usernameFor(label), avatar_url: avatar })
   return data.session
 }
 
@@ -29,10 +27,11 @@ const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome'
 const errors = []
 async function player(label, sess, url) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
-  await ctx.addInitScript(([key, value]) => localStorage.setItem(key, value), ['sb-127-auth-token', JSON.stringify(sess)])
+  await ctx.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey, JSON.stringify(sess)])
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.push(`${label} pageerror: ${e.message}`))
   page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(`${label}: ${m.text()}`))
+  page.on('response', (r) => r.status() >= 400 && errors.push(`${label}: HTTP ${r.status()} ${r.request().method()} ${r.url().split('?')[0]}`))
   await page.goto(url, { waitUntil: 'networkidle' })
   return page
 }
@@ -87,9 +86,17 @@ async function step(page) {
   return 'idle'
 }
 
+{
+  await guest.waitForTimeout(1500)
+  const seen = await guest.locator('img[src="/art/avatars/tiger.webp"]').count()
+  console.log(`guest sees the host's chosen avatar: ${seen ? 'yes' : 'NO'}`)
+  if (!seen) errors.push("guest: host's avatar missing at the table")
+}
+
+const ROUNDS = Number(process.env.ROUNDS ?? 2)
 let midHost = false
 let summaries = 0
-for (let i = 0; i < 700 && summaries < 2; i++) {
+for (let i = 0; i < 700 && summaries < ROUNDS; i++) {
   const [a, b] = await Promise.all([step(host), step(guest)])
   if (!midHost && i > 25) {
     midHost = true

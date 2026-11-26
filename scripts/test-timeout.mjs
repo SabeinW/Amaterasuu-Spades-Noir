@@ -1,22 +1,18 @@
 // A player goes silent (phone dies, tab closed — no "leave"). The table must
 // keep going: once their turn deadline passes, any other player's nudge
-// makes the server bid/play for them. Runs against the local stack.
+// makes the server bid/play for them. Runs against the local stack, or
+// production with TARGET=prod (see test-target.mjs).
 //   node scripts/test-timeout.mjs
-import { execSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 import * as E from '../supabase/functions/_shared/engine.js'
+import { KEY, URL, emailFor, usernameFor } from './test-target.mjs'
 
-const env = Object.fromEntries(
-  execSync('npx -y supabase@latest status -o env', { encoding: 'utf8' })
-    .split('\n')
-    .filter((l) => l.includes('='))
-    .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).replace(/^"|"$/g, '')])
-)
 async function makePlayer(label) {
-  const client = createClient(env.API_URL, env.ANON_KEY, { auth: { persistSession: false } })
-  const email = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@test.local`
+  const client = createClient(URL, KEY, { auth: { persistSession: false } })
+  const email = emailFor(label)
   const { data, error } = await client.auth.signUp({ email, password: 'test-password-123' })
   if (error) throw error
+  await client.from('profiles').insert({ id: data.user.id, email, username: usernameFor(label) })
   const call = async (body) => {
     const { data: res, error: err } = await client.functions.invoke('game', { body })
     if (err) throw new Error((await err.context.json().catch(() => ({}))).error ?? err.message)
