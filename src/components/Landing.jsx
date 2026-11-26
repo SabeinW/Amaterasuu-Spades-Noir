@@ -8,10 +8,12 @@ import { ALL_DECKS } from '../data/tableThemes'
 // The home screen always shows the Sun Court deck's royals.
 const HERO_DECK = ALL_DECKS.find((d) => d.id === 'sun-court')
 
+// A hand fanned out on the home screen: both Jokers flank the A♠ and Q♥.
 const HERO_CARDS = [
-  { card: { suit: 'S', value: 'A', id: 'AS' }, r: -14, x: -58, y: 10, d: 0 },
-  { card: { suit: 'H', value: 'Q', id: 'QH' }, r: 0, x: 0, y: -6, d: 0.6 },
-  { card: { suit: 'JOKER', value: 'BIG', id: 'JOKER_BIG' }, r: 14, x: 58, y: 10, d: 1.2 },
+  { card: { suit: 'JOKER', value: 'SMALL', id: 'JOKER_SMALL' }, r: -15, x: -112, y: 16, d: 0, z: 1 },
+  { card: { suit: 'S', value: 'A', id: 'AS' }, r: -5, x: -37, y: 0, d: 0.4, z: 2 },
+  { card: { suit: 'H', value: 'Q', id: 'QH' }, r: 5, x: 37, y: 0, d: 0.8, z: 3 },
+  { card: { suit: 'JOKER', value: 'BIG', id: 'JOKER_BIG' }, r: 15, x: 112, y: 16, d: 1.2, z: 4 },
 ]
 
 function HeroArt() {
@@ -104,8 +106,8 @@ export default function Landing({
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-end pt-[20vh] sm:pt-[16vh] pb-6 text-center">
-          <div className="relative h-[150px] w-[260px] mb-2">
-            {HERO_CARDS.map(({ card, r, x, y, d }) => (
+          <div className="relative h-[160px] w-[320px] mb-2">
+            {HERO_CARDS.map(({ card, r, x, y, d, z }) => (
               <motion.div
                 key={card.id}
                 className="absolute left-1/2 top-0"
@@ -117,9 +119,9 @@ export default function Landing({
                   x: { delay: 0.2 + d * 0.15, type: 'spring', stiffness: 120, damping: 14 },
                   y: { delay: 1 + d, duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
                 }}
-                style={{ zIndex: card.value === 'Q' ? 3 : 2 }}
+                style={{ zIndex: z }}
               >
-                <Card card={card} deck={HERO_DECK ?? deck} width={card.value === 'Q' ? 92 : 84} />
+                <Card card={card} deck={HERO_DECK ?? deck} width={82} />
               </motion.div>
             ))}
           </div>
