@@ -46,7 +46,7 @@ function CardBack({ width, deck, style, className }) {
   )
 }
 
-function Index({ card, ink, width, flip, noir, onArt, classic }) {
+function Index({ card, ink, width, flip, noir, onArt, classic, pillBg, ring }) {
   const isJoker = card.suit === 'JOKER'
   const rankSize = Math.max(10, width * (card.value === '10' ? 0.23 : 0.27))
   const suitSize = Math.max(8, width * 0.17)
@@ -62,8 +62,8 @@ function Index({ card, ink, width, flip, noir, onArt, classic }) {
         transform: flip ? 'rotate(180deg)' : undefined,
         padding: onArt ? `${width * 0.03}px ${width * 0.025}px` : 0,
         borderRadius: width * 0.05,
-        background: onArt ? (noir ? 'rgb(12 10 8 / 0.86)' : 'rgb(250 245 235 / 0.92)') : undefined,
-        boxShadow: onArt ? '0 1px 3px rgb(0 0 0 / 0.25)' : undefined,
+        background: onArt ? pillBg ?? (noir ? 'rgb(12 10 8 / 0.86)' : 'rgb(250 245 235 / 0.92)') : undefined,
+        boxShadow: onArt ? `0 1px 3px rgb(0 0 0 / 0.25)${ring ? `, inset 0 0 0 1px ${ring}` : ''}` : undefined,
         minWidth: width * 0.2,
       }}
     >
@@ -108,6 +108,12 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
     if (!art || !e.currentTarget.src.includes(art)) return
     setMiss({ src: art, tries: tries + 1 })
   }
+  // Decks with their own lettering (Mythic) put the rank on a coloured label
+  // on painted cards: Big Joker in the red-suit colour, Small in the black.
+  const pill = art && deck.pill
+  const labelInk = pill ? pill.ink[isJoker ? (card.value === 'BIG' ? 'H' : 'S') : card.suit] : ink
+  const pillBg = pill ? pill.bg : undefined
+  const pillRing = pill ? `${metal}99` : undefined
   const isAce = card.value === 'A'
   const n = Number(card.value)
   const Tag = onClick ? 'button' : 'div'
@@ -175,8 +181,8 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
         </div>
       )}
 
-      <Index card={card} ink={ink} width={width} noir={noir} onArt={!!art} classic={fam.pips} />
-      <Index card={card} ink={ink} width={width} noir={noir} onArt={!!art} classic={fam.pips} flip />
+      <Index card={card} ink={labelInk} width={width} noir={noir} onArt={!!art} classic={fam.pips} pillBg={pillBg} ring={pillRing} />
+      <Index card={card} ink={labelInk} width={width} noir={noir} onArt={!!art} classic={fam.pips} pillBg={pillBg} ring={pillRing} flip />
 
       {trumpHint && (
         <div

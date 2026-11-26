@@ -173,6 +173,7 @@ const deck = (id, name, tag, family, opts) => ({
   ink: opts.ink ?? fourColour,
   edge: opts.edge ?? '#d4a64a',
   court: opts.court ?? ((opts.face ?? 'washi') === 'noir' ? 'noir' : 'washi'),
+  pill: opts.pill, // optional: { bg, ink } label behind the rank on painted cards
   style: opts.style ?? STYLE_BY_ID[id] ?? (family === 'og' ? 'classic' : 'sun'),
   backTint: opts.backTint ?? '#0b0a08',
   art: opts.art,
@@ -260,23 +261,47 @@ export const DECK_THEMES = [
 
 // Mythic Courts — the showcase class: each deck has its own family of
 // illustrated Black royals, its own back, and the strongest living effects.
-const mythic = (id, name, tag, style, backTint, edge, description) =>
-  deck(id, name, tag, 'mythic', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+// Each also has its own lettering: `ink` colours the rank and suit on the
+// paper of the number cards; `pill` is the label behind the rank on the
+// painted cards (a dark lacquer label with light letters, or a pale one with
+// deep letters), so every deck's K, Q, J and A carry its own colours.
+// As on the Master decks, spades and clubs stay neutral (near-black or
+// near-white) and hearts and diamonds take the deck's colour, so trumps are
+// still easy to spot.
+const look = (paperSC, paperHD, pillBg, pillSC, pillHD) => ({
+  ink: { S: paperSC, C: paperSC, H: paperHD, D: paperHD },
+  pill: { bg: pillBg, ink: { S: pillSC, C: pillSC, H: pillHD, D: pillHD } },
+})
+const mythic = (id, name, tag, style, backTint, edge, description, lettering) =>
+  deck(id, name, tag, 'mythic', { style, backTint, edge, ...lettering, description })
 
 export const MYTHIC_DECK_THEMES = [
-  mythic('sun-court', 'Sun Court', 'SOLAR', 'sun', '#0b0a08', '#d4a64a', 'Gold-leaf sun royals with a breathing golden glow'),
-  mythic('mythic-moon', 'Lunar Veil', 'LUNAR', 'moon', '#141b34', '#aab6d3', 'Moonlit royals in indigo and pearl; stars twinkle'),
-  mythic('mythic-ember', 'Ember Crown', 'FIRE', 'ember', '#2a0a02', '#e0743a', 'Fire-forged royals; embers glow and sparks rise'),
-  mythic('mythic-tide', 'Tidecaller', 'WATER', 'tide', '#062033', '#3f9fc4', 'Sea royals among waves and koi; light ripples'),
-  mythic('mythic-frost', 'Frostborne', 'ICE', 'frost', '#16283a', '#9cc9e4', 'Winter royals in white and ice; frost glints'),
-  mythic('mythic-jade', 'Jade Grove', 'FOREST', 'jade', '#0c2a1c', '#4f9a6c', 'Forest royals among bamboo and pine'),
-  mythic('mythic-bloom', 'Sakura Bloom', 'BLOSSOM', 'bloom', '#3a1a26', '#d98aa2', 'Blossom royals; petals drift across the cards'),
-  mythic('mythic-storm', 'Stormcaller', 'THUNDER', 'storm', '#160f2e', '#8b7bf0', 'Storm royals; lightning flashes on the cards'),
-  mythic('mythic-eclipse', 'Eclipse', 'SHADOW', 'eclipse', '#050403', '#c9962e', 'Black-and-gold royals under a pulsing corona'),
-  mythic('mythic-aurora', 'Aurora', 'LIGHTS', 'aurora', '#071a26', '#3fb8a8', 'Northern-lights royals; curtains of light shift'),
-  mythic('mythic-starfall', 'Starfall', 'COSMIC', 'starfall', '#0a0c26', '#c9a24d', 'Cosmic royals; shooting stars cross the cards'),
-  mythic('mythic-dune', 'Dune Kingdom', 'DESERT', 'dune', '#3a1e08', '#c98a3a', 'Desert royals in saffron and teal; sand drifts'),
-  mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#2a1650', '#a98bff', 'Joyful white-haired royals in purple and white; clouds burst and lightning cracks'),
+  mythic('sun-court', 'Sun Court', 'SOLAR', 'sun', '#0b0a08', '#d4a64a', 'Gold-leaf sun royals with a breathing golden glow',
+    look('#1a1714', '#c8321f', '#0b0a08', '#f1d28a', '#f04a3a')),
+  mythic('mythic-moon', 'Lunar Veil', 'LUNAR', 'moon', '#141b34', '#aab6d3', 'Moonlit royals in indigo and pearl; stars twinkle',
+    look('#151a30', '#3f5fd0', '#1b2448', '#eef1fb', '#7f9cff')),
+  mythic('mythic-ember', 'Ember Crown', 'FIRE', 'ember', '#2a0a02', '#e0743a', 'Fire-forged royals; embers glow and sparks rise',
+    look('#1f0d06', '#c2410c', '#2a0a02', '#f6ecdf', '#ff6a2e')),
+  mythic('mythic-tide', 'Tidecaller', 'WATER', 'tide', '#062033', '#3f9fc4', 'Sea royals among waves and koi; light ripples',
+    look('#0c1c26', '#0a7fa8', '#062033', '#eef8fb', '#38d0f5')),
+  mythic('mythic-frost', 'Frostborne', 'ICE', 'frost', '#16283a', '#9cc9e4', 'Winter royals in white and ice; frost glints',
+    look('#131c26', '#1f78c0', '#16283a', '#f2f9ff', '#38bdf8')),
+  mythic('mythic-jade', 'Jade Grove', 'FOREST', 'jade', '#0c2a1c', '#4f9a6c', 'Forest royals among bamboo and pine',
+    look('#0f1f16', '#23864f', '#0c2a1c', '#eef7ef', '#4ade80')),
+  mythic('mythic-bloom', 'Sakura Bloom', 'BLOSSOM', 'bloom', '#3a1a26', '#d98aa2', 'Blossom royals; petals drift across the cards',
+    look('#1f1418', '#c8326a', '#fdf0f3', '#1f1418', '#c8326a')),
+  mythic('mythic-storm', 'Stormcaller', 'THUNDER', 'storm', '#160f2e', '#8b7bf0', 'Storm royals; lightning flashes on the cards',
+    look('#16122a', '#6d4ff0', '#160f2e', '#ece8ff', '#ffd54a')),
+  mythic('mythic-eclipse', 'Eclipse', 'SHADOW', 'eclipse', '#050403', '#c9962e', 'Black-and-gold royals under a pulsing corona',
+    look('#14100a', '#a8320e', 'linear-gradient(135deg,#f6dc9a,#c9962e)', '#120d05', '#7a1a0c')),
+  mythic('mythic-aurora', 'Aurora', 'LIGHTS', 'aurora', '#071a26', '#3fb8a8', 'Northern-lights royals; curtains of light shift',
+    look('#0b1e24', '#b8338e', '#071a26', '#eefbf8', '#ff86d8')),
+  mythic('mythic-starfall', 'Starfall', 'COSMIC', 'starfall', '#0a0c26', '#c9a24d', 'Cosmic royals; shooting stars cross the cards',
+    look('#12142a', '#7a3cc0', '#0a0c26', '#f4f2ff', '#f3c65c')),
+  mythic('mythic-dune', 'Dune Kingdom', 'DESERT', 'dune', '#3a1e08', '#c98a3a', 'Desert royals in saffron and teal; sand drifts',
+    look('#2a1606', '#0e7c78', '#fbefd9', '#2a1606', '#0e7c78')),
+  mythic('mythic-cloudborn', 'Cloudborn', 'SKY', 'cloudborn', '#2a1650', '#a98bff', 'Joyful white-haired royals in purple and white; clouds burst and lightning cracks',
+    look('#1c1233', '#2858e8', '#2a1650', '#ffffff', '#6f9bff')),
 ]
 
 // Concrete Crowns — modern streetwear royals (Tokyo and uptown US).
