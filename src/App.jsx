@@ -1,17 +1,18 @@
-import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from 'react'
+import { startTransition, Suspense, useCallback, useEffect, useState } from 'react'
 import { MotionConfig } from 'motion/react'
 import Landing from './components/Landing'
-const AuthModal = lazy(() => import('./components/AuthModal'))
-const ChallengesModal = lazy(() => import('./components/ChallengesModal'))
-const RulesModal = lazy(() => import('./components/RulesModal'))
-const ProfileModal = lazy(() => import('./components/ProfileModal'))
-const LeaderboardModal = lazy(() => import('./components/LeaderboardModal'))
+import { lazyLoad, newerVersionLive } from './lib/freshLoad'
+const AuthModal = lazyLoad(() => import('./components/AuthModal'))
+const ChallengesModal = lazyLoad(() => import('./components/ChallengesModal'))
+const RulesModal = lazyLoad(() => import('./components/RulesModal'))
+const ProfileModal = lazyLoad(() => import('./components/ProfileModal'))
+const LeaderboardModal = lazyLoad(() => import('./components/LeaderboardModal'))
 import Lobby from './components/online/Lobby'
-const WaitingRoom = lazy(() => import('./components/online/WaitingRoom'))
-const CardGallery = lazy(() => import('./components/CardGallery'))
+const WaitingRoom = lazyLoad(() => import('./components/online/WaitingRoom'))
+const CardGallery = lazyLoad(() => import('./components/CardGallery'))
 const showGallery = new URLSearchParams(window.location.search).has('gallery')
-const OnlineTable = lazy(() => import('./components/table/Tables').then((m) => ({ default: m.OnlineTable })))
-const PracticeTable = lazy(() => import('./components/table/Tables').then((m) => ({ default: m.PracticeTable })))
+const OnlineTable = lazyLoad(() => import('./components/table/Tables').then((m) => ({ default: m.OnlineTable })))
+const PracticeTable = lazyLoad(() => import('./components/table/Tables').then((m) => ({ default: m.PracticeTable })))
 import { DeckPicker, TablePicker } from './components/ThemePickers'
 import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
 import { supabaseEnabled } from './lib/supabase'
@@ -104,6 +105,25 @@ export default function App() {
 
   useEffect(() => {
     if (view === 'landing') setSavedPractice(loadSavedPractice())
+  }, [view])
+
+  // An app left open (Mac Dock, phone home screen) keeps running the version it
+  // started with. When you come back to it on the home screen, switch to any
+  // newer version before a tap needs one of its pieces.
+  useEffect(() => {
+    if (view !== 'landing') return
+    let checkedAt = 0
+    const check = async () => {
+      if (document.visibilityState !== 'visible' || Date.now() - checkedAt < 60_000) return
+      checkedAt = Date.now()
+      if (await newerVersionLive()) window.location.reload()
+    }
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    return () => {
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+    }
   }, [view])
 
   const enterRoom = useCallback((r) => {
