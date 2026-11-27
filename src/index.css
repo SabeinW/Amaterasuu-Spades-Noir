@@ -46,6 +46,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Phones: no double-tap-to-zoom. Without this an iPhone reads two quick
+   taps (pick a bid then another, or tap a card then tap it again to play) as
+   a zoom gesture and swallows the second tap. */
+html {
+  touch-action: manipulation;
+}
+/* no "copy / look up" pop-up when you hold a button or a card */
+button,
+[data-card],
+.select-none {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
 html,
 body,
 #root {

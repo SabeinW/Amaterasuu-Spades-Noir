@@ -66,6 +66,39 @@ export default function HandFan({
     })
   }, [cards, cw, box.w, n])
 
+  // A tap is a press and release that barely moves. Handled on pointer
+  // events rather than click, because a finger that wiggles a few pixels
+  // starts the card's drag and the browser then drops the click.
+  const pressRef = useRef(null)
+  // Bumped after a drag that didn't play the card: the drag springs the card
+  // back to where the drag began, so nudge it to its proper spot (lifted, if
+  // that tap just picked it).
+  const [settle, setSettle] = useState(0)
+  const lastPressAtRef = useRef(0)
+  const pressDown = (card, e) => {
+    lastPressAtRef.current = Date.now()
+    pressRef.current = { id: card.id, x: e.clientX, y: e.clientY, at: Date.now(), moved: 0 }
+  }
+  // A click with no press behind it (keyboard, screen reader): handle it
+  // here. Clicks that follow a press were already decided by pressUp.
+  const clickOnly = (card, e) => {
+    if (Date.now() - lastPressAtRef.current < 1000) return
+    handleTap(card, e.currentTarget)
+  }
+  // how far the finger wandered during the press (the release point isn't
+  // always reported reliably)
+  const pressMove = (e) => {
+    const p = pressRef.current
+    if (p) p.moved = Math.max(p.moved, Math.hypot(e.clientX - p.x, e.clientY - p.y))
+  }
+  const pressUp = (card, e) => {
+    const p = pressRef.current
+    pressRef.current = null
+    if (!p || p.id !== card.id) return
+    if (p.moved > 16 || Date.now() - p.at > 900) return
+    handleTap(card, e.currentTarget)
+  }
+
   function handleTap(card, el) {
     if (disabled || !playable) return
     if (!playable.has(card.id)) return
@@ -100,10 +133,11 @@ export default function HandFan({
                 ? { x: dealFrom.x - box.left - cw / 2, y: dealFrom.y - box.top - ch / 2, rotate: 180, scale: 0.6, opacity: 0 }
                 : false
             }
-            animate={{ x: p.x, y: p.y - (isSel ? cw * 0.3 : 0), rotate: isSel ? 0 : p.r, scale: 1, opacity: 1 }}
+            animate={{ x: p.x, y: p.y - (isSel ? cw * 0.3 : 0) + (settle % 2) * 0.01, rotate: isSel ? 0 : p.r, scale: 1, opacity: 1 }}
             transition={dealing ? { duration: T.dealFlight / 1000, ease: [0.22, 0.8, 0.3, 1], delay } : { type: 'spring', stiffness: 300, damping: 30 }}
             whileHover={FINE_POINTER && playable && legal && !disabled ? { y: p.y - cw * 0.16 } : undefined}
-            drag={!FINE_POINTER && playable && legal && !disabled ? 'y' : false}
+            // only a lifted card can be dragged, so the tap that lifts it never turns into a drag
+            drag={!FINE_POINTER && playable && legal && isSel && !disabled ? 'y' : false}
             dragSnapToOrigin
             dragElastic={0.5}
             dragConstraints={{ top: -200, bottom: 0 }}
@@ -111,10 +145,10 @@ export default function HandFan({
               if (info.offset.y < -55) {
                 const el = e.target?.closest?.('[data-card]')
                 onPlay(card, el?.getBoundingClientRect())
-              }
+              } else setTimeout(() => setSettle((n) => n + 1), 30)
             }}
           >
-            <div data-card onClick={(e) => handleTap(card, e.currentTarget)} style={{ cursor: playable && legal ? 'pointer' : 'default' }}>
+            <div data-card onPointerDown={(e) => pressDown(card, e)} onPointerMove={pressMove} onPointerUp={(e) => pressUp(card, e)} onClick={(e) => clickOnly(card, e)} onPointerCancel={() => (pressRef.current = null)} style={{ cursor: playable && legal ? 'pointer' : 'default' }}>
               <Card
                 card={card}
                 faceDown={faceDown}

@@ -63,7 +63,16 @@ export function preloadSounds() {
   for (const files of Object.values(NAMES)) files.forEach((f) => load(f))
 }
 
-export function playSound(name, { delay = 0, volume = 1 } = {}) {
+// Sound is decoration: if the phone's audio fails, the game carries on.
+export function playSound(name, opts) {
+  try {
+    playSoundUnsafe(name, opts)
+  } catch (err) {
+    console.warn('sound failed', name, err)
+  }
+}
+
+function playSoundUnsafe(name, { delay = 0, volume = 1 } = {}) {
   if (muted) return
   const a = audio()
   const files = NAMES[name]

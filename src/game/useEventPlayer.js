@@ -5,11 +5,14 @@
 // the new events one at a time through the engine's `applyEvent`, waiting
 // between them so cards can fly, then lands exactly on the server snapshot.
 // If we fall too far behind (a reconnect, a sleeping tab) it just snaps.
+// It also snaps when you come back to the app, and if it ever stops making
+// progress while behind (STALL_MS), so the table can't sit frozen.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyEvent } from '../lib/engine'
 import { DEAL_TOTAL, T } from './timing'
 
 const MAX_QUEUE = 40
+const STALL_MS = 6000
 
 function snapshotOf(pub) {
   return pub ? JSON.parse(JSON.stringify({ ...pub, events: undefined })) : null
@@ -60,11 +63,15 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
   const skipRef = useRef([]) // optimistic local plays already shown
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
+  const progressAtRef = useRef(Date.now())
 
   const set = useCallback((view, event) => {
     viewRef.current = view
+    progressAtRef.current = Date.now()
     setState({ view, event })
   }, [])
+
+  const resyncRef = useRef(null)
 
   const pump = useCallback(() => {
     if (busyRef.current) return
@@ -94,9 +101,22 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
       }, wait)
       return
     }
-    const next = applyEvent(viewRef.current, ev)
+    let next
+    try {
+      next = applyEvent(viewRef.current, ev)
+    } catch (err) {
+      // An event that doesn't fit what's on screen: jump to the real table.
+      console.error(err)
+      resyncRef.current?.()
+      return
+    }
     set(next, ev)
-    onEventRef.current?.(ev, next)
+    try {
+      onEventRef.current?.(ev, next)
+    } catch (err) {
+      // A sound or effect failing must never stop the cards from moving.
+      console.error(err)
+    }
     const ms = durationFor(ev, mySeat, queueRef.current.length > 6)
     if (ms <= 0) {
       pump()
@@ -116,6 +136,7 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
     skipRef.current = []
     set(snapshotOf(latestRef.current), null)
   }, [set])
+  resyncRef.current = resync
 
   useEffect(() => {
     latestRef.current = pub
@@ -151,6 +172,28 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
       busyRef.current = false
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Watchdog: behind the real table and nothing has moved for a while?
+  // Snap to it. And when you come back to the app (phone unlocked, tab
+  // switched back), show the table as it is now instead of replaying.
+  useEffect(() => {
+    const behind = () => {
+      const latest = latestRef.current
+      const view = viewRef.current
+      return !!latest && (queueRef.current.length > 0 || (view?.seq ?? 0) < (latest.seq ?? 0))
+    }
+    const t = setInterval(() => {
+      if (behind() && Date.now() - progressAtRef.current > STALL_MS) resync()
+    }, 1500)
+    const onBack = () => document.visibilityState === 'visible' && behind() && resync()
+    document.addEventListener('visibilitychange', onBack)
+    window.addEventListener('pageshow', onBack)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onBack)
+      window.removeEventListener('pageshow', onBack)
+    }
+  }, [resync])
 
   // Show your own card leaving your hand immediately, before the server
   // answers; the matching server event is then skipped instead of replayed.
