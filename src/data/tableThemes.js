@@ -320,6 +320,20 @@ const capes = (id, name, tag, style, backTint, edge, description) =>
 export const CAPES_DECK_THEMES = [
   capes('capes-heroes', 'Hero League', 'HEROES', 'heroes', '#0b1a4a', '#4f86ff', 'Original heroes; action bursts flare across the cards'),
   capes('capes-villains', 'Rogue Syndicate', 'VILLAINS', 'villains', '#140406', '#d0283f', 'Original villains; crimson pulses and dark smoke rises'),
+  // A personal deck made for the family: royal purple with violet K/Q/J labels.
+  deck('capes-violet', 'Violet Vanguard', 'VIOLET', 'capes', {
+    style: 'violet', backTint: '#1a0a33', edge: '#b07cff', description: 'Purple heroes and villains; violet power surges',
+    ...look('#1a1430', '#7b2fd6', '#1a0a33', '#f4eeff', '#c79bff'),
+  }),
+]
+
+// Anime Nights — original anime-style casts (no existing characters,
+// costumes or logos). Laughing Moon: a gothic academy under a grinning moon.
+const anime = (id, name, tag, style, backTint, edge, description) =>
+  deck(id, name, tag, 'anime', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+
+export const ANIME_DECK_THEMES = [
+  anime('anime-laughing-moon', 'Laughing Moon', 'GRIN', 'laughmoon', '#120a22', '#a48cf0', 'Gothic academy fighters under a laughing moon'),
 ]
 
 export const MASTER_DECK_THEMES = [
@@ -427,13 +441,14 @@ export const MIDNIGHT_DECK_THEMES = [
   midnight('midnight-platinum', 'Midnight Platinum', 'PLATINUM', '#cbd5e1', 'platinum kumiko lattice pattern'),
 ]
 
-export const ALL_DECKS = [...MYTHIC_DECK_THEMES, ...STREET_DECK_THEMES, ...CAPES_DECK_THEMES, ...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
+export const ALL_DECKS = [...MYTHIC_DECK_THEMES, ...STREET_DECK_THEMES, ...CAPES_DECK_THEMES, ...ANIME_DECK_THEMES, ...DECK_THEMES, ...MASTER_DECK_THEMES, ...OG_DECK_THEMES, ...MIDNIGHT_DECK_THEMES]
 export const DEFAULT_DECK = MYTHIC_DECK_THEMES[0]
 export const ALL_TABLES = [...TABLE_THEMES, ...MASTER_THEMES]
 export const DECK_FAMILIES = [
   { id: 'mythic', label: 'Mythic Courts', decks: MYTHIC_DECK_THEMES },
   { id: 'street', label: 'Concrete Crowns', decks: STREET_DECK_THEMES },
   { id: 'capes', label: 'Capes & Chaos', decks: CAPES_DECK_THEMES },
+  { id: 'anime', label: 'Anime Nights', decks: ANIME_DECK_THEMES },
   { id: 'standard', label: 'Lacquer', decks: DECK_THEMES },
   { id: 'master', label: 'Master', decks: MASTER_DECK_THEMES },
   { id: 'og', label: "OG's", decks: OG_DECK_THEMES },

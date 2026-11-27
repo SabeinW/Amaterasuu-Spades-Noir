@@ -107,6 +107,8 @@ const PATHS = {
       <path d="M54 58L44 76h9l-7 18 18-24h-9l6-12z" />
     </>
   ),
+  // a crescent moon laughing open-mouthed with sharp fangs (Laughing Moon)
+  grin: <path fillRule="evenodd" d="M62 12a38 38 0 1 0 26 52A30 30 0 1 1 62 12z M28 31a4.5 4.5 0 1 0 0.01 0z M15 50 L46 61 Q42 78 24 74 Q14 66 15 50 Z M18 51.2 L23 53 L20.5 60 Z M25 53.7 L30 55.5 L27.5 63 Z M32 56.2 L37 58 L34.5 65 Z M39 58.7 L44 60.5 L41 67 Z M20 70 L25 72.6 L23 66 Z M27 73.6 L32 74.2 L29.5 67.5 Z M34 74 L39 72.4 L36 67 Z" />,
 }
 
 export default function Motif({ motif, color, size, opacity = 0.16 }) {

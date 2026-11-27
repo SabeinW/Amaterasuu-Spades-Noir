@@ -14,7 +14,7 @@ function seed(id) {
   }
 }
 
-const PARTICLES = { moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 5, storm: 1, neon: 8, mural: 7, hero: 0, venom: 5, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
+const PARTICLES = { moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 5, storm: 1, neon: 8, mural: 7, hero: 0, venom: 5, cosmic: 7, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
 
 function CardFx({ effect, id, radius }) {
   if (!effect) return null

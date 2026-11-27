@@ -743,6 +743,44 @@ button {
   animation: fxHalftone 6s linear infinite;
 }
 
+/* cosmic (Violet Vanguard): violet power breathing at the edges, a ring of
+   energy bursting outward now and then, and glowing sparks rising */
+.fx-cosmic::before {
+  background: radial-gradient(120% 90% at 50% 50%, transparent 50%, rgb(150 70 255 / 0.45) 82%, rgb(70 15 140 / 0.6) 100%);
+  mix-blend-mode: screen;
+  animation: fxPulse 3.6s ease-in-out infinite;
+  animation-delay: var(--fx-phase);
+}
+@keyframes fxRing {
+  0%, 68% { transform: scale(0.15); opacity: 0; }
+  72% { opacity: 0.95; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.fx-cosmic::after {
+  inset: 22% 8%;
+  border-radius: 50%;
+  border: 2.5px solid rgb(225 190 255 / 0.95);
+  box-shadow: 0 0 12px rgb(170 100 255 / 0.95), inset 0 0 10px rgb(170 100 255 / 0.7);
+  animation: fxRing 5.2s ease-out infinite;
+  animation-delay: var(--fx-phase);
+}
+@keyframes fxSpark {
+  0% { transform: translateY(0) scale(calc(var(--s) * 0.5)); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-900%) scale(var(--s)); opacity: 0; }
+}
+.fx-cosmic .fx-p {
+  top: auto;
+  bottom: 3%;
+  width: 4.5%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fbf4ff;
+  box-shadow: 0 0 7px 3px rgb(180 110 255 / 0.95), 0 0 2px 1px #fff;
+  animation: fxSpark var(--t) ease-out infinite;
+  animation-delay: var(--d);
+}
+
 /* venom (Rogue Syndicate): a crimson pulse at the edges and dark smoke rising */
 @keyframes fxPulse {
   0%, 100% { opacity: 0.35; }
