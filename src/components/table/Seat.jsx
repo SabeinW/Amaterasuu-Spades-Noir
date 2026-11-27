@@ -34,6 +34,51 @@ function TurnRing({ size, deadline, total, serverNow }) {
   )
 }
 
+// A thrown emoji pops off the avatar with a wiggle. The top seat sits under
+// the score bar, so its emoji drops down instead of up.
+function EmojiPop({ slot, emoji }) {
+  const dir = slot === 'top' ? 1 : -1
+  return (
+    <span className="absolute left-1/2 top-1/2 pointer-events-none z-20" style={{ transform: 'translate(-50%, -50%)' }}>
+      <motion.span
+        className="block text-[38px] leading-none"
+        style={{ textShadow: '0 4px 10px rgb(0 0 0 / 0.6)' }}
+        initial={{ opacity: 0, y: 0, scale: 0.3, rotate: 0 }}
+        animate={{ opacity: 1, y: dir * 44, scale: [0.3, 1.35, 1.1], rotate: [0, -14, 10, -6, 0] }}
+        exit={{ opacity: 0, y: dir * 70, scale: 0.9 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+      >
+        {emoji}
+      </motion.span>
+    </span>
+  )
+}
+
+// A trash-talk line: a speech bubble beside the seat, pointing into the table.
+const BUBBLE_AT = {
+  top: { top: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)' },
+  bottom: { bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)' },
+  left: { left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' },
+  right: { right: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' },
+}
+const BUBBLE_FROM = { top: { y: -8 }, bottom: { y: 8 }, left: { x: -8 }, right: { x: 8 } }
+function LineBubble({ slot, emote }) {
+  return (
+    <span className="absolute pointer-events-none z-30" style={BUBBLE_AT[slot]}>
+      <motion.span
+        className="block w-max max-w-[168px] rounded-2xl px-3 py-2 text-[13px] font-bold leading-snug"
+        style={{ background: '#f6ecd6', color: '#1b1307', boxShadow: '0 10px 24px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(241 210 138 / 0.9)' }}
+        initial={{ opacity: 0, scale: 0.6, ...BUBBLE_FROM[slot] }}
+        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: 'spring', stiffness: 520, damping: 22 }}
+      >
+        {emote.text} <span className="text-[15px]">{emote.emoji}</span>
+      </motion.span>
+    </span>
+  )
+}
+
 export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burst, isTurn, isDealer, isPartner, deadline, total, serverNow, phase, emote, online = true, compact = false }) {
   const size = compact ? 40 : 52
   const bidLabel = bid === null || bid === undefined ? null : bid === 0 ? (blind ? 'Blind Nil' : 'Nil') : bid
@@ -71,20 +116,7 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burs
             <WifiOff className="w-3 h-3 text-verm-hi" />
           </span>
         )}
-        <AnimatePresence>
-          {emote && (
-            <motion.span
-              key={emote.id}
-              className="absolute left-1/2 -top-2 text-3xl pointer-events-none"
-              initial={{ opacity: 0, y: 0, x: '-50%', scale: 0.5 }}
-              animate={{ opacity: 1, y: -34, x: '-50%', scale: 1.1 }}
-              exit={{ opacity: 0, y: -60, x: '-50%', scale: 1 }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-            >
-              {emote.emoji}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        <AnimatePresence>{emote && (emote.kind === 'l' ? <LineBubble key={emote.id} slot={slot} emote={emote} /> : <EmojiPop key={emote.id} slot={slot} emoji={emote.emoji} />)}</AnimatePresence>
       </div>
 
       <div className={`panel-soft rounded-xl px-2.5 py-1.5 ${vertical ? 'text-center' : ''}`} style={{ minWidth: 78, borderColor: isTurn ? 'rgb(241 210 138 / 0.55)' : undefined }}>

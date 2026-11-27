@@ -93,6 +93,25 @@ async function step(page) {
   if (!seen) errors.push("guest: host's avatar missing at the table")
 }
 
+// Table talk crosses the wire: a line from the host, an emoji from the guest.
+// (dispatchEvent: a bid panel may be covering someone's seat row.)
+async function tableTalk() {
+  const send = async (page, tab, item) => {
+    await page.getByRole('button', { name: 'Trash talk', exact: true }).dispatchEvent('click')
+    await page.getByRole('tab', { name: tab }).dispatchEvent('click')
+    await item(page).dispatchEvent('click')
+  }
+  await send(host, 'Lines', (p) => p.getByRole('button', { name: /getting set/ }))
+  const line = await guest.locator('span.max-w-\\[168px\\]', { hasText: 'Y’all getting set.' }).waitFor({ timeout: 5000 }).then(() => true, () => false)
+  console.log(`guest sees the host's trash-talk line: ${line ? 'yes' : 'NO'}`)
+  if (!line) errors.push("guest: host's line never showed")
+  await shot(guest, '07b-guest-sees-line')
+  await send(guest, 'Hype', (p) => p.locator('button[aria-label="Send 🔥"]'))
+  const pop = await host.locator('span.text-\\[38px\\]', { hasText: '🔥' }).waitFor({ timeout: 5000 }).then(() => true, () => false)
+  console.log(`host sees the guest's emoji: ${pop ? 'yes' : 'NO'}`)
+  if (!pop) errors.push("host: guest's emoji never showed")
+}
+
 const ROUNDS = Number(process.env.ROUNDS ?? 2)
 let midHost = false
 let summaries = 0
@@ -102,6 +121,7 @@ for (let i = 0; i < 700 && summaries < ROUNDS; i++) {
     midHost = true
     await shot(host, '06-host-midround')
     await shot(guest, '07-guest-midround')
+    await tableTalk()
   }
   if (a === 'summary' && b === 'summary') {
     summaries++

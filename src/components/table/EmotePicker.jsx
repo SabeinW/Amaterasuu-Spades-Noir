@@ -1,0 +1,114 @@
+// Pick an emoji or a trash-talk line to throw at the table. `grid` is the tray
+// that pops up over your seat; `row` is the strip under the chat. Hands and
+// people come in the player's own skin tone.
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { EMOJI_GROUPS, LINES, readEmote, recentPicks, withTone } from '../../data/taunts'
+import { useSkinTone } from '../../lib/skinTone'
+
+const TABS = [
+  { id: 'recent', label: 'Recent' },
+  { id: 'talk', label: 'Trash talk' },
+  { id: 'lines', label: 'Lines' },
+  { id: 'hype', label: 'Hype' },
+  { id: 'react', label: 'Reactions' },
+]
+
+function picksFor(tab, recent) {
+  if (tab === 'recent') return recent
+  if (tab === 'lines') return LINES.map((l) => ({ kind: 'l', id: l.id }))
+  return EMOJI_GROUPS.find((g) => g.id === tab).items.map((id) => ({ kind: 'e', id }))
+}
+
+export function EmotePicker({ onPick, variant = 'grid' }) {
+  const tone = useSkinTone()
+  const [recent] = useState(recentPicks)
+  const tabs = recent.length ? TABS : TABS.filter((t) => t.id !== 'recent')
+  const [tab, setTab] = useState(tabs[0].id)
+  const picks = picksFor(tab, recent)
+  const row = variant === 'row'
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-2 overflow-x-auto no-scrollbar" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className="shrink-0 rounded-full px-3 h-8 text-[12px] font-bold whitespace-nowrap transition-colors"
+            style={
+              tab === t.id
+                ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a', border: '1px solid rgb(241 210 138 / 0.55)' }
+                : { color: 'rgb(243 234 219 / 0.65)', border: '1px solid rgb(212 166 74 / 0.18)' }
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className={row ? 'flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5' : 'flex flex-wrap gap-1.5 max-h-[232px] overflow-y-auto no-scrollbar content-start'}>
+        {picks.map((p) => {
+          const shown = readEmote({ ...p, tone })
+          if (!shown) return null
+          return shown.kind === 'l' ? (
+            <button
+              key={`l:${p.id}`}
+              onClick={() => onPick(p)}
+              className="shrink-0 h-10 rounded-xl px-3 text-[13px] font-semibold whitespace-nowrap hover:bg-white/5 active:scale-95 transition-transform"
+              style={{ border: '1px solid rgb(212 166 74 / 0.22)', background: 'rgb(243 234 219 / 0.04)' }}
+            >
+              {shown.text} <span className="text-[15px]">{shown.emoji}</span>
+            </button>
+          ) : (
+            <button
+              key={`e:${p.id}`}
+              onClick={() => onPick(p)}
+              aria-label={`Send ${p.id}`}
+              className="w-10 h-10 shrink-0 rounded-xl text-[22px] leading-none flex items-center justify-center hover:bg-white/5 active:scale-90 transition-transform"
+              style={{ border: '1px solid rgb(212 166 74 / 0.2)' }}
+            >
+              {withTone(p.id, tone)}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// The tray over your seat. A tap anywhere else closes it (and doesn't reach
+// the cards underneath).
+export function EmoteTray({ open, onClose, onPick }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.button
+            key="tray-backdrop"
+            aria-label="Close trash talk"
+            className="fixed inset-0 z-[55] cursor-default"
+            style={{ background: 'rgb(0 0 0 / 0.25)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, pointerEvents: 'none' }}
+            onClick={onClose}
+          />
+          <span key="tray" className="absolute z-[60] bottom-full mb-2 left-1/2 w-[min(372px,calc(100vw-16px))]" style={{ transform: 'translateX(-50%)' }}>
+            <motion.div
+              className="rounded-2xl p-2.5"
+              style={{ background: '#15110c', border: '1px solid rgb(241 210 138 / 0.35)', boxShadow: '0 18px 50px -12px rgb(0 0 0 / 0.85)', transformOrigin: '50% 100%' }}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              <EmotePicker onPick={onPick} />
+            </motion.div>
+          </span>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}

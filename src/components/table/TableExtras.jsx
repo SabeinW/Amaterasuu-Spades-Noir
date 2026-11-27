@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Layers, LogOut, Palette, Send, User, Volume2, VolumeX, BookOpen, GraduationCap } from 'lucide-react'
 import Sheet from '../ui/Sheet'
+import { EmotePicker } from './EmotePicker'
 
 export function TableMenu({ open, onClose, muted, onToggleMute, onDeck, onTable, onProfile, onRules, onLeave, code, deckName, tableName, coachOn, onToggleCoach }) {
   const row = 'flex items-center gap-3 w-full rounded-2xl px-4 py-3.5 text-left transition-colors hover:bg-white/5'
@@ -82,8 +83,6 @@ export function RulesSummary({ open, onClose, rules }) {
   )
 }
 
-const EMOTES = ['👏', '🔥', '😂', '😮', '😤', '🤝', '👀', '🙏']
-
 export function ChatSheet({ open, onClose, messages, onSend, onEmote }) {
   const [text, setText] = useState('')
   const endRef = useRef(null)
@@ -105,15 +104,11 @@ export function ChatSheet({ open, onClose, messages, onSend, onEmote }) {
       title="Chat"
       footer={
         <div>
-          <div className="flex gap-1.5 mb-2.5 overflow-x-auto no-scrollbar">
-            {EMOTES.map((e) => (
-              <button key={e} onClick={() => onEmote(e)} className="w-10 h-10 shrink-0 rounded-xl text-xl hover:bg-white/5" style={{ border: '1px solid rgb(212 166 74 / 0.2)' }}>
-                {e}
-              </button>
-            ))}
+          <div className="mb-2.5">
+            <EmotePicker variant="row" onPick={onEmote} />
           </div>
           <form onSubmit={submit} className="flex gap-2">
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Say something nice…" className="field" maxLength={200} />
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Talk your talk…" className="field" maxLength={200} />
             <button className="btn btn-gold !px-4" aria-label="Send">
               <Send className="w-4 h-4" />
             </button>

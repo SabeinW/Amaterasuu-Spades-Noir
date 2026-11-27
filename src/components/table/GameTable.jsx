@@ -24,6 +24,10 @@ import { MatchSummary, RoundSummary } from './Summaries'
 import { ChatSheet, RulesSummary, TableMenu } from './TableExtras'
 import { DeckPicker, TablePicker } from '../ThemePickers'
 import CoachBubble from './CoachBubble'
+import { EmoteTray } from './EmotePicker'
+import { BOT_TALK, emotePayload, moodOf, pickFrom, readEmote, rememberPick } from '../../data/taunts'
+import { useSkinTone } from '../../lib/skinTone'
+import { SmilePlus } from 'lucide-react'
 import { bidAdvice, blockedReason, playAdvice, roundStory, trickStory } from '../../lib/coach'
 import ProfileModal from '../ProfileModal'
 import { CardBack } from '../cards/Card'
@@ -176,12 +180,21 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   const madeInRowRef = useRef(0)
   const lastTurnSoundRef = useRef(null)
   const recordedRef = useRef(false)
+  // Table talk: the tray, my send times (spam limit), and the practice bots' banter.
+  const tone = useSkinTone()
+  const [trayOpen, setTrayOpen] = useState(false)
+  const sentRef = useRef([])
+  const heardRef = useRef({})
+  const botTalkAtRef = useRef(0)
+  const queuedTalkRef = useRef(null)
+  const botEventRef = useRef(null)
 
   const seatPlayer = useCallback((s) => players.find((p) => p.seat === s), [players])
 
   // ── events → sound & effects ──────────────────────────────────────────
   const onEvent = useCallback(
     (ev, next) => {
+      botEventRef.current?.(ev, next)
       switch (ev.t) {
         case 'deal':
           setDealInfo({ key: ev.seq, dealer: ev.dealer, startedAt: Date.now() })
@@ -290,7 +303,16 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
     if (!online || !room?.id || !user?.id) return
     const me = players.find((p) => p.id === user.id)
     const ch = openTableChannel(room.id, { id: user.id, name: me?.name ?? 'Player' }, {
-      onEmote: ({ seat, emoji }) => showEmote(seat, emoji),
+      onEmote: (payload) => {
+        // Only what's on the lists, from a real seat, and not faster than a seat can read.
+        const seat = payload?.seat
+        if (![0, 1, 2, 3].includes(seat)) return
+        const now = Date.now()
+        if (now - (heardRef.current[seat] ?? 0) < 400) return
+        heardRef.current[seat] = now
+        const shown = readEmote(payload)
+        if (shown) showEmote(seat, shown)
+      },
       onChat: ({ author, text }) => {
         setMessages((m) => [...m, { author, text }])
         setUnread((u) => u + 1)
@@ -304,11 +326,98 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
     }
   }, [online, room?.id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function showEmote(seat, emoji) {
+  function showEmote(seat, shown) {
     const id = Math.random()
-    setEmotes((e) => ({ ...e, [seat]: { id, emoji } }))
-    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), 1600)
+    setEmotes((e) => ({ ...e, [seat]: { ...shown, id } }))
+    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), shown.kind === 'l' ? 3000 : 1900)
   }
+
+  // Throw an emoji or a line. Six in ten seconds at most, so nobody floods the table.
+  function sendEmote(pick) {
+    const now = Date.now()
+    const recent = sentRef.current.filter((t) => now - t < 10000)
+    if (recent.length >= 6 || now - (recent[recent.length - 1] ?? 0) < 700) {
+      toast('Easy — let them read that one first.', 'info', '⏳', 2000)
+      return false
+    }
+    sentRef.current = [...recent, now]
+    const payload = emotePayload(mySeat, pick, tone)
+    showEmote(mySeat, readEmote(payload))
+    rememberPick(pick)
+    if (online) channelRef.current?.send('EMOTE', payload)
+    else if (botsTalk) botReply(pick)
+    return true
+  }
+
+  // ── practice bots talk back (not in a coached game: that table stays friendly) ──
+  const botsTalk = !online && !coached
+  const opponentsOf = (seat) => [E.nextSeat(seat), E.nextSeat(E.partnerOf(seat))]
+  const botTone = (seat) => ['brown', 'deep', 'brown', 'light'][seat]
+  function botSay(seat, pick, delay) {
+    const at = Date.now() + delay
+    if (!seatPlayer(seat)?.isBot || at - botTalkAtRef.current < 3000) return
+    botTalkAtRef.current = at
+    setTimeout(() => showEmote(seat, readEmote({ ...pick, tone: botTone(seat) })), delay)
+  }
+  const someBot = (seats) => {
+    const bots = seats.filter((s) => seatPlayer(s)?.isBot)
+    return bots.length ? pickFrom(bots) : null
+  }
+  function botReply(pick) {
+    const mood = moodOf(pick)
+    const delay = 900 + Math.random() * 700
+    const roll = Math.random()
+    const opp = someBot(opponentsOf(mySeat))
+    if (mood === 'talk' && roll < 0.55 && opp !== null) botSay(opp, pickFrom(BOT_TALK.comeback), delay)
+    else if (mood === 'hype' && roll < 0.4) botSay(partnerSeat, pickFrom(BOT_TALK.partnerHype), delay)
+    else if (mood === 'partner') botSay(partnerSeat, pickFrom(pick.id === 'partnerwhat' ? BOT_TALK.partnerSorry : BOT_TALK.partnerHype), delay)
+    else if (mood === 'nice' && roll < 0.6 && opp !== null) botSay(opp, pickFrom(BOT_TALK.nice), delay)
+    else if (mood === 'react' && roll < 0.2 && opp !== null) botSay(opp, { kind: 'e', id: '😂' }, delay)
+  }
+  botEventRef.current = !botsTalk
+    ? null
+    : (ev, next) => {
+        const afterSweep = T.sweep * 1000 + 250
+        if (ev.t === 'trick') {
+          const w = ev.winner
+          // A Nil just broke: the other side lets them hear it.
+          if (next.bids[w] === 0 && next.tricks[w] === 1) {
+            const who = someBot(opponentsOf(w))
+            if (who !== null && Math.random() < 0.75) botSay(who, pickFrom(BOT_TALK.nilBust), afterSweep)
+            return
+          }
+          // A spade cut a trick in another suit.
+          const jd = next.rules?.jokers
+          const led = E.effectiveSuit(ev.cards[0].card, jd)
+          const won = ev.cards.find((c) => c.seat === w)?.card
+          if (led !== 'S' && won && E.effectiveSuit(won, jd) === 'S') {
+            if (seatPlayer(w)?.isBot && Math.random() < 0.3) botSay(w, pickFrom(BOT_TALK.cut), afterSweep)
+            else if (w === mySeat && Math.random() < 0.2) {
+              const who = someBot(opponentsOf(mySeat))
+              if (who !== null) botSay(who, { kind: 'e', id: pickFrom(['🧂', '🙄', '😤']) }, afterSweep)
+            }
+          }
+        } else if (ev.t === 'round') {
+          // The summary covers the table, so round talk waits for the next deal.
+          const r = ev.result
+          const weSet = r[myTeam].made === false
+          const theySet = r[theirTeam].made === false
+          const opp = someBot(opponentsOf(mySeat))
+          queuedTalkRef.current = null
+          if (weSet && !theySet && opp !== null && Math.random() < 0.8) queuedTalkRef.current = { seat: opp, pick: pickFrom(BOT_TALK.setThem) }
+          else if (theySet && Math.random() < 0.7) {
+            queuedTalkRef.current =
+              Math.random() < 0.5 && opp !== null ? { seat: opp, pick: pickFrom(BOT_TALK.gotSet) } : { seat: partnerSeat, pick: pickFrom(BOT_TALK.setThem) }
+          } else {
+            const nil = r[theirTeam].nils.find((n) => n.ok)
+            if (nil && Math.random() < 0.6) queuedTalkRef.current = { seat: nil.seat, pick: pickFrom(BOT_TALK.nilMade) }
+          }
+        } else if (ev.t === 'deal' && queuedTalkRef.current) {
+          const { seat, pick } = queuedTalkRef.current
+          queuedTalkRef.current = null
+          botSay(seat, pick, 1600)
+        }
+      }
 
   // ── end of match: stats, rank-up, achievements ─────────────────────────
   useEffect(() => {
@@ -523,7 +632,8 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
                 ? 'left-1.5 top-[44%] -translate-y-1/2 flex-col'
                 : 'right-1.5 top-[44%] -translate-y-1/2 flex-col'
           return (
-            <div key={seat} className={`absolute z-10 flex items-center gap-1 ${pos}`}>
+            // While a seat is talking it sits over the trick cards (z 22–32), so its bubble isn't hidden.
+            <div key={seat} className={`absolute ${emotes[seat] ? 'z-[35]' : 'z-10'} flex items-center gap-1 ${pos}`}>
               <Seat slot={slot} {...seatProps(seat)} compact={stage.w < 420} />
               <MiniFan count={visibleCount(seat)} slot={slot} cw={cw} deck={deck} />
             </div>
@@ -561,12 +671,29 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
       </div>
 
       {/* you */}
-      <div className="relative z-30 pb-[calc(0.25rem+var(--safe-b))]">
+      <div className={`relative ${emotes[mySeat] ? 'z-[35]' : 'z-30'} pb-[calc(0.25rem+var(--safe-b))]`}>
         {coachLines && !myBidTurn && view.phase !== 'round_over' && view.phase !== 'game_over' && (
           <CoachBubble title={coachLines.title} lines={coachLines.lines} minimized={coachMin} onToggle={() => setCoachMin((m) => !m)} onHeight={setCoachH} />
         )}
-        <div className="flex items-center justify-center gap-3 mb-1 px-2">
-          <Seat slot="bottom" {...seatProps(mySeat)} compact />
+        <div className="relative flex items-center justify-center gap-3 mb-1 px-2">
+          <EmoteTray
+            open={trayOpen}
+            onClose={() => setTrayOpen(false)}
+            onPick={(pick) => {
+              if (sendEmote(pick)) setTrayOpen(false)
+            }}
+          />
+          <div className="relative">
+            <Seat slot="bottom" {...seatProps(mySeat)} compact />
+            {!blindPending && (
+              // .btn sets its own position, so the spot beside the seat comes from a wrapper
+              <span className="absolute left-full top-1/2 ml-2.5" style={{ transform: 'translateY(-50%)' }}>
+                <button className="btn btn-icon !w-10 !h-10" onClick={() => setTrayOpen((o) => !o)} aria-label="Trash talk" aria-expanded={trayOpen}>
+                  <SmilePlus className="w-[18px] h-[18px]" />
+                </button>
+              </span>
+            )}
+          </div>
           {blindPending && !myBidTurn && (
             <button className="btn btn-ghost !min-h-9 !px-3 !text-[12px] leading-tight" onClick={() => setRevealedRound(view.round)}>
               Look at my cards
@@ -686,10 +813,8 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
             setMessages((m) => [...m, { author, text, mine: true }])
             channelRef.current?.send('CHAT', { author, text })
           }}
-          onEmote={(emoji) => {
-            showEmote(mySeat, emoji)
-            channelRef.current?.send('EMOTE', { seat: mySeat, emoji })
-            setMenu(null)
+          onEmote={(pick) => {
+            if (sendEmote(pick)) setMenu(null)
           }}
         />
       )}
