@@ -75,7 +75,7 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
         <div className="flex items-end justify-center gap-1.5 mb-4 h-[124px]">
           <Card faceDown deck={current} width={70} style={{ transform: 'rotate(-10deg) translateY(8px)' }} />
           {SAMPLE.map((c, i) => (
-            <Card key={c.id} card={c} deck={current} width={70} eager style={{ transform: `rotate(${(i - 1.5) * 5}deg) translateY(${Math.abs(i - 1.5) * 4}px)` }} />
+            <Card key={c.id} card={c} deck={current} width={70} style={{ transform: `rotate(${(i - 1.5) * 5}deg) translateY(${Math.abs(i - 1.5) * 4}px)` }} />
           ))}
         </div>
       )}
@@ -102,7 +102,7 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
                 <Card faceDown deck={d} width={200} style={{ width: '100%', height: 'auto', aspectRatio: '5 / 7' }} />
                 {/* the deck's Queen of Hearts peeks out so each deck shows its own court */}
                 <div className="deck-peek absolute -right-1 -bottom-1">
-                  <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still thumb eager />
+                  <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still thumb />
                 </div>
                 {active && (
                   <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center text-ink shadow-lg">

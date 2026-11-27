@@ -29,7 +29,7 @@ export default function CardGallery() {
             <div className="flex flex-wrap gap-2 items-end">
               <Card faceDown deck={deck} width={84} />
               {ROW.map((c) => (
-                <Card key={c.id} card={c} deck={deck} width={84} />
+                <Card key={c.id} card={c} deck={deck} width={84} lazy />
               ))}
             </div>
           </div>

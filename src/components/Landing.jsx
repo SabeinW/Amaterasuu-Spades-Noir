@@ -1,9 +1,10 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BookOpen, Flame, Layers, Palette, RotateCcw, Trophy, User, Users, Bot, LogIn } from 'lucide-react'
 import Card from './cards/Card'
 import Avatar from './ui/Avatar'
 import LevelBadge from './ui/LevelBadge'
+import { toggleDiag } from '../lib/diag'
 import { levelProgress } from '../data/levels'
 import { ALL_DECKS } from '../data/tableThemes'
 
@@ -83,6 +84,12 @@ export default function Landing({
   onResumePractice,
 }) {
   const name = profile?.username || user?.email?.split('@')[0]
+  const tapsRef = useRef([])
+  const secretTap = () => {
+    const now = Date.now()
+    tapsRef.current = [...tapsRef.current.filter((t) => now - t < 2500), now]
+    if (tapsRef.current.length >= 5) toggleDiag()
+  }
   return (
     <div className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-ink">
       {/* key art: a seamless 5s loop (sun shimmer, drifting mist), poster-first */}
@@ -95,7 +102,10 @@ export default function Landing({
 
       <div className="relative min-h-full flex flex-col max-w-xl mx-auto px-5 pb-[calc(2rem+var(--safe-b))] pt-[calc(1rem+var(--safe-t))]">
         <div className="flex items-center justify-between">
-          <span className="eyebrow opacity-80">amaterasuu.com</span>
+          {/* tap 5 times quickly: turns the phone health check on or off (lib/diag.js) */}
+          <span className="eyebrow opacity-80 select-none" onClick={secretTap}>
+            amaterasuu.com
+          </span>
           {user ? (
             <button onClick={onOpenProfile} className="flex items-center gap-2 panel-soft hover-tile rounded-full pl-1 pr-3 py-1" aria-label="Profile">
               <Avatar avatarUrl={profile?.avatar_url} size={32} />

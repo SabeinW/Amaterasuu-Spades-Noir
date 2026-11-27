@@ -93,7 +93,7 @@ function Index({ card, ink, width, flip, noir, onArt, classic, pillBg, ring }) {
   )
 }
 
-function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false, eager = false, thumb = false }) {
+function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false, lazy = false, thumb = false }) {
   // A painting that won't load gets one retry before the card falls back to its
   // plain design, so a dropped request on a phone doesn't leave a court empty.
   // A missing skin-tone copy falls back to the original painting first.
@@ -163,7 +163,9 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
             src={artSrc}
             alt=""
             draggable={false}
-            loading={eager ? 'eager' : 'lazy'}
+            // Load at once: cards in play are on screen, and iPhone Safari can leave
+            // lazy pictures inside moving cards blank until the app is reopened.
+            loading={lazy ? 'lazy' : 'eager'}
             decoding="async"
             onError={onArtError}
             className="w-full h-full object-cover"

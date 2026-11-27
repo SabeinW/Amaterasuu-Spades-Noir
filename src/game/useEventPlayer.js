@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyEvent } from '../lib/engine'
 import { DEAL_TOTAL, T } from './timing'
+import { reportSync } from '../lib/diag'
 
 const MAX_QUEUE = 40
 const STALL_MS = 6000
@@ -68,6 +69,7 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
   const set = useCallback((view, event) => {
     viewRef.current = view
     progressAtRef.current = Date.now()
+    reportSync(view?.seq, latestRef.current?.seq, queueRef.current.length)
     setState({ view, event })
   }, [])
 
@@ -140,6 +142,7 @@ export function useEventPlayer(pub, { mySeat, onEvent }) {
 
   useEffect(() => {
     latestRef.current = pub
+    reportSync(viewRef.current?.seq, pub?.seq, queueRef.current.length)
     if (!pub) return
     const current = viewRef.current
     const lastSeq = Math.max(current?.seq ?? 0, queueRef.current.at(-1)?.seq ?? 0)
