@@ -31,20 +31,24 @@ export function clearSavedPractice() {
   }
 }
 
-function save(full, myName) {
+function save(full, myName, coached) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ full, myName, savedAt: Date.now() }))
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ full, myName, coached: !!coached, savedAt: Date.now() }))
   } catch {
     // storage full / private mode — the game still works, it just won't resume
   }
 }
 
-export function useLocalGame({ rules, myName, resume }) {
+// A coached game (Learn to play) keeps your house rules but leaves out Blind
+// Nil (bidding before you look is no way to learn) and ends at 300.
+export const coachedRules = (rules) => ({ ...rules, blindNil: false, winScore: Math.min(Number(rules.winScore) || 500, 300) })
+
+export function useLocalGame({ rules, myName, resume, coached = false }) {
   const [full, setFull] = useState(() => {
     if (resume?.full) return resume.full
-    const f = E.createMatch({ ...rules, timers: false })
+    const f = E.createMatch({ ...(coached ? coachedRules(rules) : rules), timers: false })
     E.startMatch(f, ctx())
-    save(f, myName)
+    save(f, myName, coached)
     return f
   })
 
@@ -54,10 +58,10 @@ export function useLocalGame({ rules, myName, resume }) {
       E.act(next, 0, move, ctx()) // throws EngineError for illegal moves
       setFull(next)
       if (next.pub.phase === 'game_over') clearSavedPractice()
-      else save(next, myName)
+      else save(next, myName, coached)
       return { room: null }
     },
-    [full, myName]
+    [full, myName, coached]
   )
 
   const players = [

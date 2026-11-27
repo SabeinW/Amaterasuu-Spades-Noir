@@ -1,10 +1,10 @@
 import { motion } from 'motion/react'
 import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, GraduationCap } from 'lucide-react'
 
 // Bidding panel, docked above your hand. Shows partner's bid, the board
 // minimum, and a suggested bid from the same trick estimate the bots use.
-export default function BidSheet({ minBid, nilAllowed, blindAllowed, revealed, partnerBid, partnerName, suggested, onBid, onReveal, busy }) {
+export default function BidSheet({ minBid, nilAllowed, blindAllowed, revealed, partnerBid, partnerName, suggested, coach, onBid, onReveal, busy }) {
   const [pick, setPick] = useState(null)
   const nums = Array.from({ length: 13 }, (_, i) => i + 1)
 
@@ -41,6 +41,7 @@ export default function BidSheet({ minBid, nilAllowed, blindAllowed, revealed, p
           )}
         </p>
       </div>
+      {coach && <BidCoach coach={coach} />}
       <div className="grid grid-cols-7 gap-1.5">
         {nilAllowed && (
           <BidChip label="Nil" active={value === 0} onClick={() => setPick(0)} wide />
@@ -53,6 +54,44 @@ export default function BidSheet({ minBid, nilAllowed, blindAllowed, revealed, p
         Bid {value === 0 ? 'Nil' : value}
       </button>
     </motion.div>
+  )
+}
+
+// The practice coach's reading of your hand: which cards should win and why.
+function BidCoach({ coach }) {
+  const [more, setMore] = useState(false)
+  const shown = more ? coach.reasons : coach.reasons.slice(0, 3)
+  return (
+    <div className="rounded-2xl px-3 py-2.5 mb-3 text-[12.5px] leading-snug" style={{ background: 'rgb(241 210 138 / 0.08)', border: '1px solid rgb(241 210 138 / 0.28)' }}>
+      <p className="flex items-center gap-1.5 font-bold text-gold-hi">
+        <GraduationCap className="w-4 h-4" /> Coach: bid {coach.bid}
+      </p>
+      {coach.reasons.length ? (
+        <ul className="mt-1.5 flex flex-col gap-1">
+          {shown.map((r, i) => (
+            <li key={i} className="text-paper/90">
+              {r.cards.length ? <b className="text-paper">{r.cards.map((c) => c.label).join(' ')}: </b> : '• '}
+              {r.text}
+            </li>
+          ))}
+          {coach.reasons.length > 3 && (
+            <li>
+              <button type="button" className="text-gold font-semibold" onClick={() => setMore((m) => !m)}>
+                {more ? 'Show less' : `+${coach.reasons.length - 3} more`}
+              </button>
+            </li>
+          )}
+        </ul>
+      ) : (
+        <p className="mt-1 text-paper/90">No sure winners in this hand — bid low.</p>
+      )}
+      {coach.notes.map((n) => (
+        <p key={n} className="mt-1.5 text-muted">
+          {n}
+        </p>
+      ))}
+      {coach.nilIdea && <p className="mt-1.5 text-verm-hi font-semibold">Weak hand: you could bid Nil — take zero tricks for +{coach.nilBonus}, but one trick costs you {coach.nilBonus}.</p>}
+    </div>
   )
 }
 

@@ -2,13 +2,15 @@
 // 20261127 migration). Inviting writes a row; the friend's app hears it over
 // realtime and offers to join. Invites older than 30 minutes are ignored.
 import { supabase, supabaseEnabled } from './supabase'
+import { notify } from './push'
 
 const FRESH_MS = 30 * 60 * 1000
 
 export async function sendInvite(fromUserId, toUserId, roomCode) {
   if (!supabaseEnabled) return
-  const { error } = await supabase.from('table_invites').insert({ from_user: fromUserId, to_user: toUserId, room_code: roomCode })
+  const { data, error } = await supabase.from('table_invites').insert({ from_user: fromUserId, to_user: toUserId, room_code: roomCode }).select('id').single()
   if (error) throw new Error(error.message.includes('row-level security') ? 'You can only invite friends.' : error.message)
+  notify('invite', data?.id)
 }
 
 export async function dismissInvite(id) {

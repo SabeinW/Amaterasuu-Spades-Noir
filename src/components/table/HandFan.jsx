@@ -21,7 +21,9 @@ export default function HandFan({
   dealStartedAt,
   dealFrom, // window coords of the deck during a deal
   trumpIds,
+  hintId, // the practice coach's pick: ringed in gold
   onPlay,
+  onBlocked, // tapped a card that can't be played right now
   disabled,
 }) {
   const ref = useRef(null)
@@ -101,7 +103,10 @@ export default function HandFan({
 
   function handleTap(card, el) {
     if (disabled || !playable) return
-    if (!playable.has(card.id)) return
+    if (!playable.has(card.id)) {
+      onBlocked?.(card)
+      return
+    }
     if (FINE_POINTER || selected === card.id) {
       const rect = el?.getBoundingClientRect()
       onPlay(card, rect)
@@ -133,7 +138,7 @@ export default function HandFan({
                 ? { x: dealFrom.x - box.left - cw / 2, y: dealFrom.y - box.top - ch / 2, rotate: 180, scale: 0.6, opacity: 0 }
                 : false
             }
-            animate={{ x: p.x, y: p.y - (isSel ? cw * 0.3 : 0) + (settle % 2) * 0.01, rotate: isSel ? 0 : p.r, scale: 1, opacity: 1 }}
+            animate={{ x: p.x, y: p.y - (isSel ? cw * 0.3 : hintId === card.id ? cw * 0.12 : 0) + (settle % 2) * 0.01, rotate: isSel ? 0 : p.r, scale: 1, opacity: 1 }}
             transition={dealing ? { duration: T.dealFlight / 1000, ease: [0.22, 0.8, 0.3, 1], delay } : { type: 'spring', stiffness: 300, damping: 30 }}
             whileHover={FINE_POINTER && playable && legal && !disabled ? { y: p.y - cw * 0.16 } : undefined}
             // only a lifted card can be dragged, so the tap that lifts it never turns into a drag
@@ -160,6 +165,18 @@ export default function HandFan({
                 ariaLabel={faceDown ? 'Face-down card' : `${card.value} of ${card.suit}`}
               />
             </div>
+            {hintId === card.id && !faceDown && (
+              // A still ring, not a pulse: the table animates only transform and opacity.
+              <div className="absolute pointer-events-none" style={{ inset: -3, borderRadius: Math.max(6, cw * 0.1), border: '2.5px solid #f1d28a', boxShadow: '0 0 0 1px rgb(27 19 7 / 0.8)' }} />
+            )}
+            {hintId === card.id && !isSel && !faceDown && (
+              <div
+                className="absolute left-1/2 -translate-x-1/2 -top-5 text-[10px] font-extrabold tracking-wider uppercase whitespace-nowrap px-1.5 py-px rounded-full pointer-events-none"
+                style={{ background: '#f1d28a', color: '#1b1307' }}
+              >
+                Coach
+              </div>
+            )}
             {isSel && (
               <motion.div
                 className="absolute left-1/2 -translate-x-1/2 -top-7 text-[11px] font-bold tracking-wide whitespace-nowrap px-2 py-0.5 rounded-full"

@@ -38,7 +38,7 @@ export const FAMILIES = {
   // Total Carnage: a personal deck of original purple heroes and villains (named by the user's wife)
   violet: { id: 'violet', name: 'Total Carnage', courtSet: 'violet', paper: paper('#fbf8ff', '#efe6fb', '#ddd0f3'), metal: '#a46bff', motif: 'burst', effect: 'cosmic' },
   // Anime Nights: an original gothic academy under a laughing moon
-  laughmoon: { id: 'laughmoon', name: 'Laughing Moon', courtSet: 'laughing-moon', paper: paper('#faf8fc', '#ece6f4', '#d8cfe8'), metal: '#9d8ad8', motif: 'grin', effect: 'moon' },
+  laughmoon: { id: 'laughmoon', name: 'Laughing Moon', courtSet: 'laughing-moon', paper: paper('#fafafc', '#ebedf3', '#d6dae5'), metal: '#7f89aa', motif: 'grin', effect: 'blackbolt' },
   classic: { id: 'classic', name: 'Classic Court', courtSet: 'classic', paper: 'linear-gradient(160deg, #fffdf7 0%, #f7f1e3 60%, #eee4cf 100%)', metal: '#c9a24d', motif: null, effect: null, pips: true },
 }
 

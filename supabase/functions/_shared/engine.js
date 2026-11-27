@@ -247,6 +247,15 @@ export function botBid(hand, seat, pub, rules, rng = Math.random) {
 }
 
 export function botCard(hand, seat, pub, rules) {
+  return botPlan(hand, seat, pub, rules).card
+}
+
+// The bots' card choice plus a short reason code, so the practice coach can
+// explain the same move in words (src/lib/coach.js). Reasons:
+//   nil-lead, nil-duck, cash-winner, lead-low, partner-nil-cover,
+//   partner-winning, opp-nil-duck, take-for-bid, take-to-set, avoid-bags,
+//   cant-win, cant-follow-trump, cant-follow-duck
+export function botPlan(hand, seat, pub, rules) {
   const jd = rules.jokers
   const legal = hand.filter((c) => isPlayable(c, hand, pub.trick, pub.broken, jd, rules.spadesBreak))
   const sorted = sortByStrength(legal, jd)
@@ -260,34 +269,41 @@ export function botCard(hand, seat, pub, rules) {
   const oppTaken = pub.tricks[opp[0]] + pub.tricks[opp[1]]
   const teamNeeds = teamBid - teamTaken > 0
   const oppNeeds = oppBid - oppTaken > 0
+  const plan = (card, why) => ({ card, why })
 
   if (pub.trick.length === 0) {
-    if (alive(seat)) return lowestPreferNonTrump(legal, jd)
+    if (alive(seat)) return plan(lowestPreferNonTrump(legal, jd), 'nil-lead')
     if (teamNeeds) {
       const strong = [...sorted].reverse().find((c) => c.value === 'A' || isTopTrump(c, jd))
-      if (strong) return strong
+      if (strong) return plan(strong, 'cash-winner')
     }
-    return lowestPreferNonTrump(legal, jd)
+    return plan(lowestPreferNonTrump(legal, jd), 'lead-low')
   }
 
   const losers = sorted.filter((c) => !winsIfPlayed(c, pub.trick, jd))
   const highestLoser = losers[losers.length - 1]
-  if (alive(seat)) return highestLoser ?? sorted[0]
+  if (alive(seat)) return plan(highestLoser ?? sorted[0], 'nil-duck')
 
   const winning = evaluateTrick(pub.trick, jd)
   const cheapestWinner = sorted.find((c) => winsIfPlayed(c, pub.trick, jd))
+  const ledHere = hand.some((c) => effectiveSuit(c, jd) === effectiveSuit(pub.trick[0].card, jd))
 
   if (winning === partner) {
     // Cover a partner whose nil is about to break; otherwise let them have it.
-    if (alive(partner)) return cheapestWinner ?? lowestPreferNonTrump(legal, jd)
-    return lowestPreferNonTrump(losers.length ? losers : legal, jd)
+    if (alive(partner)) return plan(cheapestWinner ?? lowestPreferNonTrump(legal, jd), 'partner-nil-cover')
+    return plan(lowestPreferNonTrump(losers.length ? losers : legal, jd), 'partner-winning')
   }
   // An opponent's nil is on the line and they're holding the trick: leave it with them.
-  if (alive(winning)) return highestLoser ?? sorted[0]
+  if (alive(winning)) return plan(highestLoser ?? sorted[0], 'opp-nil-duck')
   // Take the trick only when it helps (making our bid, or setting theirs);
   // otherwise duck so we don't collect bags.
-  if (cheapestWinner && (teamNeeds || oppNeeds)) return cheapestWinner
-  return lowestPreferNonTrump(losers.length ? losers : legal, jd)
+  if (cheapestWinner && (teamNeeds || oppNeeds)) {
+    const ruff = !ledHere && effectiveSuit(cheapestWinner, jd) === 'S'
+    return plan(cheapestWinner, ruff ? 'cant-follow-trump' : teamNeeds ? 'take-for-bid' : 'take-to-set')
+  }
+  const card = lowestPreferNonTrump(losers.length ? losers : legal, jd)
+  if (!cheapestWinner) return plan(card, ledHere ? 'cant-win' : 'cant-follow-duck')
+  return plan(card, 'avoid-bags')
 }
 
 // ----------------------------------------------------------------- match ---

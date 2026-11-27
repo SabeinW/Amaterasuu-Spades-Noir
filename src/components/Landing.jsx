@@ -1,8 +1,9 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { BookOpen, Flame, Layers, Palette, RotateCcw, Trophy, User, Users, Bot, LogIn } from 'lucide-react'
+import { BookOpen, Flame, GraduationCap, Layers, Palette, RotateCcw, Trophy, User, Users, Bot, LogIn } from 'lucide-react'
 import Card from './cards/Card'
 import Avatar from './ui/Avatar'
+import NotificationsCard from './ui/NotificationsCard'
 import LevelBadge from './ui/LevelBadge'
 import { toggleDiag } from '../lib/diag'
 import { levelProgress } from '../data/levels'
@@ -71,6 +72,7 @@ export default function Landing({
   deck,
   onPlayOnline,
   onPractice,
+  onLearn,
   onOpenAuth,
   onOpenDecks,
   onOpenTables,
@@ -170,6 +172,7 @@ export default function Landing({
         </div>
 
         <div className="flex flex-col gap-2 mb-3">
+          {user && <NotificationsCard variant="banner" />}
           {rejoinableRoom && (
             <motion.button onClick={onRejoin} className="btn btn-verm w-full" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}>
               <RotateCcw className="w-4 h-4" /> Rejoin table {rejoinableRoom.code}
@@ -177,7 +180,7 @@ export default function Landing({
           )}
           {savedPractice && (
             <motion.button onClick={onResumePractice} className="btn btn-ghost w-full !text-[14px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <RotateCcw className="w-4 h-4 text-gold" /> Resume practice · round {savedPractice.full.pub.round} · {savedPractice.full.pub.scores.A.total}–{savedPractice.full.pub.scores.B.total}
+              <RotateCcw className="w-4 h-4 text-gold" /> Resume {savedPractice.coached ? 'coached game' : 'practice'} · round {savedPractice.full.pub.round} · {savedPractice.full.pub.scores.A.total}–{savedPractice.full.pub.scores.B.total}
             </motion.button>
           )}
         </div>
@@ -188,6 +191,9 @@ export default function Landing({
           </button>
           <button onClick={onPractice} className="btn btn-ghost w-full !min-h-[52px]">
             <Bot className="w-5 h-5 text-gold" /> Practice vs AI
+          </button>
+          <button onClick={onLearn} className="btn btn-ghost w-full !min-h-[48px] !text-[14px]">
+            <GraduationCap className="w-5 h-5 text-gold" /> New to Spades? Learn to play
           </button>
           {!user && <p className="text-center text-[12px] text-faint">Sign in to play online and keep your stats.</p>}
         </motion.div>

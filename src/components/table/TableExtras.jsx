@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { Layers, LogOut, Palette, Send, User, Volume2, VolumeX, BookOpen } from 'lucide-react'
+import { Layers, LogOut, Palette, Send, User, Volume2, VolumeX, BookOpen, GraduationCap } from 'lucide-react'
 import Sheet from '../ui/Sheet'
 
-export function TableMenu({ open, onClose, muted, onToggleMute, onDeck, onTable, onProfile, onRules, onLeave, code, deckName, tableName }) {
+export function TableMenu({ open, onClose, muted, onToggleMute, onDeck, onTable, onProfile, onRules, onLeave, code, deckName, tableName, coachOn, onToggleCoach }) {
   const row = 'flex items-center gap-3 w-full rounded-2xl px-4 py-3.5 text-left transition-colors hover:bg-white/5'
   return (
     <Sheet open={open} onClose={onClose} eyebrow={code ? `Table ${code}` : 'Practice table'} title="Table menu">
@@ -13,6 +13,16 @@ export function TableMenu({ open, onClose, muted, onToggleMute, onDeck, onTable,
           <span className="flex-1 font-semibold">Sound</span>
           <span className="text-faint text-sm">{muted ? 'Off' : 'On'}</span>
         </button>
+        {onToggleCoach && (
+          <button className={row} onClick={onToggleCoach}>
+            <GraduationCap className="w-5 h-5 text-gold" />
+            <span className="flex-1 font-semibold">
+              Coach tips
+              <span className="block text-[12px] text-faint font-normal">Suggests every bid and card, and says why</span>
+            </span>
+            <span className="text-faint text-sm">{coachOn ? 'On' : 'Off'}</span>
+          </button>
+        )}
         <button className={row} onClick={onDeck}>
           <Layers className="w-5 h-5 text-gold" />
           <span className="flex-1 font-semibold">Deck</span>

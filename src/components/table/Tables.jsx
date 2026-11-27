@@ -7,7 +7,7 @@ export function OnlineTable({ room, user, ...rest }) {
   return <GameTable game={game} mode="online" user={user} {...rest} />
 }
 
-export function PracticeTable({ rules, myName, resume, ...rest }) {
-  const game = useLocalGame({ rules, myName, resume })
-  return <GameTable game={game} mode="practice" {...rest} />
+export function PracticeTable({ rules, myName, resume, coached, ...rest }) {
+  const game = useLocalGame({ rules, myName, resume, coached })
+  return <GameTable game={game} mode="practice" coached={coached} {...rest} />
 }

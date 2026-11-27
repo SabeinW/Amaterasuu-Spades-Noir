@@ -12,6 +12,11 @@ import { courtImage, familyOf } from '../../data/cardFamilies'
 import { useSkinTone } from '../../lib/skinTone'
 import { LITE } from '../../lib/lite'
 
+// Black lightning flashes a few times a minute and is otherwise still: about
+// 5 extra repaints every 3 s on a full table (scripts: painttrace), so it's
+// allowed in phone mode.
+const PHONE_SAFE_FX = new Set(['blackbolt'])
+
 const DEFAULT_DECK = ALL_DECKS[0]
 
 const NOIR_FACE = 'radial-gradient(120% 90% at 30% 0%,#2a241b 0%,#12100c 55%,#070605 100%)'
@@ -131,8 +136,9 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
   const n = Number(card.value)
   const Tag = onClick ? 'button' : 'div'
   const pipLayout = fam.pips && PIPS[n]
-  // no living effects on phones (lib/lite.js): the art stays, the glows go
-  const living = !still && !LITE && art && fam.effect && width >= 40
+  // Phones (lib/lite.js) keep the art but drop the glows, except effects
+  // measured to cost almost no redrawing (PHONE_SAFE_FX).
+  const living = !still && (!LITE || PHONE_SAFE_FX.has(fam.effect)) && art && fam.effect && width >= 40
 
   return (
     <Tag

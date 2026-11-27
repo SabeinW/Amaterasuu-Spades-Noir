@@ -14,13 +14,15 @@ function seed(id) {
   }
 }
 
-const PARTICLES = { moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 5, storm: 1, neon: 8, mural: 7, hero: 0, venom: 5, cosmic: 7, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
+const PARTICLES = { blackbolt: 4, moon: 5, ember: 7, frost: 6, bloom: 5, starfall: 6, dune: 7, cloud: 5, storm: 1, neon: 8, mural: 7, hero: 0, venom: 5, cosmic: 7, aurora: 0, tide: 0, gold: 0, jade: 0, eclipse: 0 }
 
 function CardFx({ effect, id, radius }) {
   if (!effect) return null
   const rnd = seed(id)
   const phase = -(rnd() * 8).toFixed(2)
   const n = PARTICLES[effect] ?? 0
+  // blackbolt: each card's bolts strike in their own spot
+  const bolt = effect === 'blackbolt' ? { '--bx': `${(rnd() * 22 - 11).toFixed(1)}%`, '--br': `${(rnd() * 18 - 9).toFixed(1)}deg` } : null
   return (
     <div className={`fx-layer fx-${effect}`} style={{ borderRadius: radius, '--fx-phase': `${phase}s` }} aria-hidden="true">
       {Array.from({ length: n }, (_, i) => (
@@ -40,6 +42,20 @@ function CardFx({ effect, id, radius }) {
         <svg className="fx-bolt" viewBox="0 0 40 100" preserveAspectRatio="none">
           <path d="M26 0L8 46h12L6 100 34 38H20z" />
         </svg>
+      )}
+      {effect === 'blackbolt' && (
+        // Black lightning: two forked bolts, dark cores with a red electric edge.
+        <>
+          <svg className="fx-bb fx-bb-a" style={bolt} viewBox="0 0 60 100" preserveAspectRatio="none">
+            <path d="M38 0L31 15l4 1-10 17 4 1-9 16 4 1-12 23 3 1-9 25 15-28-3-1 12-19-4-1 11-16-4-1 9-17-4-1 8-16z" />
+            <path d="M24 51l-10 7 2 1-9 9 12-8-2-1 10-7z" />
+            <path d="M33 16l11 8-2 1 8 7-10-9 2-1-7-5z" />
+          </svg>
+          <svg className="fx-bb fx-bb-b" style={bolt} viewBox="0 0 60 100" preserveAspectRatio="none">
+            <path d="M38 0L31 15l4 1-10 17 4 1-9 16 4 1-12 23 3 1-9 25 15-28-3-1 12-19-4-1 11-16-4-1 9-17-4-1 8-16z" />
+            <path d="M24 51l-10 7 2 1-9 9 12-8-2-1 10-7z" />
+          </svg>
+        </>
       )}
     </div>
   )

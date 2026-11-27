@@ -742,6 +742,83 @@ summary {
   animation-delay: var(--fx-phase);
 }
 
+/* blackbolt (Laughing Moon): black lightning with a red electric edge. Two
+   forked bolts crack at different moments, a red glow flares with them and a
+   few red sparks drift up. Opacity and transform only. */
+@keyframes fxBlackFlash {
+  0%, 84%, 100% { opacity: 0; }
+  85% { opacity: 1; }
+  86.5% { opacity: 0.15; }
+  88% { opacity: 1; }
+  90% { opacity: 0.35; }
+  93% { opacity: 0; }
+}
+.fx-blackbolt::before {
+  background: radial-gradient(65% 50% at 70% 22%, rgb(255 46 46 / 0.55), rgb(120 0 20 / 0.25) 45%, transparent 72%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: fxBlackFlash 5.5s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-blackbolt::after {
+  background: radial-gradient(60% 45% at 22% 62%, rgb(255 46 46 / 0.4), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: fxBlackFlash 7.3s linear infinite;
+  animation-delay: calc(var(--fx-phase) - 2.1s);
+}
+.fx-bb {
+  position: absolute;
+  fill: #07040b;
+  stroke: #ff3b3b;
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px #ff2a2a) drop-shadow(0 0 6px rgb(255 30 40 / 0.7));
+  opacity: 0;
+  will-change: opacity;
+}
+.fx-bb-a {
+  left: calc(40% + var(--bx, 0%));
+  top: -2%;
+  width: 44%;
+  height: 66%;
+  transform: rotate(var(--br, 0deg));
+  animation: fxBlackFlash 5.5s linear infinite;
+  animation-delay: var(--fx-phase);
+}
+.fx-bb-b {
+  left: calc(2% - var(--bx, 0%) / 2);
+  top: 36%;
+  width: 30%;
+  height: 46%;
+  transform: scaleX(-1) rotate(calc(var(--br, 0deg) - 6deg));
+  animation: fxBlackFlash 7.3s linear infinite;
+  animation-delay: calc(var(--fx-phase) - 2.1s);
+}
+@keyframes fxRedSpark {
+  0% { opacity: 0; transform: translateY(0) scale(var(--s)); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-60px) scale(calc(var(--s) * 0.3)); }
+}
+.fx-blackbolt .fx-p {
+  top: auto;
+  bottom: 4%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ff4a3a;
+  box-shadow: 0 0 4px 1px rgb(255 40 30 / 0.8), 0 0 0 1px #12060a;
+  animation: fxRedSpark var(--t) ease-out infinite;
+  animation-delay: var(--d);
+}
+
+/* Phone mode keeps the lightning but drops what's costly to draw there: the
+   glow filters, the blend and the sparks (measured in WebKit at iPhone size). */
+.lite .fx-blackbolt::before,
+.lite .fx-blackbolt::after { mix-blend-mode: normal; }
+.lite .fx-bb { filter: none; stroke-width: 2; will-change: auto; }
+.lite .fx-blackbolt .fx-p { display: none; }
+
 /* eclipse: a corona that pulses */
 @keyframes fxCorona {
   0%, 100% { transform: scale(0.92); opacity: 0.55; }

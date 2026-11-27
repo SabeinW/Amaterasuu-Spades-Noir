@@ -1,4 +1,5 @@
 import { supabase, supabaseEnabled } from './supabase'
+import { notify } from './push'
 import { ACHIEVEMENTS, checkNewAchievements, tierForCount } from '../data/achievements'
 
 // Leaderboard boards: which profile column each one ranks by.
@@ -98,8 +99,9 @@ export async function sendFriendRequest(userId, friendId) {
     .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`)
     .maybeSingle()
   if (existing) return
-  const { error } = await supabase.from('friends').insert({ user_id: userId, friend_id: friendId, status: 'pending' })
+  const { data, error } = await supabase.from('friends').insert({ user_id: userId, friend_id: friendId, status: 'pending' }).select('id').single()
   if (error) throw error
+  notify('friend_request', data?.id)
 }
 
 export async function respondToFriendRequest(rowId, accept) {
@@ -107,6 +109,7 @@ export async function respondToFriendRequest(rowId, accept) {
   if (accept) {
     const { error } = await supabase.from('friends').update({ status: 'accepted' }).eq('id', rowId)
     if (error) throw error
+    notify('friend_accept', rowId)
   } else {
     const { error } = await supabase.from('friends').delete().eq('id', rowId)
     if (error) throw error

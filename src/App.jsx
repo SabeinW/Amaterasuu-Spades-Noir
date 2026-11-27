@@ -8,6 +8,7 @@ const ChallengesModal = lazyLoad(() => import('./components/ChallengesModal'))
 const RulesModal = lazyLoad(() => import('./components/RulesModal'))
 const ProfileModal = lazyLoad(() => import('./components/ProfileModal'))
 const LeaderboardModal = lazyLoad(() => import('./components/LeaderboardModal'))
+const LearnModal = lazyLoad(() => import('./components/LearnModal'))
 import Lobby from './components/online/Lobby'
 const WaitingRoom = lazyLoad(() => import('./components/online/WaitingRoom'))
 const CardGallery = lazyLoad(() => import('./components/CardGallery'))
@@ -19,6 +20,7 @@ import InviteBanner from './components/online/InviteBanner'
 import { onAuthStateChange, onPasswordRecovery, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
 import { openedFromResetLink, supabaseEnabled } from './lib/supabase'
 import { fetchRoom, joinTable, leaveTable } from './lib/online'
+import { forgetDevice, syncPush } from './lib/push'
 import { clearSavedPractice, loadSavedPractice } from './game/useLocalGame'
 import { ALL_DECKS, ALL_TABLES, DEFAULT_DECK, TABLE_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
@@ -62,19 +64,22 @@ const joinCodeFromUrl = (() => {
   const m = new URLSearchParams(window.location.search).get('join')
   return m && /^\d{4}$/.test(m) ? m : ''
 })()
+// A tapped friend-request notification opens /?open=friends.
+const openFriendsFromUrl = new URLSearchParams(window.location.search).get('open') === 'friends'
+if (openFriendsFromUrl) window.history.replaceState(null, '', window.location.pathname)
 
 export default function App() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('landing') // landing | waiting | online | practice
-  const [modal, setModal] = useState(openedFromResetLink ? 'newPassword' : joinCodeFromUrl ? 'lobby' : null)
+  const [modal, setModal] = useState(openedFromResetLink ? 'newPassword' : joinCodeFromUrl ? 'lobby' : openFriendsFromUrl ? 'friends' : null)
   const [rules, setRules] = useState({ ...DEFAULT_GAME_RULES, ...prefs.gameSettings })
   const [customTables, setCustomTables] = useState(storedCustomTables(prefs))
   const [table, setTable] = useState(() => resolveTable(prefs.tableThemeId, storedCustomTables(prefs)))
   const [deck, setDeck] = useState(() => ALL_DECKS.find((d) => d.id === prefs.deckThemeId) ?? DEFAULT_DECK)
   const [room, setRoom] = useState(null)
   const [rejoinable, setRejoinable] = useState(null)
-  const [practice, setPractice] = useState(null) // { key, resume }
+  const [practice, setPractice] = useState(null) // { key, resume, coached }
   const [savedPractice, setSavedPractice] = useState(() => loadSavedPractice())
 
   useEffect(() => {
@@ -94,6 +99,7 @@ export default function App() {
       return
     }
     fetchOrCreateProfile(user).then(setProfile)
+    syncPush()
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A table you were seated at (tab closed, phone died, left mid-match)?
@@ -170,9 +176,10 @@ export default function App() {
     enterRoom(res.room)
   }
 
-  function startPractice(resume = null) {
+  function startPractice(resume = null, coached = false) {
     if (!resume) clearSavedPractice()
-    setPractice({ key: Date.now(), resume })
+    setPractice({ key: Date.now(), resume, coached: resume ? !!resume.coached : coached })
+    setModal(null)
     setView('practice')
   }
 
@@ -198,6 +205,7 @@ export default function App() {
   }
 
   async function handleSignOut() {
+    await forgetDevice().catch(() => {})
     await signOut()
     setUser(null)
     setModal(null)
@@ -231,6 +239,7 @@ export default function App() {
           deck={deck}
           onPlayOnline={() => setModal('lobby')}
           onPractice={() => startPractice(null)}
+          onLearn={() => setModal('learn')}
           onOpenAuth={() => setModal('auth')}
           onOpenDecks={() => setModal('deck')}
           onOpenTables={() => setModal('table')}
@@ -247,7 +256,7 @@ export default function App() {
 
       {view === 'waiting' && room && <WaitingRoom room={room} user={user} table={table} onStart={(r) => { setRoom(r); setView('online') }} onLeave={() => exitToLanding(true)} />}
       {view === 'online' && room && <OnlineTable key={room.id} room={room} {...tableProps} />}
-      {view === 'practice' && practice && <PracticeTable key={practice.key} rules={rules} myName={myName} resume={practice.resume} {...tableProps} />}
+      {view === 'practice' && practice && <PracticeTable key={practice.key} rules={rules} myName={myName} resume={practice.resume} coached={practice.coached} {...tableProps} />}
 
       {modal === 'newPassword' && user && <NewPasswordModal onClose={() => setModal(null)} />}
       {modal === 'auth' && <AuthModal onClose={() => setModal(joinCodeFromUrl ? 'lobby' : null)} onAuthed={(u) => { setUser(u); setModal(joinCodeFromUrl ? 'lobby' : null) }} onGuest={() => setModal(null)} />}
@@ -263,8 +272,11 @@ export default function App() {
         onEnterRoom={enterRoom}
       />
       {modal === 'challenges' && <ChallengesModal user={user} onClose={() => setModal(null)} />}
-      {modal === 'profile' && user && <ProfileModal user={user} profile={profile} onClose={() => setModal(null)} onProfileUpdate={setProfile} onSignOut={handleSignOut} onJoinTable={joinByCode} />}
+      {(modal === 'profile' || modal === 'friends') && user && (
+        <ProfileModal user={user} profile={profile} initialTab={modal === 'friends' ? 'Friends' : 'Overview'} onClose={() => setModal(null)} onProfileUpdate={setProfile} onSignOut={handleSignOut} onJoinTable={joinByCode} />
+      )}
       {user && view !== 'online' && !showGallery && <InviteBanner user={user} onJoin={joinByCode} />}
+      {modal === 'learn' && <LearnModal rules={rules} deck={deck} onClose={() => setModal(null)} onPlayCoached={() => startPractice(null, true)} />}
       {modal === 'leaderboard' && <LeaderboardModal currentUserId={user?.id} onClose={() => setModal(null)} />}
       {modal === 'rules' && (
         <RulesModal

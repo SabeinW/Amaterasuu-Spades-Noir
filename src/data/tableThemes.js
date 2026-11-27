@@ -329,12 +329,16 @@ export const CAPES_DECK_THEMES = [
 ]
 
 // Anime Nights — original anime-style casts (no existing characters,
-// costumes or logos). Laughing Moon: a gothic academy under a grinning moon.
-const anime = (id, name, tag, style, backTint, edge, description) =>
-  deck(id, name, tag, 'anime', { style, backTint, edge, ink: { S: INK.sumi, H: INK.verm, D: INK.verm, C: INK.sumi }, description })
+// costumes or logos). Like the Mythic Courts, each deck has its own
+// lettering (see look() above). Laughing Moon: a gothic academy under a
+// grinning moon; black labels, ice-blue spades and clubs, blood-red hearts
+// and diamonds, a gunmetal frame, and black lightning on the painted cards.
+const anime = (id, name, tag, style, backTint, edge, description, lettering) =>
+  deck(id, name, tag, 'anime', { style, backTint, edge, ...lettering, description })
 
 export const ANIME_DECK_THEMES = [
-  anime('anime-laughing-moon', 'Laughing Moon', 'GRIN', 'laughmoon', '#120a22', '#a48cf0', 'Gothic academy fighters under a laughing moon'),
+  anime('anime-laughing-moon', 'Laughing Moon', 'GRIN', 'laughmoon', '#0d0a16', '#6f7a9c', 'Gothic academy fighters under a laughing moon; black lightning cracks',
+    look('#12101a', '#c0201c', '#0a0810', '#8cc8ff', '#ff3b30')),
 ]
 
 export const MASTER_DECK_THEMES = [

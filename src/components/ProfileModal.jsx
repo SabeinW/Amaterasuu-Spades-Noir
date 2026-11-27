@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw, LogIn } from 'lucide-react'
 import Sheet from './ui/Sheet'
+import NotificationsCard from './ui/NotificationsCard'
 import Avatar from './ui/Avatar'
 import { AVATAR_EMOJIS, AVATAR_COLORS, ART_AVATARS, PROFILE_BORDERS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, borderStyle, DEFAULT_AVATAR, defaultArtAvatar } from '../data/avatars'
 import { ACHIEVEMENTS, MILESTONES, TIER_STYLE, milestoneStatus, tierForCount } from '../data/achievements'
@@ -111,8 +112,8 @@ function SectionLabel({ children }) {
   return <p className="eyebrow mb-2 px-1">{children}</p>
 }
 
-export default function ProfileModal({ user, profile, onClose, onProfileUpdate, onSignOut, onJoinTable }) {
-  const [tab, setTab] = useState('Overview')
+export default function ProfileModal({ user, profile, initialTab = 'Overview', onClose, onProfileUpdate, onSignOut, onJoinTable }) {
+  const [tab, setTab] = useState(initialTab)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState(profile?.username ?? '')
@@ -555,6 +556,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
                   </motion.div>
                 ))}
               </div>
+              <NotificationsCard />
             </div>
           )}
 

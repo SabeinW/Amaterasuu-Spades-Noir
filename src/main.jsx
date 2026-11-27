@@ -6,6 +6,9 @@ import './index.css'
 import App from './App.jsx'
 import CrashGuard from './components/ui/CrashGuard'
 import PhoneCheck from './components/ui/PhoneCheck'
+import { registerServiceWorker } from './lib/push'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

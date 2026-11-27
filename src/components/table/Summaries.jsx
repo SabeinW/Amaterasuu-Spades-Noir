@@ -103,7 +103,7 @@ function TeamLine({ label, tone, r }) {
   )
 }
 
-export function RoundSummary({ open, result, round, myTeam, players, ready, mySeat, deadline, serverNow, onContinue, online, busy }) {
+export function RoundSummary({ open, result, round, myTeam, players, ready, mySeat, deadline, serverNow, onContinue, online, busy, coachNotes }) {
   if (!result) return null
   const them = myTeam === 'A' ? 'B' : 'A'
   const iAmReady = ready?.[mySeat]
@@ -150,6 +150,16 @@ export function RoundSummary({ open, result, round, myTeam, players, ready, mySe
             )
           })}
         </div>
+        {coachNotes?.length > 0 && (
+          <div className="rounded-2xl px-3 py-2.5 text-[12.5px] leading-snug" style={{ background: 'rgb(241 210 138 / 0.08)', border: '1px solid rgb(241 210 138 / 0.28)' }}>
+            <p className="font-bold text-gold-hi mb-1">How the points worked</p>
+            {coachNotes.map((n) => (
+              <p key={n} className="text-paper/90">
+                {n}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     </Sheet>
   )

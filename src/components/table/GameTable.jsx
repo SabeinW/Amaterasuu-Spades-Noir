@@ -23,6 +23,8 @@ import ScoreBar from './ScoreBar'
 import { MatchSummary, RoundSummary } from './Summaries'
 import { ChatSheet, RulesSummary, TableMenu } from './TableExtras'
 import { DeckPicker, TablePicker } from '../ThemePickers'
+import CoachBubble from './CoachBubble'
+import { bidAdvice, blockedReason, playAdvice, roundStory, trickStory } from '../../lib/coach'
 import ProfileModal from '../ProfileModal'
 import { CardBack } from '../cards/Card'
 import { DEAL_FLIGHT, DEAL_STAGGER, dealArrival, handCardWidth, slotOf, tableCardWidth, tableCenter } from './geometry'
@@ -118,7 +120,16 @@ function MiniFan({ count, slot, cw, deck }) {
   )
 }
 
-export default function GameTable({ game, mode, deck, table, user, profile, onProfileUpdate, onSignOut, onChangeDeck, onChangeTable, customTables, onDeleteCustomTable, onExit }) {
+const COACH_KEY = 'amaterasuu-noir-spades:coach'
+const coachPref = () => {
+  try {
+    return localStorage.getItem(COACH_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export default function GameTable({ game, mode, coached = false, deck, table, user, profile, onProfileUpdate, onSignOut, onChangeDeck, onChangeTable, customTables, onDeleteCustomTable, onExit }) {
   const online = mode === 'online'
   const { pub, players, mySeat, hand, act, connection, serverNow, room } = game
   const rules = pub?.rules
@@ -154,6 +165,11 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
   // A won trick is in flight to this seat: hold its count back until it lands.
   const [pendingWin, setPendingWin] = useState(null)
   const [burst, setBurst] = useState(null)
+  // The coach: always on in a coached game, a menu switch in other practice games, never online.
+  const [coachOn, setCoachOn] = useState(() => !online && (coached || coachPref()))
+  const [coachMin, setCoachMin] = useState(false)
+  const [coachH, setCoachH] = useState(0)
+  const blockedAtRef = useRef(0)
   const fromRects = useRef({})
   const streakRef = useRef(0)
   const maxDeficitRef = useRef(0)
@@ -402,6 +418,39 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
   }
 
   const suggested = myBidTurn && handCards.length ? Math.max(E.minimumBid(view, mySeat, rules), E.estimateBid(handCards, rules.jokers)) : undefined
+  const nameOf = (s) => seatPlayer(s)?.name ?? 'They'
+  const bidCoach = coachOn && myBidTurn && !blindPending && handCards.length ? bidAdvice(handCards, view, mySeat, rules, nameOf) : null
+  const playCoach = coachOn && myPlayTurn && !pending.size && handCards.length ? playAdvice(handCards, view, mySeat, rules, nameOf) : null
+  const coachLines = (() => {
+    if (!coachOn || dealing) return null
+    if (view.phase === 'bidding' && !myBidTurn) {
+      const opps = [E.nextSeat(mySeat), E.nextSeat(partnerSeat)].map(nameOf).join(' and ')
+      return { title: 'Coach · bidding', lines: [`Everyone says how many tricks they think they'll win. ${nameOf(partnerSeat)} (top) is your partner; ${opps} play against you.`, `${nameOf(view.turn)} is bidding…`] }
+    }
+    if (view.phase !== 'playing') return null
+    if (playCoach) return { title: 'Coach · your turn', lines: [playCoach.rule, playCoach.winner, playCoach.tip].filter(Boolean) }
+    const story = trickStory(view.last_trick, rules, nameOf, mySeat)
+    const now = view.trick.length && event?.t !== 'trick' ? `${nameOf(view.turn)} is up next.` : null
+    if (!story && !now) return { title: 'Coach', lines: [`${nameOf(view.turn)} leads the first trick. Watch what gets played.`] }
+    return { title: 'Coach', lines: [story, now].filter(Boolean) }
+  })()
+  function onBlocked(card) {
+    if (Date.now() - blockedAtRef.current < 1500) return
+    blockedAtRef.current = Date.now()
+    playSound('error')
+    toast(blockedReason(card, hand.cards, view, rules), 'warn', '✋', 3500)
+  }
+  function toggleCoach() {
+    const next = !coachOn
+    setCoachOn(next)
+    if (!coached) {
+      try {
+        localStorage.setItem(COACH_KEY, next ? '1' : '0')
+      } catch {
+        // storage unavailable: the switch still works for this game
+      }
+    }
+  }
   const turnPlayer = seatPlayer(view.turn)
   // You're seated under your account id online, but as 'me' in practice.
   const isMe = (p) => !!p && !p.isBot && (p.id === user?.id || p.id === 'me')
@@ -513,6 +562,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
 
       {/* you */}
       <div className="relative z-30 pb-[calc(0.25rem+var(--safe-b))]">
+        {coachLines && !myBidTurn && view.phase !== 'round_over' && view.phase !== 'game_over' && (
+          <CoachBubble title={coachLines.title} lines={coachLines.lines} minimized={coachMin} onToggle={() => setCoachMin((m) => !m)} onHeight={setCoachH} />
+        )}
         <div className="flex items-center justify-center gap-3 mb-1 px-2">
           <Seat slot="bottom" {...seatProps(mySeat)} compact />
           {blindPending && !myBidTurn && (
@@ -541,6 +593,7 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
                 partnerBid={view.bids[partnerSeat]}
                 partnerName={seatPlayer(partnerSeat)?.name ?? 'Partner'}
                 suggested={suggested}
+                coach={bidCoach}
                 busy={busy}
                 onReveal={() => setRevealedRound(view.round)}
                 onBid={(n, blind) => send({ type: 'bid', bid: n, blind })}
@@ -560,7 +613,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
           dealStartedAt={dealing?.startedAt}
           dealFrom={dealFrom}
           trumpIds={trumpIds}
+          hintId={playCoach?.cardId}
           onPlay={onPlay}
+          onBlocked={onBlocked}
           disabled={busy}
         />
       </div>
@@ -579,6 +634,7 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         online={online}
         busy={busy}
         onContinue={() => send({ type: 'ready' })}
+        coachNotes={coachOn && view.round_result ? roundStory(view.round_result, myTeam, rules, nameOf) : null}
       />
       <MatchSummary open={view.phase === 'game_over'} pub={view} myTeam={myTeam} online={online} busy={busy} onRematch={() => send({ type: 'rematch' })} onLeave={leave} />
 
@@ -591,6 +647,8 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         onTable={() => setMenu('table')}
         onRules={() => setMenu('rules')}
         onProfile={user ? () => setMenu('profile') : undefined}
+        coachOn={online ? undefined : coachOn}
+        onToggleCoach={online ? undefined : toggleCoach}
         onLeave={leave}
         code={room?.code}
         deckName={deck.name}
@@ -653,7 +711,7 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
 
       {/* toasts & rank-up */}
       {/* notices sit just above your hand, clear of the seats and the trick */}
-      <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex flex-col-reverse items-center gap-2 w-[min(92vw,440px)]" style={{ bottom: `calc(${Math.round(hw * 1.4 + 96)}px + var(--safe-b))` }}>
+      <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex flex-col-reverse items-center gap-2 w-[min(92vw,440px)]" style={{ bottom: `calc(${Math.round(hw * 1.4 + 96 + (coachH ? coachH + 4 : 0))}px + var(--safe-b))` }}>
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
             <motion.div
