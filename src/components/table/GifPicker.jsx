@@ -33,9 +33,8 @@ export function GifSheet({ open, onClose, onPick, userId }) {
       z={75}
       footer={
         giphy ? (
-          <p className="text-center text-[11px] font-bold tracking-[0.16em] uppercase text-faint">
-            Powered by <span className="text-paper">GIPHY</span>
-          </p>
+          // GIPHY's official attribution mark (from their attribution pack, dark-background version)
+          <img src="/giphy/powered-by-giphy.png" alt="Powered by GIPHY" width="151" height="20" className="block mx-auto h-5 w-auto" />
         ) : null
       }
     >

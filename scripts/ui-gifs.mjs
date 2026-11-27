@@ -48,7 +48,7 @@ ok('the tray has a GIFs button', await gifBtn.isVisible())
 await gifBtn.click()
 await page.getByRole('dialog', { name: 'GIFs' }).waitFor({ timeout: 5000 })
 ok('the GIF picker opens with GIPHY search', await page.getByPlaceholder('Search GIPHY').isVisible())
-ok('it says Powered by GIPHY', await page.getByText(/Powered by/i).isVisible())
+ok('it shows the Powered by GIPHY mark', await page.getByAltText('Powered by GIPHY').isVisible())
 await page.locator('[role=dialog] img').first().waitFor({ timeout: 5000 })
 const first = calls[0]
 ok('the first search is family-rated and clip-free', first?.rating === 'g' && first?.bundle === 'messaging_non_clips' && first?.key === 'test-key', JSON.stringify(first))

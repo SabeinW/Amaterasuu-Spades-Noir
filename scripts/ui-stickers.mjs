@@ -64,7 +64,7 @@ const openMine = async () => {
 await openMine()
 await page.getByText('No stickers yet').waitFor({ timeout: 8000 })
 ok('Mine starts empty for a new player', true)
-ok('no GIPHY credit on your own stickers', !(await page.getByText(/Powered by/i).isVisible()))
+ok('no GIPHY credit on your own stickers', !(await page.getByAltText('Powered by GIPHY').isVisible()))
 
 // Add from Photos: a big photo, a small animated GIF, a sticker.
 await page.locator('input[type=file]').setInputFiles(['scripts/fixtures/photo-sample.jpg', 'scripts/fixtures/anim-sample.gif', 'scripts/fixtures/sticker-sample.webp'])
