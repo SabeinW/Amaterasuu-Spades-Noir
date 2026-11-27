@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Search, X } from 'lucide-react'
 import Sheet from '../ui/Sheet'
 import { QUICK, giphyClicked, giphySeen, giphySent, searchGiphy } from '../../lib/giphy'
-import { MAX_STICKERS, addSticker, imageFromElement, imageFromTransfer, listMyStickers, prepareSticker, removeSticker } from '../../lib/stickers'
+import { MAX_STICKERS, addSticker, imageFromTransfer, listMyStickers, picturesFrom, prepareFirst, prepareSticker, removeSticker } from '../../lib/stickers'
 import { forgetPick } from '../../data/taunts'
 
 const TABS = [
@@ -145,6 +145,7 @@ function MyStickers({ userId, onPick }) {
   const [editing, setEditing] = useState(false)
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
+  const readingRef = useRef(false)
 
   useEffect(() => {
     if (!userId) return
@@ -167,8 +168,10 @@ function MyStickers({ userId, onPick }) {
     setMsg(null)
     let added = 0
     try {
-      for (const blob of blobs.slice(0, room)) {
-        const saved = await addSticker(userId, await prepareSticker(blob))
+      // Each one is a picture, or a list of copies of one picture (a sticker
+      // pasted from Safari comes as Apple's format plus a PNG).
+      for (const one of blobs.slice(0, room)) {
+        const saved = await addSticker(userId, Array.isArray(one) ? await prepareFirst(one) : await prepareSticker(one))
         setItems((list) => [saved, ...(list ?? [])])
         added++
       }
@@ -182,23 +185,37 @@ function MyStickers({ userId, onPick }) {
   }
 
   // The paste box: a pasted or dropped picture, or one the keyboard drops in.
+  // A plain picture comes as a file. An Apple sticker or Genmoji doesn't: Safari
+  // treats it like an emoji and puts it in the box as a <picture>, so when
+  // there's no file the paste or drop goes ahead and onInput reads what landed.
   function onPaste(e) {
     const file = imageFromTransfer(e.clipboardData)
-    e.preventDefault()
-    if (file) add([file])
-    else setMsg({ ok: false, text: 'Copy a sticker or picture first, then paste it here.' })
+    if (file) {
+      e.preventDefault()
+      add([file])
+    }
+  }
+  function onDrop(e) {
+    const file = imageFromTransfer(e.dataTransfer)
+    if (file) {
+      e.preventDefault()
+      add([file])
+    }
   }
   async function onInput() {
     const box = pasteRef.current
-    const img = box?.querySelector('img')
-    if (img) {
-      const blob = await imageFromElement(img)
-      box.innerHTML = ''
-      if (blob) add([blob])
-      else setMsg({ ok: false, text: 'That sticker couldn’t be read here. Try copying it and pasting instead.' })
-    } else if (box && box.textContent) {
-      box.textContent = ''
-    }
+    if (!box || readingRef.current) return
+    if (!box.querySelector('img, picture, source') && !box.textContent) return
+    readingRef.current = true
+    // A moment for the browser to finish putting it in.
+    await new Promise((r) => setTimeout(r, 60))
+    const hasPicture = !!box.querySelector('img, picture, source')
+    const blobs = hasPicture ? await picturesFrom(box) : []
+    box.innerHTML = ''
+    readingRef.current = false
+    if (blobs.length) add([blobs])
+    else if (hasPicture) setMsg({ ok: false, text: 'That sticker couldn’t be read here. Try saving it to Photos, then Add from Photos.' })
+    else setMsg({ ok: false, text: 'That came in as text, not a picture. Copy the sticker itself, then paste it here.' })
   }
   async function remove(s) {
     try {
@@ -224,11 +241,7 @@ function MyStickers({ userId, onPick }) {
           aria-label="Paste a sticker"
           data-placeholder="Paste a sticker"
           onPaste={onPaste}
-          onDrop={(e) => {
-            e.preventDefault()
-            const file = imageFromTransfer(e.dataTransfer)
-            if (file) add([file])
-          }}
+          onDrop={onDrop}
           onInput={onInput}
           className="min-h-12 rounded-2xl px-3 flex items-center justify-center text-[13px] font-semibold text-center outline-none overflow-hidden empty:before:content-[attr(data-placeholder)] empty:before:text-faint focus:border-solid"
           style={{ border: '1.5px dashed rgb(241 210 138 / 0.45)', background: 'rgb(243 234 219 / 0.04)' }}
@@ -246,7 +259,7 @@ function MyStickers({ userId, onPick }) {
         }}
       />
       <p className="text-[11.5px] text-faint mt-2 leading-snug">
-        On iPhone: press and hold a sticker in Messages (or lift a subject in Photos), tap Copy, then tap the paste box and Paste.
+        On iPhone: press and hold a sticker in Messages (or lift a subject in Photos), tap Copy, then tap the paste box and Paste. Stickers from the emoji keyboard work too. On a Mac: copy it, click the box, press ⌘V.
       </p>
       {(msg || busy) && (
         <p className="text-[12px] mt-1.5" style={{ color: busy ? '#f6dc9a' : msg.ok ? '#9ff0b0' : '#ffb4a6' }}>

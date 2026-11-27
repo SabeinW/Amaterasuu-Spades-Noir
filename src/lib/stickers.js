@@ -102,15 +102,46 @@ export function imageFromTransfer(dt) {
   return null
 }
 
-// An <img> the keyboard dropped into the paste box: fetch its picture.
-export async function imageFromElement(img) {
-  const src = img?.currentSrc || img?.src
-  if (!src) return null
-  try {
-    const res = await fetch(src)
-    const blob = await res.blob()
-    return blob.type.startsWith('image/') ? blob : null
-  } catch {
-    return null
+// The picture links inside something pasted or dropped into the paste box,
+// best first. Safari turns an Apple sticker or Genmoji into a <picture>: a
+// HEIC <source> (Apple's sticker format) plus a plain PNG <img>. The PNG
+// opens everywhere, so the <img> links go first.
+export function pictureLinks(root) {
+  const links = []
+  for (const img of root.querySelectorAll('img')) links.push(img.getAttribute('src'))
+  for (const el of root.querySelectorAll('source[srcset], img[srcset]')) {
+    // Links in a srcset are separated by spaces (a data: link has a comma in it).
+    for (const word of el.getAttribute('srcset').trim().split(/\s+/)) {
+      if (/^(blob:|data:|https?:)/i.test(word)) links.push(word.replace(/,$/, ''))
+    }
   }
+  for (const img of root.querySelectorAll('img')) links.push(img.currentSrc)
+  return [...new Set(links.filter((u) => u && /^(blob:|data:image\/|https?:)/i.test(u)))]
+}
+
+// Each of those links as a picture, skipping any that won't load.
+export async function picturesFrom(root) {
+  const blobs = []
+  for (const link of pictureLinks(root)) {
+    try {
+      const blob = await (await fetch(link)).blob()
+      if (blob.size && (!blob.type || blob.type.startsWith('image/'))) blobs.push(blob)
+    } catch {
+      // a link on another site that won't share its picture: try the next
+    }
+  }
+  return blobs
+}
+
+// The first of these copies of one picture that opens here, ready to save.
+export async function prepareFirst(blobs) {
+  let error = new StickerError('That sticker couldn’t be read here.')
+  for (const blob of blobs) {
+    try {
+      return await prepareSticker(blob)
+    } catch (e) {
+      error = e
+    }
+  }
+  throw error
 }
