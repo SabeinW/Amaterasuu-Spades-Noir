@@ -9,6 +9,7 @@ import Motif from './Motif'
 import CardFx from './CardFx'
 import { ALL_DECKS } from '../../data/tableThemes'
 import { courtImage, familyOf } from '../../data/cardFamilies'
+import { useSkinTone } from '../../lib/skinTone'
 
 const DEFAULT_DECK = ALL_DECKS[0]
 
@@ -95,7 +96,9 @@ function Index({ card, ink, width, flip, noir, onArt, classic, pillBg, ring }) {
 function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selected = false, dim = false, trumpHint = false, className = '', style, onClick, ariaLabel, still = false, eager = false, thumb = false }) {
   // A painting that won't load gets one retry before the card falls back to its
   // plain design, so a dropped request on a phone doesn't leave a court empty.
+  // A missing skin-tone copy falls back to the original painting first.
   const [miss, setMiss] = useState({ src: null, tries: 0 })
+  const tone = useSkinTone()
   if (faceDown || !card) return <CardBack width={width} deck={deck} style={style} className={className} />
 
   const fam = familyOf(deck)
@@ -105,14 +108,16 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
   const faceInk = noir ? '#efe6d6' : '#1a1714'
   const ink = isJoker ? (card.value === 'BIG' ? '#c8321f' : faceInk) : deck.ink?.[card.suit] ?? faceInk
   const metal = deck.edge ?? fam.metal
-  const wanted = courtImage(fam, card, { thumb })
+  const wanted = courtImage(fam, card, { thumb, tone })
+  const original = courtImage(fam, card, { thumb })
   const tries = miss.src === wanted ? miss.tries : 0
-  const art = wanted && tries < 2 ? wanted : null
-  const artSrc = art && tries === 1 ? `${art}?retry=1` : art
+  const sources = !wanted ? [] : wanted === original ? [wanted, `${wanted}?retry=1`] : [wanted, original, `${original}?retry=1`]
+  const artSrc = sources[tries] ?? null
+  const art = artSrc && artSrc.split('?')[0]
   const onArtError = (e) => {
     // Ignore errors from a picture this card has since swapped away from.
     if (!art || !e.currentTarget.src.includes(art)) return
-    setMiss({ src: art, tries: tries + 1 })
+    setMiss({ src: wanted, tries: tries + 1 })
   }
   // Decks with their own lettering (Mythic) put the rank on a coloured label
   // on painted cards: Big Joker in the red-suit colour, Small in the black.

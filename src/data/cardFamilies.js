@@ -11,6 +11,8 @@
 //   motif:  emblem behind number-card suits (see cards/Motif.jsx)
 //   effect: animated finish on picture cards, Aces and Jokers (cards/CardFx.jsx)
 //   pips:   classic pip layout on number cards instead of one big suit
+import { DEFAULT_TONE, toneFor } from '../lib/skinTone'
+
 const paper = (a, b, c) => `radial-gradient(120% 90% at 30% 15%, ${a} 0%, ${b} 55%, ${c} 100%)`
 
 export const FAMILIES = {
@@ -39,22 +41,26 @@ export const familyOf = (deck) => FAMILIES[deck?.style] ?? FAMILIES.sun
 
 // `thumb` asks for the small copy (QH-sm.webp); only the Queen of Hearts has
 // one, for the little card that peeks out of each deck in the deck picker.
-export function courtImage(family, card, { thumb = false } = {}) {
-  const dir = `/art/court/${family.courtSet}`
+// `tone` is the player's skin tone (lib/skinTone.js): the court cards and
+// Jokers have a copy per tone; the Ace of Spades has no people, so no copies.
+export function courtImage(family, card, { thumb = false, tone = DEFAULT_TONE } = {}) {
+  const base = `/art/court/${family.courtSet}`
+  const t = toneFor(tone, family.courtSet, card.id)
+  const dir = t === DEFAULT_TONE ? base : `${base}/${t}`
   if (card.suit === 'JOKER') return `${dir}/${card.value === 'BIG' ? 'JOKER_BIG' : 'JOKER_SMALL'}.webp`
   if (['J', 'Q', 'K'].includes(card.value)) return `${dir}/${card.value}${card.suit}${thumb && card.id === 'QH' ? '-sm' : ''}.webp`
-  if (card.value === 'A' && card.suit === 'S') return `${dir}/AS.webp`
+  if (card.value === 'A' && card.suit === 'S') return `${base}/AS.webp`
   return null
 }
 
 // Warm the browser cache with a deck's back and the court cards the deck
 // picker shows, so picking a deck never opens on empty frames.
 const warmed = new Set()
-export function preloadDeckArt(deck) {
-  if (typeof Image === 'undefined' || !deck || warmed.has(deck.id)) return
-  warmed.add(deck.id)
+export function preloadDeckArt(deck, tone = DEFAULT_TONE) {
+  if (typeof Image === 'undefined' || !deck || warmed.has(`${deck.id}:${tone}`)) return
+  warmed.add(`${deck.id}:${tone}`)
   const fam = familyOf(deck)
-  const srcs = [deck.backImage, ...['AS', 'QH', 'KS'].map((id) => courtImage(fam, { suit: id[1], value: id[0], id }))]
+  const srcs = [deck.backImage, ...['AS', 'QH', 'KS'].map((id) => courtImage(fam, { suit: id[1], value: id[0], id }, { tone }))]
   for (const src of srcs) {
     if (!src) continue
     const img = new Image()

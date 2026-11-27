@@ -6,6 +6,45 @@ import Sheet from './ui/Sheet'
 import Card from './cards/Card'
 import { ALL_TABLES, DECK_FAMILIES, MAX_CUSTOM_TABLES, customTableTheme, fileToTableBackgroundDataUrl } from '../data/tableThemes'
 import { preloadDeckArt } from '../data/cardFamilies'
+import { MIX, SKIN_TONES, setSkinTone, useSkinTone } from '../lib/skinTone'
+
+// The people on the court cards and Jokers, in the player's own skin tone.
+const MIX_SWATCH = `conic-gradient(${SKIN_TONES.map((t, i) => `${t.swatch} ${(i / SKIN_TONES.length) * 360}deg ${((i + 1) / SKIN_TONES.length) * 360}deg`).join(', ')})`
+
+function SkinTonePicker() {
+  const tone = useSkinTone()
+  const options = [...SKIN_TONES, { id: MIX, label: 'Mix', swatch: MIX_SWATCH }]
+  const current = options.find((t) => t.id === tone)
+  return (
+    <div className="mb-4 flex flex-col items-center" role="radiogroup" aria-label="Skin tone of the people on the cards">
+      <p className="eyebrow mb-2">
+        Skin tone · <span className="text-paper normal-case tracking-normal">{current?.label}</span>
+      </p>
+      <div className="flex items-center gap-2.5">
+        {options.map((t) => {
+          const on = t.id === tone
+          return (
+            <button
+              key={t.id}
+              role="radio"
+              aria-checked={on}
+              aria-label={t.label}
+              title={t.label}
+              onClick={() => setSkinTone(t.id)}
+              className="relative w-9 h-9 rounded-full shrink-0 transition-transform active:scale-90"
+              style={{
+                background: t.swatch,
+                boxShadow: on ? '0 0 0 2px #12100c, 0 0 0 4px #f1d28a' : 'inset 0 0 0 1px rgb(255 255 255 / 0.18), 0 1px 3px rgb(0 0 0 / 0.5)',
+              }}
+            >
+              {on && <Check className="absolute inset-0 m-auto w-4 h-4" style={{ color: t.id === 'pale' || t.id === 'olive' ? '#1b1307' : '#fff6e5' }} />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 const SAMPLE = [
   { suit: 'S', value: 'A', id: 'AS' },
@@ -20,13 +59,14 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
   const current = DECK_FAMILIES.flatMap((f) => f.decks).find((d) => d.id === selectedId)
   // One pick per opening: a slow phone mustn't turn a double tap into a second deck.
   const picked = useRef(false)
+  const tone = useSkinTone()
   useEffect(() => {
     if (open) picked.current = false
   }, [open])
   const pick = (d) => {
     if (picked.current) return
     picked.current = true
-    preloadDeckArt(d)
+    preloadDeckArt(d, tone)
     onSelect(d)
   }
   return (
@@ -39,6 +79,7 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
           ))}
         </div>
       )}
+      <SkinTonePicker />
       <div className="flex gap-1.5 mb-3 overflow-x-auto no-scrollbar">
         {DECK_FAMILIES.map((f) => (
           <button
