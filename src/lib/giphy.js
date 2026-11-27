@@ -9,6 +9,11 @@
 // are dropped.
 // GIFs always play silent. A beta key allows 100 searches an hour for the
 // whole app, so results are cached and the picker offers ready-made searches.
+//
+// GIPHY's analytics (what their production review asks for): every search
+// carries a customer_id, a random id made once per device (never the
+// player's name or account), and the picker fires each result's
+// seen/clicked/sent links.
 
 const KEY = import.meta.env?.VITE_GIPHY_KEY ?? ''
 export const gifsEnabled = !!KEY
@@ -24,6 +29,44 @@ export const QUICK = {
 
 const cache = new Map()
 
+const CID_KEY = 'amaterasuu-noir-spades:giphy-cid'
+let cid = ''
+export function customerId() {
+  if (cid) return cid
+  try {
+    cid = localStorage.getItem(CID_KEY) || ''
+    if (!/^[0-9a-f]{32}$/.test(cid)) {
+      cid = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('')
+      localStorage.setItem(CID_KEY, cid)
+    }
+  } catch {
+    cid ||= [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('')
+  }
+  return cid
+}
+
+// Fire one of a result's analytics links (seen / clicked / sent).
+function ping(link) {
+  if (!link) return
+  try {
+    const url = new URL(link)
+    if (url.protocol !== 'https:' || !url.hostname.endsWith('.giphy.com')) return
+    url.searchParams.set('customer_id', customerId())
+    url.searchParams.set('ts', String(Date.now()))
+    fetch(url, { mode: 'no-cors', keepalive: true, credentials: 'omit' }).catch(() => {})
+  } catch {
+    // a bad link just isn't counted
+  }
+}
+const seenOnce = new Set()
+export const giphySeen = (g) => {
+  if (!g?.analytics?.seen || seenOnce.has(g.analytics.seen)) return
+  seenOnce.add(g.analytics.seen)
+  ping(g.analytics.seen)
+}
+export const giphyClicked = (g) => ping(g?.analytics?.click)
+export const giphySent = (g) => ping(g?.analytics?.sent)
+
 // kind: 'gifs' | 'stickers'. Returns [{ id, title, url, w, h, thumb, sticker }].
 export async function searchGiphy(kind, q, { offset = 0, signal } = {}) {
   const query = String(q ?? '').trim().slice(0, 50)
@@ -32,7 +75,7 @@ export async function searchGiphy(kind, q, { offset = 0, signal } = {}) {
   const cacheKey = `${kind}:${query.toLowerCase()}:${offset}`
   if (cache.has(cacheKey)) return cache.get(cacheKey)
   const url = new URL(`https://api.giphy.com/v1/${kind === 'stickers' ? 'stickers' : 'gifs'}/search`)
-  url.search = new URLSearchParams({ api_key: KEY, q: query, limit: '24', offset: String(offset), rating: 'g', lang: 'en', bundle: 'messaging_non_clips' })
+  url.search = new URLSearchParams({ api_key: KEY, q: query, limit: '24', offset: String(offset), rating: 'g', lang: 'en', bundle: 'messaging_non_clips', customer_id: customerId() })
   let res
   try {
     res = await fetch(url, { signal })
@@ -57,7 +100,17 @@ function toGif(g, sticker) {
   const url = big?.webp || big?.url
   if (!url || !safeGifUrl(url)) return null
   const thumb = small?.webp || small?.url || url
-  return { id: String(g.id), title: g.title || 'GIF', url, thumb: safeGifUrl(thumb) ? thumb : url, w: Number(big.width) || 200, h: Number(big.height) || 200, sticker }
+  const a = g.analytics ?? {}
+  return {
+    id: String(g.id),
+    title: g.title || 'GIF',
+    url,
+    thumb: safeGifUrl(thumb) ? thumb : url,
+    w: Number(big.width) || 200,
+    h: Number(big.height) || 200,
+    sticker,
+    analytics: { seen: a.onload?.url, click: a.onclick?.url, sent: a.onsent?.url },
+  }
 }
 
 // Only GIPHY's own media servers, over https.

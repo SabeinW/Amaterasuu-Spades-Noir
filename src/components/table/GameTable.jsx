@@ -844,7 +844,9 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
           userId={user?.id}
           onClose={() => setGifOpen(false)}
           onPick={(pick) => {
-            if (sendEmote(pick)) setGifOpen(false)
+            const sent = sendEmote(pick)
+            if (sent) setGifOpen(false)
+            return sent
           }}
         />
       )}

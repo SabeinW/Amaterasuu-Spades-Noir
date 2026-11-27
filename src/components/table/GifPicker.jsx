@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, Search, X } from 'lucide-react'
 import Sheet from '../ui/Sheet'
-import { QUICK, searchGiphy } from '../../lib/giphy'
+import { QUICK, giphyClicked, giphySeen, giphySent, searchGiphy } from '../../lib/giphy'
 import { MAX_STICKERS, addSticker, imageFromElement, imageFromTransfer, listMyStickers, prepareSticker, removeSticker } from '../../lib/stickers'
 import { forgetPick } from '../../data/taunts'
 
@@ -121,12 +121,15 @@ function GiphyPanel({ kind, open, onPick }) {
               <button
                 key={g.id}
                 type="button"
-                onClick={() => onPick({ kind: 'g', id: g.id, url: g.url, w: g.w, h: g.h, sticker: g.sticker })}
+                onClick={() => {
+                  giphyClicked(g)
+                  if (onPick({ kind: 'g', id: g.id, url: g.url, w: g.w, h: g.h, sticker: g.sticker })) giphySent(g)
+                }}
                 aria-label={`Send ${g.title}`}
                 className="h-[112px] rounded-xl overflow-hidden flex items-center justify-center active:scale-95 transition-transform"
                 style={{ background: g.sticker ? 'rgb(243 234 219 / 0.06)' : '#0b0a08', border: '1px solid rgb(212 166 74 / 0.16)' }}
               >
-                <img src={g.thumb} alt={g.title} loading="lazy" decoding="async" className={`w-full h-full ${g.sticker ? 'object-contain p-1.5' : 'object-cover'}`} />
+                <img src={g.thumb} alt={g.title} loading="lazy" decoding="async" onLoad={() => giphySeen(g)} className={`w-full h-full ${g.sticker ? 'object-contain p-1.5' : 'object-cover'}`} />
               </button>
             ))}
           </div>
