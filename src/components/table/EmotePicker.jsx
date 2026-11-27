@@ -1,43 +1,79 @@
 // Pick an emoji or a trash-talk line to throw at the table. `grid` is the tray
-// that pops up over your seat; `row` is the strip under the chat. Hands and
-// people come in the player's own skin tone.
+// that pops up over your seat, with your recent picks in a strip on top; `row`
+// is the strip under the chat. Hands and people come in the player's own skin
+// tone.
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Clock } from 'lucide-react'
 import { EMOJI_GROUPS, LINES, readEmote, recentPicks, withTone } from '../../data/taunts'
 import { useSkinTone } from '../../lib/skinTone'
 
+// Short enough to fit on a small iPhone without scrolling.
 const TABS = [
-  { id: 'recent', label: 'Recent' },
   { id: 'talk', label: 'Trash talk' },
   { id: 'lines', label: 'Lines' },
+  { id: 'team', label: 'Team' },
   { id: 'hype', label: 'Hype' },
-  { id: 'react', label: 'Reactions' },
+  { id: 'react', label: 'React' },
 ]
 
-function picksFor(tab, recent) {
-  if (tab === 'recent') return recent
-  if (tab === 'lines') return LINES.map((l) => ({ kind: 'l', id: l.id }))
+function picksFor(tab) {
+  // Lines = trash talk; Team = partner talk, hype and good-game lines.
+  if (tab === 'lines' || tab === 'team') return LINES.filter((l) => (l.mood === 'talk') === (tab === 'lines')).map((l) => ({ kind: 'l', id: l.id }))
   return EMOJI_GROUPS.find((g) => g.id === tab).items.map((id) => ({ kind: 'e', id }))
+}
+
+function PickButton({ pick, tone, onPick, again = false }) {
+  const shown = readEmote({ ...pick, tone })
+  if (!shown) return null
+  if (shown.kind === 'l') {
+    return (
+      <button
+        onClick={() => onPick(pick)}
+        aria-label={again ? `Again: ${shown.text}` : undefined}
+        className="shrink-0 h-10 rounded-xl px-3 text-[13px] font-semibold whitespace-nowrap hover:bg-white/5 active:scale-95 transition-transform"
+        style={{ border: '1px solid rgb(212 166 74 / 0.22)', background: 'rgb(243 234 219 / 0.04)' }}
+      >
+        {shown.text} <span className="text-[15px]">{shown.emoji}</span>
+      </button>
+    )
+  }
+  return (
+    <button
+      onClick={() => onPick(pick)}
+      aria-label={again ? `Again: ${pick.id}` : `Send ${pick.id}`}
+      className="w-10 h-10 shrink-0 rounded-xl text-[22px] leading-none flex items-center justify-center hover:bg-white/5 active:scale-90 transition-transform"
+      style={{ border: '1px solid rgb(212 166 74 / 0.2)' }}
+    >
+      {withTone(pick.id, tone)}
+    </button>
+  )
 }
 
 export function EmotePicker({ onPick, variant = 'grid' }) {
   const tone = useSkinTone()
   const [recent] = useState(recentPicks)
-  const tabs = recent.length ? TABS : TABS.filter((t) => t.id !== 'recent')
-  const [tab, setTab] = useState(tabs[0].id)
-  const picks = picksFor(tab, recent)
+  const [tab, setTab] = useState(TABS[0].id)
   const row = variant === 'row'
 
   return (
     <div>
+      {!row && recent.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto no-scrollbar" aria-label="Recent picks">
+          <Clock className="w-4 h-4 shrink-0 text-faint" aria-hidden />
+          {recent.map((p) => (
+            <PickButton key={`${p.kind}:${p.id}`} pick={p} tone={tone} onPick={onPick} again />
+          ))}
+        </div>
+      )}
       <div className="flex gap-1 mb-2 overflow-x-auto no-scrollbar" role="tablist">
-        {tabs.map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.id}
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className="shrink-0 rounded-full px-3 h-8 text-[12px] font-bold whitespace-nowrap transition-colors"
+            className="shrink-0 rounded-full px-2 h-8 text-[12px] font-bold whitespace-nowrap transition-colors"
             style={
               tab === t.id
                 ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a', border: '1px solid rgb(241 210 138 / 0.55)' }
@@ -48,31 +84,10 @@ export function EmotePicker({ onPick, variant = 'grid' }) {
           </button>
         ))}
       </div>
-      <div className={row ? 'flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5' : 'flex flex-wrap gap-1.5 max-h-[232px] overflow-y-auto no-scrollbar content-start'}>
-        {picks.map((p) => {
-          const shown = readEmote({ ...p, tone })
-          if (!shown) return null
-          return shown.kind === 'l' ? (
-            <button
-              key={`l:${p.id}`}
-              onClick={() => onPick(p)}
-              className="shrink-0 h-10 rounded-xl px-3 text-[13px] font-semibold whitespace-nowrap hover:bg-white/5 active:scale-95 transition-transform"
-              style={{ border: '1px solid rgb(212 166 74 / 0.22)', background: 'rgb(243 234 219 / 0.04)' }}
-            >
-              {shown.text} <span className="text-[15px]">{shown.emoji}</span>
-            </button>
-          ) : (
-            <button
-              key={`e:${p.id}`}
-              onClick={() => onPick(p)}
-              aria-label={`Send ${p.id}`}
-              className="w-10 h-10 shrink-0 rounded-xl text-[22px] leading-none flex items-center justify-center hover:bg-white/5 active:scale-90 transition-transform"
-              style={{ border: '1px solid rgb(212 166 74 / 0.2)' }}
-            >
-              {withTone(p.id, tone)}
-            </button>
-          )
-        })}
+      <div role="tabpanel" className={row ? 'flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5' : 'flex flex-wrap gap-1.5 max-h-[232px] overflow-y-auto no-scrollbar content-start'}>
+        {picksFor(tab).map((p) => (
+          <PickButton key={`${p.kind}:${p.id}`} pick={p} tone={tone} onPick={onPick} />
+        ))}
       </div>
     </div>
   )

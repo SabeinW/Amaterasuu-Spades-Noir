@@ -2,27 +2,28 @@
 // sent over the wire by id, never as free text, so a player can only show
 // what's on these lists.
 //
-// Kept clean for a family table (no swearing, nothing rude), and in line with
-// the app's rules: no drinks, no pigs, no monkeys or apes, no music or bells.
+// Kept clean for a family table (no actual swear words: 🤬's symbols are as
+// far as it goes), and in line with the app's rules: no drinks, no pigs, no
+// monkeys or apes, no music or bells.
 
 // Hands and people that take a skin tone; they follow the sender's pick.
-const TONED = new Set(['🫵', '👋', '🤏', '💪', '🙌', '👏', '🤝', '👊', '🧑‍🍳', '🙏', '🤦', '🤷'])
+const TONED = new Set(['🫵', '👋', '🤏', '💪', '🙌', '👏', '🤝', '👊', '🧑‍🍳', '🙏', '🤦', '🤷', '🙅'])
 
 export const EMOJI_GROUPS = [
   {
     id: 'talk',
     label: 'Trash talk',
-    items: ['🤡', '😂', '🫵', '💀', '🪦', '🧂', '🗑️', '🥱', '😴', '🍳', '🧹', '✂️', '🤫', '🙄', '😏', '😈', '🧢', '👋', '🍼', '🐢', '📉', '🤏', '🍿', '🧾', '🪑', '🐍', '💰', '🫠'],
+    items: ['🤡', '🤬', '😂', '🫵', '💀', '🪦', '🧂', '🗑️', '🥱', '😴', '🍳', '🧹', '✂️', '🤫', '🙄', '😏', '😈', '🧢', '👋', '🍼', '🐢', '📉', '🤏', '🍿', '🧾', '🪑', '🐍', '💰', '🫠', '🥧', '🧃', '🚪', '📦', '🚨', '🤓', '🥴', '🙅', '👻'],
   },
   {
     id: 'hype',
     label: 'Hype',
-    items: ['🔥', '💯', '🐐', '👑', '😎', '💪', '🙌', '👏', '🤝', '👊', '🫡', '🎯', '⚡', '🧠', '🏆', '🚀', '🃏', '♠️', '🧑‍🍳', '🥶', '🤑'],
+    items: ['🔥', '💯', '🐐', '👑', '😎', '💪', '🙌', '👏', '🤝', '👊', '🫡', '🎯', '⚡', '🧠', '🏆', '🚀', '🃏', '♠️', '🧑‍🍳', '🥶', '🤑', '🗣️', '🍽️', '💥', '🎉', '🔒'],
   },
   {
     id: 'react',
     label: 'Reactions',
-    items: ['😮', '😳', '😬', '😭', '🥲', '😤', '🤯', '👀', '🙏', '🤔', '🫣', '😅', '🤦', '🤷', '😩', '🥵', '😱', '🤣', '🙃', '😇', '🫢'],
+    items: ['😮', '😳', '😬', '😭', '🥲', '😤', '😡', '😠', '🤨', '🤯', '👀', '🙏', '🤔', '🫣', '😅', '🤦', '🤷', '😩', '🥵', '😱', '🤣', '🙃', '😇', '🫢'],
   },
 ]
 
@@ -44,13 +45,38 @@ export const LINES = [
   { id: 'hurry', text: 'Hurry up, it’s not chess.', e: '⏳', mood: 'talk' },
   { id: 'weep', text: 'Read ’em and weep.', e: '😭', mood: 'talk' },
   { id: 'count', text: 'Count your books.', e: '🧮', mood: 'talk' },
+  { id: 'rigged', text: 'It’s rigged!', e: '🤬', mood: 'talk' },
+  { id: 'setlike', text: 'Y’all set like the dinner table.', e: '🍽️', mood: 'talk' },
+  { id: 'kidstable', text: 'Go sit at the kids’ table.', e: '🧃', mood: 'talk' },
+  { id: 'runbooks', text: 'Run me my books.', e: '📚', mood: 'talk' },
+  { id: 'whodealt', text: 'Who dealt this mess?', e: '🃏', mood: 'talk' },
+  { id: 'bidwhat', text: 'You bid WHAT?', e: '😳', mood: 'talk' },
+  { id: 'nileconomy', text: 'Nil? In this economy?', e: '📉', mood: 'talk' },
+  { id: 'rookie', text: 'Rookie numbers.', e: '🤏', mood: 'talk' },
+  { id: 'mad', text: 'Don’t get mad, get better.', e: '😏', mood: 'talk' },
+  { id: 'myhouse', text: 'Not in my house.', e: '🏠', mood: 'talk' },
+  { id: 'humble', text: 'Have a slice of humble pie.', e: '🥧', mood: 'talk' },
+  { id: 'packit', text: 'Pack it up.', e: '📦', mood: 'talk' },
+  { id: 'getoff', text: 'Get off my table.', e: '🚪', mood: 'talk' },
+  { id: 'nocry', text: 'Don’t cry now.', e: '🥲', mood: 'talk' },
+  { id: 'lucky', text: 'Lucky… for now.', e: '🍀', mood: 'talk' },
+  { id: 'warm', text: 'I’m just getting warmed up.', e: '🔥', mood: 'talk' },
+  { id: 'waited', text: 'Been waiting all game for this.', e: '😈', mood: 'talk' },
+  { id: 'timeout', text: 'Y’all need a timeout.', e: '⏸️', mood: 'talk' },
+  { id: 'notus', text: 'Bags? Couldn’t be us.', e: '🙅', mood: 'talk' },
+  { id: 'next', text: 'Next!', e: '👋', mood: 'talk' },
   { id: 'respect', text: 'Respect the spade.', e: '♠️', mood: 'hype' },
   { id: 'runback', text: 'Run it back.', e: '🔁', mood: 'hype' },
+  { id: 'nolie', text: 'Spades don’t lie.', e: '♠️', mood: 'hype' },
+  { id: 'eatin', text: 'We eatin’ tonight.', e: '🍽️', mood: 'hype' },
+  { id: 'bet', text: 'Bet.', e: '🤝', mood: 'hype' },
   { id: 'partner', text: 'Partner, I got you.', e: '🤝', mood: 'partner' },
   { id: 'partnerwhat', text: 'Partner… what was that?', e: '🤦', mood: 'partner' },
+  { id: 'tellem', text: 'Tell ’em, partner!', e: '🗣️', mood: 'partner' },
   { id: 'mybad', text: 'My bad.', e: '😅', mood: 'nice' },
   { id: 'nice', text: 'Nice hand.', e: '👏', mood: 'nice' },
   { id: 'gg', text: 'GG — good game.', e: '🤝', mood: 'nice' },
+  { id: 'disrespect', text: 'That hand was disrespectful.', e: '😤', mood: 'nice' },
 ]
 const LINE_BY_ID = new Map(LINES.map((l) => [l.id, l]))
 const ALL_EMOJI = new Set(EMOJI_GROUPS.flatMap((g) => g.items))
@@ -101,13 +127,13 @@ export function moodOf(pick) {
 const e = (id) => ({ kind: 'e', id })
 const l = (id) => ({ kind: 'l', id })
 export const BOT_TALK = {
-  setThem: [l('cooked'), l('set'), l('sit'), l('weep'), e('🤡'), e('💀'), e('🪦'), e('🧹'), e('😈')],
-  gotSet: [e('😤'), e('😭'), e('🧂'), e('😩'), e('🫠'), e('🙄'), l('runback')],
-  cut: [l('cut'), e('✂️'), e('😏'), e('😈'), e('🔥')],
-  nilBust: [l('notnil'), e('🫵'), e('😂'), e('🤣')],
+  setThem: [l('cooked'), l('set'), l('sit'), l('weep'), l('setlike'), l('kidstable'), l('runbooks'), l('humble'), e('🤡'), e('💀'), e('🪦'), e('🧹'), e('😈'), e('🥧')],
+  gotSet: [e('😤'), e('😭'), e('🧂'), e('😩'), e('🫠'), e('🙄'), e('🤬'), l('runback'), l('rigged'), l('whodealt'), l('lucky')],
+  cut: [l('cut'), l('myhouse'), e('✂️'), e('😏'), e('😈'), e('🔥')],
+  nilBust: [l('notnil'), l('nileconomy'), e('🫵'), e('😂'), e('🤣')],
   nilMade: [e('😎'), e('🫡'), e('💯')],
-  comeback: [e('🙄'), e('🥱'), e('🤫'), e('🧢'), e('😂'), l('taught'), l('easy'), l('check'), l('count')],
-  partnerHype: [e('🤝'), e('🔥'), e('💯'), e('👊'), l('partner')],
+  comeback: [e('🙄'), e('🥱'), e('🤫'), e('🧢'), e('😂'), e('🤓'), e('🤬'), l('taught'), l('easy'), l('check'), l('count'), l('mad'), l('rookie'), l('myhouse'), l('nocry')],
+  partnerHype: [e('🤝'), e('🔥'), e('💯'), e('👊'), l('partner'), l('bet'), l('eatin')],
   partnerSorry: [l('mybad'), e('😅'), e('🤷')],
   nice: [l('gg'), e('🤝'), e('🫡')],
 }

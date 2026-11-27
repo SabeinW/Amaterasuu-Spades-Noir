@@ -45,18 +45,20 @@ ok('the trash-talk button sits by your seat', await button.isVisible())
 await button.click()
 await page.waitForTimeout(300)
 const tabs = await page.getByRole('tab').allTextContents()
-ok('the tray has its tabs', ['Trash talk', 'Lines', 'Hype', 'Reactions'].every((t) => tabs.includes(t)), tabs.join(' · '))
-for (const t of ['Trash talk', 'Lines', 'Hype', 'Reactions']) {
+ok('the tray has its tabs', ['Trash talk', 'Lines', 'Team', 'Hype', 'React'].every((t) => tabs.includes(t)), tabs.join(' · '))
+ok('the cursing face is in Trash talk', await page.getByRole('tabpanel').locator('button[aria-label="Send 🤬"]').isVisible())
+ok('the GG line is under Team', await page.getByRole('tab', { name: 'Team' }).click().then(() => page.getByRole('tabpanel').getByRole('button', { name: /GG — good game/ }).isVisible()))
+for (const t of ['Trash talk', 'Lines', 'Team', 'Hype', 'React']) {
   await page.getByRole('tab', { name: t }).click()
   await page.waitForTimeout(150)
   await shot(`tray-${t.replace(/\s/g, '-').toLowerCase()}`)
 }
-const hands = await page.getByRole('tab', { name: 'Hype' }).click().then(() => page.locator('button[aria-label="Send 👏"]').textContent())
+const hands = await page.getByRole('tab', { name: 'Hype' }).click().then(() => page.getByRole('tabpanel').locator('button[aria-label="Send 👏"]').textContent())
 ok('hands come in the default brown tone', hands === '👏🏾', hands)
 
 // A line over your seat.
 await page.getByRole('tab', { name: 'Lines' }).click()
-await page.getByRole('button', { name: /Who taught you to play/ }).click()
+await page.getByRole('tabpanel').getByRole('button', { name: /Who taught you to play/ }).click()
 await page.waitForTimeout(450)
 ok('the tray closes after a pick', !(await page.getByRole('tab').first().isVisible().catch(() => false)))
 const bubble = page.locator('span.max-w-\\[168px\\]', { hasText: 'Who taught you to play?' })
@@ -68,7 +70,7 @@ await page.waitForTimeout(800)
 for (const e of ['🤡', '💀']) {
   await button.click()
   await page.getByRole('tab', { name: 'Trash talk' }).click()
-  await page.locator(`button[aria-label="Send ${e}"]`).click()
+  await page.getByRole('tabpanel').locator(`button[aria-label="Send ${e}"]`).click()
 }
 await page.waitForTimeout(150)
 ok('spamming is held back', await page.getByText(/let them read that one first/).isVisible().catch(() => false))
@@ -90,8 +92,8 @@ const botSeen = new Set()
 for (let i = 0; i < 14 && botSeen.size < 2; i++) {
   await button.click()
   await page.getByRole('tab', { name: i % 2 ? 'Trash talk' : 'Lines' }).click()
-  if (i % 2) await page.locator('button[aria-label="Send 🥱"]').click()
-  else await page.getByRole('button', { name: /Sit down, rookie/ }).click()
+  if (i % 2) await page.getByRole('tabpanel').locator('button[aria-label="Send 🥱"]').click()
+  else await page.getByRole('tabpanel').getByRole('button', { name: /Sit down, rookie/ }).click()
   for (let t = 0; t < 12; t++) {
     await page.waitForTimeout(250)
     const shown = await page.evaluate(() =>

@@ -856,8 +856,12 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
       )}
 
       {/* toasts & rank-up */}
-      {/* notices sit just above your hand, clear of the seats and the trick */}
-      <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex flex-col-reverse items-center gap-2 w-[min(92vw,440px)]" style={{ bottom: `calc(${Math.round(hw * 1.4 + 96 + (coachH ? coachH + 4 : 0))}px + var(--safe-b))` }}>
+      {/* notices sit just above your hand, clear of the seats and the trick;
+          with the trash-talk tray open they move up under the score bar instead */}
+      <div
+        className={`pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex ${trayOpen ? 'flex-col' : 'flex-col-reverse'} items-center gap-2 w-[min(92vw,440px)]`}
+        style={trayOpen ? { top: 'calc(76px + var(--safe-t))' } : { bottom: `calc(${Math.round(hw * 1.4 + 96 + (coachH ? coachH + 4 : 0))}px + var(--safe-b))` }}
+      >
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
             <motion.div
