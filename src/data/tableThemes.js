@@ -321,7 +321,7 @@ export const CAPES_DECK_THEMES = [
   capes('capes-heroes', 'Hero League', 'HEROES', 'heroes', '#0b1a4a', '#4f86ff', 'Original heroes; action bursts flare across the cards'),
   capes('capes-villains', 'Rogue Syndicate', 'VILLAINS', 'villains', '#140406', '#d0283f', 'Original villains; crimson pulses and dark smoke rises'),
   // A personal deck made for the family: royal purple with violet K/Q/J labels.
-  deck('capes-violet', 'Violet Vanguard', 'VIOLET', 'capes', {
+  deck('capes-violet', 'Total Carnage', 'CARNAGE', 'capes', {
     style: 'violet', backTint: '#1a0a33', edge: '#b07cff', description: 'Purple heroes and villains; violet power surges',
     ...look('#1a1430', '#7b2fd6', '#1a0a33', '#f4eeff', '#c79bff'),
   }),
