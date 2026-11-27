@@ -31,7 +31,7 @@ function SkinTonePicker() {
               aria-label={t.label}
               title={t.label}
               onClick={() => setSkinTone(t.id)}
-              className="relative w-9 h-9 rounded-full shrink-0 transition-transform active:scale-90"
+              className="hover-pop relative w-9 h-9 rounded-full shrink-0 active:scale-90"
               style={{
                 background: t.swatch,
                 boxShadow: on ? '0 0 0 2px #12100c, 0 0 0 4px #f1d28a' : 'inset 0 0 0 1px rgb(255 255 255 / 0.18), 0 1px 3px rgb(0 0 0 / 0.5)',
@@ -97,11 +97,11 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
         {decks.map((d) => {
           const active = d.id === selectedId
           return (
-            <button key={d.id} onClick={() => pick(d)} className="text-left group">
-              <div className="relative rounded-xl p-1" style={{ background: active ? 'linear-gradient(135deg,#f6dc9a,#8a6a2b)' : 'transparent' }}>
+            <button key={d.id} onClick={() => pick(d)} className="deck-option text-left group">
+              <div className="deck-art relative rounded-xl p-1" style={{ background: active ? 'linear-gradient(135deg,#f6dc9a,#8a6a2b)' : 'transparent' }}>
                 <Card faceDown deck={d} width={200} style={{ width: '100%', height: 'auto', aspectRatio: '5 / 7' }} />
                 {/* the deck's Queen of Hearts peeks out so each deck shows its own court */}
-                <div className="absolute -right-1 -bottom-1" style={{ transform: 'rotate(8deg)' }}>
+                <div className="deck-peek absolute -right-1 -bottom-1">
                   <Card card={{ suit: 'H', value: 'Q', id: 'QH' }} deck={d} width={46} still thumb eager />
                 </div>
                 {active && (
@@ -110,7 +110,7 @@ export function DeckPicker({ open, selectedId, onSelect, onClose }) {
                   </span>
                 )}
               </div>
-              <p className="text-[12.5px] font-bold mt-1.5 truncate">{d.name}</p>
+              <p className="deck-name text-[12.5px] font-bold mt-1.5 truncate">{d.name}</p>
               <p className="text-[11px] text-faint truncate">{d.description}</p>
             </button>
           )
@@ -145,9 +145,9 @@ export function TablePicker({ open, selectedId, customTables = [], onSelect, onD
           const active = t.id === selectedId
           return (
             <motion.div key={t.id} className="relative" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
-              <button onClick={() => onSelect(t)} className="block w-full text-left">
+              <button onClick={() => onSelect(t)} className="table-option block w-full text-left">
                 <div
-                  className="relative aspect-[4/3] rounded-2xl overflow-hidden"
+                  className="table-art relative aspect-[4/3] rounded-2xl overflow-hidden"
                   style={{
                     background: `${t.base ?? '#0b0a08'} url(${t.thumb ?? t.image}) center / cover no-repeat`,
                     boxShadow: active ? '0 0 0 2px #f1d28a, 0 10px 24px -10px rgb(212 166 74 / 0.7)' : '0 0 0 1px rgb(212 166 74 / 0.2)',
@@ -161,7 +161,7 @@ export function TablePicker({ open, selectedId, customTables = [], onSelect, onD
                     </span>
                   )}
                 </div>
-                <p className="text-[13px] font-bold mt-1.5 truncate">{t.name}</p>
+                <p className="table-name text-[13px] font-bold mt-1.5 truncate transition-colors">{t.name}</p>
                 <p className="text-[11px] text-faint truncate">{t.description}</p>
               </button>
               {t.custom && onDeleteCustom && (
@@ -175,7 +175,7 @@ export function TablePicker({ open, selectedId, customTables = [], onSelect, onD
         {customTables.length < MAX_CUSTOM_TABLES && (
           <button
             onClick={() => fileRef.current?.click()}
-            className="aspect-[4/3] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-muted"
+            className="hover-tile aspect-[4/3] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-muted"
             style={{ border: '1px dashed rgb(212 166 74 / 0.4)', background: 'rgb(243 234 219 / 0.02)' }}
           >
             <ImagePlus className="w-6 h-6 text-gold" />

@@ -46,13 +46,14 @@ function Tile({ icon: Icon, label, sub, onClick, delay }) {
   return (
     <motion.button
       onClick={onClick}
-      className="panel-soft rounded-2xl p-3.5 text-left flex flex-col gap-2 min-h-[92px] transition-colors"
+      className="panel-soft hover-tile rounded-2xl p-3.5 text-left flex flex-col gap-2 min-h-[92px]"
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -3, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } }}
       whileTap={{ scale: 0.97 }}
     >
-      <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgb(212 166 74 / 0.12)', border: '1px solid rgb(212 166 74 / 0.25)' }}>
+      <span className="tile-icon w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgb(212 166 74 / 0.12)', border: '1px solid rgb(212 166 74 / 0.25)' }}>
         <Icon className="w-[18px] h-[18px] text-gold-hi" />
       </span>
       <span>
@@ -96,7 +97,7 @@ export default function Landing({
         <div className="flex items-center justify-between">
           <span className="eyebrow opacity-80">amaterasuu.com</span>
           {user ? (
-            <button onClick={onOpenProfile} className="flex items-center gap-2 panel-soft rounded-full pl-1 pr-3 py-1" aria-label="Profile">
+            <button onClick={onOpenProfile} className="flex items-center gap-2 panel-soft hover-tile rounded-full pl-1 pr-3 py-1" aria-label="Profile">
               <Avatar avatarUrl={profile?.avatar_url} size={32} />
               <span className="flex flex-col items-start leading-tight min-w-0">
                 <span className="flex items-center gap-1.5">

@@ -373,7 +373,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
                       disabled={saving}
                       aria-label={a.label}
                       aria-pressed={active}
-                      className="relative aspect-square rounded-full p-0.5 transition-transform active:scale-95"
+                      className="hover-pop relative aspect-square rounded-full p-0.5 active:scale-95"
                       style={{ background: active ? 'linear-gradient(135deg,#f6dc9a,#8a6a2b)' : 'transparent' }}
                     >
                       <img src={a.src} alt="" className="w-full h-full rounded-full object-cover" loading="lazy" />
