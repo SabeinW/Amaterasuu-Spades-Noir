@@ -2,10 +2,11 @@
 // (GPT Image 2.6 edits, medium, about $0.044 each). Only the skin changes:
 // faces, hair, clothes, pose and background stay as painted.
 //
-//   cd ~/Documents/Qalam && npx tsx <repo>/scripts/art/skin-tones.ts <out-dir> <tones|all> [set,set,...] [concurrency]
+//   cd ~/Documents/Qalam && npx tsx <repo>/scripts/art/skin-tones.ts <out-dir> <tones|all> [set,set,...] [concurrency] [card,card,...]
 //   python3 scripts/art/install-skin-tones.py <out-dir>
 //
 // e.g. a new court set "harbor": skin-tones.ts ~/spades-art/tones all harbor
+// After repainting a few cards, pass just those (and a fresh out-dir): ... all harbor 6 KS,QH
 // Resumable: outputs already in <out-dir> are skipped. 14 cards x 4 tones = 56 edits per set.
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -28,7 +29,7 @@ const prompt = (tone: string) =>
   "Same composition and crop. Shade the new skin tone naturally with the same light.";
 
 async function main() {
-  const [outDir, toneArg, setArg, concArg] = process.argv.slice(2);
+  const [outDir, toneArg, setArg, concArg, cardArg] = process.argv.slice(2);
   if (!outDir || !toneArg) throw new Error("usage: skin-tones.ts <out-dir> <tones|all> [sets] [concurrency]");
   const tones = toneArg === "all" ? Object.keys(TONES) : toneArg.split(",");
   const sets = setArg ? setArg.split(",") : readdirSync(COURT).filter((d) => statSync(join(COURT, d)).isDirectory());
@@ -38,7 +39,7 @@ async function main() {
     if (!TONES[tone]) throw new Error(`unknown tone ${tone}`);
     mkdirSync(join(outDir, tone), { recursive: true });
     for (const set of sets)
-      for (const card of CARDS) {
+      for (const card of cardArg ? cardArg.split(",") : CARDS) {
         const name = `${set}__${card}`;
         if (!existsSync(join(outDir, tone, `${name}.png`))) todo.push({ tone, name, src: join(COURT, set, `${card}.webp`) });
       }
