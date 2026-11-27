@@ -10,6 +10,7 @@ import CardFx from './CardFx'
 import { ALL_DECKS } from '../../data/tableThemes'
 import { courtImage, familyOf } from '../../data/cardFamilies'
 import { useSkinTone } from '../../lib/skinTone'
+import { LITE } from '../../lib/lite'
 
 const DEFAULT_DECK = ALL_DECKS[0]
 
@@ -130,7 +131,8 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
   const n = Number(card.value)
   const Tag = onClick ? 'button' : 'div'
   const pipLayout = fam.pips && PIPS[n]
-  const living = !still && art && fam.effect && width >= 40
+  // no living effects on phones (lib/lite.js): the art stays, the glows go
+  const living = !still && !LITE && art && fam.effect && width >= 40
 
   return (
     <Tag

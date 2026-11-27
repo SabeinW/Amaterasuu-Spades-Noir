@@ -461,14 +461,25 @@ summary {
     background-position: 200% 50%;
   }
 }
+/* A gold ring that grows and fades. Only transform and opacity change, so
+   the graphics chip does it without repainting (an animated box-shadow
+   repainted the table under it every frame). */
 @keyframes turnPulse {
-  0%,
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  70%,
   100% {
-    box-shadow: 0 0 0 0 rgb(241 210 138 / 0.55);
+    transform: scale(1.32);
+    opacity: 0;
   }
-  50% {
-    box-shadow: 0 0 0 10px rgb(241 210 138 / 0);
-  }
+}
+.turn-pulse {
+  border: 2px solid rgb(241 210 138 / 0.85);
+  border-radius: 9999px;
+  will-change: transform, opacity;
+  animation: turnPulse 1.6s ease-out infinite;
 }
 @keyframes inkReveal {
   from {
@@ -519,6 +530,13 @@ summary {
   background-clip: text;
   color: transparent;
   animation: leafShimmer 6s linear infinite;
+  /* its own layer, so the moving shimmer redraws just this text, not the screen */
+  will-change: transform;
+}
+/* phones: the gold stays, the moving shimmer (a repaint every frame) goes */
+.lite .leaf-shimmer {
+  animation: none;
+  background-position: 30% 50%;
 }
 
 @media (prefers-reduced-motion: reduce) {

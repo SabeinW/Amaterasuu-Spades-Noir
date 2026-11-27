@@ -6,7 +6,7 @@ import Avatar from '../ui/Avatar'
 function TurnRing({ size, deadline, total, serverNow }) {
   if (!deadline) {
     return (
-      <span className="absolute inset-0 rounded-full" style={{ animation: 'turnPulse 1.6s ease-in-out infinite' }} />
+      <span className="turn-pulse absolute inset-0 pointer-events-none" />
     )
   }
   const remaining = Math.max(0, deadline - serverNow())
@@ -14,7 +14,8 @@ function TurnRing({ size, deadline, total, serverNow }) {
   const r = size / 2 + 3
   const urgent = remaining < 8000
   return (
-    <svg className="absolute pointer-events-none" width={size + 10} height={size + 10} style={{ left: -5, top: -5, transform: 'rotate(-90deg)' }}>
+    // its own layer (will-change), so redrawing the ring doesn't repaint the table under it
+    <svg className="absolute pointer-events-none" width={size + 10} height={size + 10} style={{ left: -5, top: -5, transform: 'rotate(-90deg)', willChange: 'transform' }}>
       <circle cx={(size + 10) / 2} cy={(size + 10) / 2} r={r} fill="none" stroke="rgb(0 0 0 / 0.45)" strokeWidth="3" />
       <motion.circle
         key={deadline}
