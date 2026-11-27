@@ -25,6 +25,8 @@ import { ChatSheet, RulesSummary, TableMenu } from './TableExtras'
 import { DeckPicker, TablePicker } from '../ThemePickers'
 import CoachBubble from './CoachBubble'
 import { EmoteTray } from './EmotePicker'
+import { GifSheet } from './GifPicker'
+import { gifsEnabled } from '../../lib/giphy'
 import { BOT_TALK, emotePayload, moodOf, pickFrom, readEmote, rememberPick } from '../../data/taunts'
 import { useSkinTone } from '../../lib/skinTone'
 import { SmilePlus } from 'lucide-react'
@@ -189,6 +191,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   // Table talk: the tray, my send times (spam limit), and the practice bots' banter.
   const tone = useSkinTone()
   const [trayOpen, setTrayOpen] = useState(false)
+  const [gifOpen, setGifOpen] = useState(false)
   const sentRef = useRef([])
   const heardRef = useRef({})
   const botTalkAtRef = useRef(0)
@@ -335,7 +338,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   function showEmote(seat, shown) {
     const id = Math.random()
     setEmotes((e) => ({ ...e, [seat]: { ...shown, id } }))
-    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), shown.kind === 'l' ? 3000 : 1900)
+    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), shown.kind === 'g' ? 4200 : shown.kind === 'l' ? 3000 : 1900)
   }
 
   // Throw an emoji or a line. Six in ten seconds at most, so nobody floods the table.
@@ -689,7 +692,8 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
       </div>
 
       {/* you */}
-      <div className={`relative ${emotes[mySeat] ? 'z-[35]' : 'z-30'} pb-[calc(0.25rem+var(--safe-b))]`}>
+      {/* Lifted while you're talking: above the trick cards (z 22–32), and with the tray open above everything on the table. */}
+      <div className={`relative ${trayOpen ? 'z-[45]' : emotes[mySeat] ? 'z-[35]' : 'z-30'} pb-[calc(0.25rem+var(--safe-b))]`}>
         {coachLines && !myBidTurn && view.phase !== 'round_over' && view.phase !== 'game_over' && (
           <CoachBubble title={coachLines.title} lines={coachLines.lines} minimized={coachMin} onToggle={() => setCoachMin((m) => !m)} onHeight={setCoachH} />
         )}
@@ -700,6 +704,14 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
             onPick={(pick) => {
               if (sendEmote(pick)) setTrayOpen(false)
             }}
+            onGif={
+              gifsEnabled
+                ? () => {
+                    setTrayOpen(false)
+                    setGifOpen(true)
+                  }
+                : undefined
+            }
           />
           <div className="relative">
             <Seat slot="bottom" {...seatProps(mySeat)} compact />
@@ -824,6 +836,15 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
         }}
         onClose={() => setMenu('menu')}
       />
+      {gifsEnabled && (
+        <GifSheet
+          open={gifOpen}
+          onClose={() => setGifOpen(false)}
+          onPick={(pick) => {
+            if (sendEmote(pick)) setGifOpen(false)
+          }}
+        />
+      )}
       {online && (
         <ChatSheet
           open={menu === 'chat'}

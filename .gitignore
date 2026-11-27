@@ -28,3 +28,6 @@ scripts/shots/
 # local Supabase
 supabase/.temp/
 supabase/.branches/
+.vercel
+.env*
+!.env.example

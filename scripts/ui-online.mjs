@@ -7,6 +7,7 @@ import { chromium } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import fs from 'node:fs'
 import { KEY, URL, emailFor, storageKey, usernameFor } from './test-target.mjs'
+import { mockGiphy } from './giphy-mock.mjs'
 
 const base = process.argv[2] ?? 'http://localhost:5180'
 const out = process.argv[3] ?? 'scripts/shots/online'
@@ -28,6 +29,7 @@ const errors = []
 async function player(label, sess, url) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
   await ctx.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey, JSON.stringify(sess)])
+  await mockGiphy(ctx) // only used when the dev server has a GIPHY key
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.push(`${label} pageerror: ${e.message}`))
   page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(`${label}: ${m.text()}`))
@@ -110,6 +112,19 @@ async function tableTalk() {
   const pop = await host.locator('span.text-\\[38px\\]', { hasText: '🔥' }).waitFor({ timeout: 5000 }).then(() => true, () => false)
   console.log(`host sees the guest's emoji: ${pop ? 'yes' : 'NO'}`)
   if (!pop) errors.push("host: guest's emoji never showed")
+  // A GIF, when this build has GIPHY switched on.
+  if (await host.getByRole('button', { name: 'Trash talk', exact: true }).dispatchEvent('click').then(() => host.getByRole('button', { name: 'GIFs', exact: true }).isVisible())) {
+    await host.waitForTimeout(3200)
+    await host.getByRole('button', { name: 'GIFs', exact: true }).dispatchEvent('click')
+    await host.locator('[role=dialog] button[aria-label^="Send "]').first().waitFor({ timeout: 8000 })
+    await host.locator('[role=dialog] button[aria-label^="Send "]').first().dispatchEvent('click')
+    const gif = await guest.locator('span.absolute img[src*="giphy.com/media"]').waitFor({ timeout: 6000 }).then(() => true, () => false)
+    console.log(`guest sees the host's GIF: ${gif ? 'yes' : 'NO'}`)
+    if (!gif) errors.push("guest: host's GIF never showed")
+    await shot(guest, '07c-guest-sees-gif')
+  } else {
+    await host.getByRole('button', { name: 'Close trash talk' }).dispatchEvent('click').catch(() => {})
+  }
 }
 
 const ROUNDS = Number(process.env.ROUNDS ?? 2)

@@ -1,10 +1,10 @@
 // Pick an emoji or a trash-talk line to throw at the table. `grid` is the tray
-// that pops up over your seat, with your recent picks in a strip on top; `row`
-// is the strip under the chat. Hands and people come in the player's own skin
-// tone.
+// that pops up over your seat, with a GIF button and your recent picks in a
+// strip on top; `row` is the strip under the chat. Hands and people come in the
+// player's own skin tone.
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Clock } from 'lucide-react'
+import { Clock, Search } from 'lucide-react'
 import { EMOJI_GROUPS, LINES, readEmote, recentPicks, withTone } from '../../data/taunts'
 import { useSkinTone } from '../../lib/skinTone'
 
@@ -26,6 +26,18 @@ function picksFor(tab) {
 function PickButton({ pick, tone, onPick, again = false }) {
   const shown = readEmote({ ...pick, tone })
   if (!shown) return null
+  if (shown.kind === 'g') {
+    return (
+      <button
+        onClick={() => onPick(pick)}
+        aria-label={again ? 'Again: GIF' : 'Send GIF'}
+        className="w-10 h-10 shrink-0 rounded-xl overflow-hidden active:scale-90 transition-transform"
+        style={{ border: '1px solid rgb(212 166 74 / 0.2)', background: '#0b0a08' }}
+      >
+        <img src={shown.url} alt="" loading="lazy" decoding="async" className={`w-full h-full ${shown.sticker ? 'object-contain' : 'object-cover'}`} />
+      </button>
+    )
+  }
   if (shown.kind === 'l') {
     return (
       <button
@@ -50,7 +62,7 @@ function PickButton({ pick, tone, onPick, again = false }) {
   )
 }
 
-export function EmotePicker({ onPick, variant = 'grid' }) {
+export function EmotePicker({ onPick, onGif, variant = 'grid' }) {
   const tone = useSkinTone()
   const [recent] = useState(recentPicks)
   const [tab, setTab] = useState(TABS[0].id)
@@ -58,9 +70,18 @@ export function EmotePicker({ onPick, variant = 'grid' }) {
 
   return (
     <div>
-      {!row && recent.length > 0 && (
+      {!row && (onGif || recent.length > 0) && (
         <div className="flex items-center gap-1.5 mb-2 overflow-x-auto no-scrollbar" aria-label="Recent picks">
-          <Clock className="w-4 h-4 shrink-0 text-faint" aria-hidden />
+          {onGif && (
+            <button
+              onClick={onGif}
+              className="shrink-0 h-10 rounded-xl px-3 flex items-center gap-1.5 text-[13px] font-extrabold tracking-wide active:scale-95 transition-transform"
+              style={{ background: 'linear-gradient(135deg,#f6dc9a,#d4a64a)', color: '#1b1307' }}
+            >
+              <Search className="w-3.5 h-3.5" /> GIFs
+            </button>
+          )}
+          {recent.length > 0 && <Clock className="w-4 h-4 shrink-0 text-faint ml-0.5" aria-hidden />}
           {recent.map((p) => (
             <PickButton key={`${p.kind}:${p.id}`} pick={p} tone={tone} onPick={onPick} again />
           ))}
@@ -95,7 +116,7 @@ export function EmotePicker({ onPick, variant = 'grid' }) {
 
 // The tray over your seat. A tap anywhere else closes it (and doesn't reach
 // the cards underneath).
-export function EmoteTray({ open, onClose, onPick }) {
+export function EmoteTray({ open, onClose, onPick, onGif }) {
   return (
     <AnimatePresence>
       {open && (
@@ -119,7 +140,7 @@ export function EmoteTray({ open, onClose, onPick }) {
               exit={{ opacity: 0, y: 12, scale: 0.96 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
             >
-              <EmotePicker onPick={onPick} />
+              <EmotePicker onPick={onPick} onGif={onGif} />
             </motion.div>
           </span>
         </>

@@ -1,6 +1,8 @@
 // Table talk: the emojis and lines a player can throw at the table. They're
 // sent over the wire by id, never as free text, so a player can only show
-// what's on these lists.
+// what's on these lists. GIFs and stickers (lib/giphy.js) travel as a GIPHY
+// link, and anything not on GIPHY's own media servers is dropped.
+import { safeGifUrl } from '../lib/giphy.js'
 //
 // Kept clean for a family table (no actual swear words: 🤬's symbols are as
 // far as it goes), and in line with the app's rules: no drinks, no pigs, no
@@ -96,6 +98,7 @@ export function withTone(emoji, tone) {
 // What goes over the wire. `emoji` is there for anyone still on an older
 // version of the app, which shows it as is.
 export function emotePayload(seat, pick, tone) {
+  if (pick.kind === 'g') return { seat, kind: 'g', id: pick.id, url: pick.url, w: pick.w, h: pick.h, st: !!pick.sticker, emoji: '🎞️' }
   const t = emojiTone(tone)
   if (pick.kind === 'l') return { seat, kind: 'l', id: pick.id, tone: t, emoji: withTone(LINE_BY_ID.get(pick.id).e, t) }
   return { seat, kind: 'e', id: pick.id, tone: t, emoji: withTone(pick.id, t) }
@@ -108,6 +111,11 @@ export function readEmote(p) {
   const kind = p.kind ?? 'e'
   const id = p.id ?? p.emoji
   const tone = typeof p.tone === 'string' ? p.tone : 'brown'
+  if (kind === 'g') {
+    if (typeof id !== 'string' || id.length > 64 || !safeGifUrl(p.url)) return null
+    const size = (n) => Math.min(600, Math.max(20, Number(n) || 200))
+    return { kind: 'g', key: id, url: p.url, w: size(p.w), h: size(p.h), sticker: !!(p.st ?? p.sticker) }
+  }
   if (kind === 'l') {
     const line = LINE_BY_ID.get(id)
     return line ? { kind: 'l', key: id, text: line.text, emoji: withTone(line.e, tone) } : null
@@ -119,6 +127,7 @@ export function readEmote(p) {
 // How a pick lands with the bots in practice: trash talk gets a comeback from
 // the other side, hype and team talk get a nod from your partner.
 export function moodOf(pick) {
+  if (pick.kind === 'g') return 'talk'
   if (pick.kind === 'l') return LINE_BY_ID.get(pick.id)?.mood ?? 'talk'
   return GROUP_OF.get(pick.id) ?? 'react'
 }
@@ -152,7 +161,7 @@ export function recentPicks() {
 export function rememberPick(pick) {
   const list = [pick, ...recentPicks().filter((p) => !(p.kind === pick.kind && p.id === pick.id))].slice(0, 14)
   try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.map(({ kind, id }) => ({ kind, id }))))
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.map(({ kind, id, url, w, h, sticker }) => (kind === 'g' ? { kind, id, url, w, h, sticker } : { kind, id }))))
   } catch {
     // storage unavailable: recents just don't stick
   }

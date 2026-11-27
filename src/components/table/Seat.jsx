@@ -79,6 +79,33 @@ function LineBubble({ slot, emote }) {
   )
 }
 
+// A GIF or sticker thrown at the table: plays (silently, it's an image) beside
+// the seat for a few seconds. Stickers float free; GIFs get a frame.
+function GifPop({ slot, emote }) {
+  const h = 96
+  const w = Math.min(176, Math.round((h * emote.w) / emote.h))
+  return (
+    <span className="absolute pointer-events-none z-30" style={BUBBLE_AT[slot]}>
+      <motion.span
+        className="block overflow-hidden"
+        style={{
+          width: w,
+          height: h,
+          borderRadius: emote.sticker ? 0 : 14,
+          background: emote.sticker ? 'transparent' : '#0b0a08',
+          boxShadow: emote.sticker ? undefined : '0 10px 24px -6px rgb(0 0 0 / 0.75), 0 0 0 1.5px rgb(241 210 138 / 0.85)',
+        }}
+        initial={{ opacity: 0, scale: 0.5, ...BUBBLE_FROM[slot] }}
+        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85 }}
+        transition={{ type: 'spring', stiffness: 460, damping: 24 }}
+      >
+        <img src={emote.url} alt="" decoding="async" className={`w-full h-full ${emote.sticker ? 'object-contain' : 'object-cover'}`} />
+      </motion.span>
+    </span>
+  )
+}
+
 export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burst, isTurn, isDealer, isPartner, deadline, total, serverNow, phase, emote, online = true, compact = false }) {
   const size = compact ? 40 : 52
   const bidLabel = bid === null || bid === undefined ? null : bid === 0 ? (blind ? 'Blind Nil' : 'Nil') : bid
@@ -116,7 +143,16 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burs
             <WifiOff className="w-3 h-3 text-verm-hi" />
           </span>
         )}
-        <AnimatePresence>{emote && (emote.kind === 'l' ? <LineBubble key={emote.id} slot={slot} emote={emote} /> : <EmojiPop key={emote.id} slot={slot} emoji={emote.emoji} />)}</AnimatePresence>
+        <AnimatePresence>
+          {emote &&
+            (emote.kind === 'g' ? (
+              <GifPop key={emote.id} slot={slot} emote={emote} />
+            ) : emote.kind === 'l' ? (
+              <LineBubble key={emote.id} slot={slot} emote={emote} />
+            ) : (
+              <EmojiPop key={emote.id} slot={slot} emoji={emote.emoji} />
+            ))}
+        </AnimatePresence>
       </div>
 
       <div className={`panel-soft rounded-xl px-2.5 py-1.5 ${vertical ? 'text-center' : ''}`} style={{ minWidth: 78, borderColor: isTurn ? 'rgb(241 210 138 / 0.55)' : undefined }}>
