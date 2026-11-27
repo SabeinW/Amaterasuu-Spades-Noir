@@ -3,6 +3,7 @@ import { MotionConfig } from 'motion/react'
 import Landing from './components/Landing'
 import { lazyLoad, newerVersionLive } from './lib/freshLoad'
 const AuthModal = lazyLoad(() => import('./components/AuthModal'))
+const NewPasswordModal = lazyLoad(() => import('./components/NewPasswordModal'))
 const ChallengesModal = lazyLoad(() => import('./components/ChallengesModal'))
 const RulesModal = lazyLoad(() => import('./components/RulesModal'))
 const ProfileModal = lazyLoad(() => import('./components/ProfileModal'))
@@ -15,8 +16,8 @@ const OnlineTable = lazyLoad(() => import('./components/table/Tables').then((m) 
 const PracticeTable = lazyLoad(() => import('./components/table/Tables').then((m) => ({ default: m.PracticeTable })))
 import { DeckPicker, TablePicker } from './components/ThemePickers'
 import InviteBanner from './components/online/InviteBanner'
-import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
-import { supabaseEnabled } from './lib/supabase'
+import { onAuthStateChange, onPasswordRecovery, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
+import { openedFromResetLink, supabaseEnabled } from './lib/supabase'
 import { fetchRoom, joinTable, leaveTable } from './lib/online'
 import { clearSavedPractice, loadSavedPractice } from './game/useLocalGame'
 import { ALL_DECKS, ALL_TABLES, DEFAULT_DECK, TABLE_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
@@ -66,7 +67,7 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [view, setView] = useState('landing') // landing | waiting | online | practice
-  const [modal, setModal] = useState(joinCodeFromUrl ? 'lobby' : null)
+  const [modal, setModal] = useState(openedFromResetLink ? 'newPassword' : joinCodeFromUrl ? 'lobby' : null)
   const [rules, setRules] = useState({ ...DEFAULT_GAME_RULES, ...prefs.gameSettings })
   const [customTables, setCustomTables] = useState(storedCustomTables(prefs))
   const [table, setTable] = useState(() => resolveTable(prefs.tableThemeId, storedCustomTables(prefs)))
@@ -80,7 +81,11 @@ export default function App() {
     if (!supabaseEnabled) return
     getSession().then((s) => setUser(s?.user ?? null))
     const { data } = onAuthStateChange((s) => setUser(s?.user ?? null))
-    return () => data?.subscription?.unsubscribe?.()
+    const offRecovery = onPasswordRecovery(() => setModal('newPassword'))
+    return () => {
+      data?.subscription?.unsubscribe?.()
+      offRecovery()
+    }
   }, [])
 
   useEffect(() => {
@@ -244,6 +249,7 @@ export default function App() {
       {view === 'online' && room && <OnlineTable key={room.id} room={room} {...tableProps} />}
       {view === 'practice' && practice && <PracticeTable key={practice.key} rules={rules} myName={myName} resume={practice.resume} {...tableProps} />}
 
+      {modal === 'newPassword' && user && <NewPasswordModal onClose={() => setModal(null)} />}
       {modal === 'auth' && <AuthModal onClose={() => setModal(joinCodeFromUrl ? 'lobby' : null)} onAuthed={(u) => { setUser(u); setModal(joinCodeFromUrl ? 'lobby' : null) }} onGuest={() => setModal(null)} />}
       <Lobby
         open={modal === 'lobby'}

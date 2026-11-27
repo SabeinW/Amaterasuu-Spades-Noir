@@ -12,6 +12,7 @@
 //   effect: animated finish on picture cards, Aces and Jokers (cards/CardFx.jsx)
 //   pips:   classic pip layout on number cards instead of one big suit
 import { DEFAULT_TONE, toneFor } from '../lib/skinTone'
+import ART_V from './artVersions.json'
 
 const paper = (a, b, c) => `radial-gradient(120% 90% at 30% 15%, ${a} 0%, ${b} 55%, ${c} 100%)`
 
@@ -48,12 +49,14 @@ export const familyOf = (deck) => FAMILIES[deck?.style] ?? FAMILIES.sun
 // `tone` is the player's skin tone (lib/skinTone.js): the court cards and
 // Jokers have a copy per tone; the Ace of Spades has no people, so no copies.
 export function courtImage(family, card, { thumb = false, tone = DEFAULT_TONE } = {}) {
-  const base = `/art/court/${family.courtSet}`
+  const base = `court/${family.courtSet}`
   const t = toneFor(tone, family.courtSet, card.id)
   const dir = t === DEFAULT_TONE ? base : `${base}/${t}`
-  if (card.suit === 'JOKER') return `${dir}/${card.value === 'BIG' ? 'JOKER_BIG' : 'JOKER_SMALL'}.webp`
-  if (['J', 'Q', 'K'].includes(card.value)) return `${dir}/${card.value}${card.suit}${thumb && card.id === 'QH' ? '-sm' : ''}.webp`
-  if (card.value === 'A' && card.suit === 'S') return `${base}/AS.webp`
+  // ?v= changes whenever that folder's art changes (scripts/art/art-versions.mjs)
+  const at = (folder, file) => `/art/${folder}/${file}.webp${ART_V[folder] ? `?v=${ART_V[folder]}` : ''}`
+  if (card.suit === 'JOKER') return at(dir, card.value === 'BIG' ? 'JOKER_BIG' : 'JOKER_SMALL')
+  if (['J', 'Q', 'K'].includes(card.value)) return at(dir, `${card.value}${card.suit}${thumb && card.id === 'QH' ? '-sm' : ''}`)
+  if (card.value === 'A' && card.suit === 'S') return at(base, 'AS')
   return null
 }
 

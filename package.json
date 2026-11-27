@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/art/art-versions.mjs",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

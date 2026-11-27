@@ -21,6 +21,30 @@ export async function signIn(email, password) {
   return data
 }
 
+// Emails a link that signs you in and asks for a new password.
+export async function sendPasswordReset(email) {
+  if (!supabaseEnabled) throw new Error('Supabase is not configured.')
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/` })
+  if (!error) return
+  if (error.code === 'email_address_not_authorized' || /not authorized/i.test(error.message))
+    throw new Error("Reset emails can't be sent to that address yet. Ask the app owner to reset it for you.")
+  if (error.status === 429) throw new Error('Too many reset emails just now. Wait a few minutes and try again.')
+  throw error
+}
+
+export async function updatePassword(password) {
+  if (!supabaseEnabled) throw new Error('Supabase is not configured.')
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
+// Calls back when the app was opened from a password-reset email.
+export function onPasswordRecovery(callback) {
+  if (!supabaseEnabled) return () => {}
+  const { data } = supabase.auth.onAuthStateChange((event) => event === 'PASSWORD_RECOVERY' && callback())
+  return () => data?.subscription?.unsubscribe?.()
+}
+
 export async function signOut() {
   if (!supabaseEnabled) return
   await supabase.auth.signOut()

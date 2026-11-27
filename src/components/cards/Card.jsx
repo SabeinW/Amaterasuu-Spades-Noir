@@ -111,7 +111,8 @@ function Card({ card, faceDown = false, deck = DEFAULT_DECK, width = 64, selecte
   const wanted = courtImage(fam, card, { thumb, tone })
   const original = courtImage(fam, card, { thumb })
   const tries = miss.src === wanted ? miss.tries : 0
-  const sources = !wanted ? [] : wanted === original ? [wanted, `${wanted}?retry=1`] : [wanted, original, `${original}?retry=1`]
+  const retry = (u) => `${u}${u.includes('?') ? '&' : '?'}retry=1`
+  const sources = !wanted ? [] : wanted === original ? [wanted, retry(wanted)] : [wanted, original, retry(original)]
   const artSrc = sources[tries] ?? null
   const art = artSrc && artSrc.split('?')[0]
   const onArtError = (e) => {

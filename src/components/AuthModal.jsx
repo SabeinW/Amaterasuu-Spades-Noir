@@ -1,8 +1,8 @@
 import { useId, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Mail, Lock, LogIn, UserPlus } from 'lucide-react'
+import { Mail, Lock, LogIn, UserPlus, Send, ArrowLeft, MailCheck } from 'lucide-react'
 import Sheet from './ui/Sheet'
-import { signIn, signUp } from '../lib/auth'
+import { sendPasswordReset, signIn, signUp } from '../lib/auth'
 import { supabaseEnabled } from '../lib/supabase'
 
 const TABS = [
@@ -48,6 +48,8 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  // 'form' (sign in / sign up), 'forgot' (ask for a reset email), 'sent'
+  const [mode, setMode] = useState('form')
   const formId = useId()
 
   async function submit(e) {
@@ -55,6 +57,11 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
     setError(null)
     setBusy(true)
     try {
+      if (mode === 'forgot') {
+        await sendPasswordReset(email)
+        setMode('sent')
+        return
+      }
       const data = tab === 'signin' ? await signIn(email, password) : await signUp(email, password)
       onAuthed(data.user ?? data.session?.user)
     } catch (err) {
@@ -65,14 +72,35 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
   }
 
   const signingIn = tab === 'signin'
+  const forgot = mode !== 'form'
+  const backToSignIn = () => {
+    setMode('form')
+    setError(null)
+  }
 
   return (
     <Sheet
       open
       onClose={onClose}
       eyebrow="Amaterasuu Noir Spades"
-      title={signingIn ? 'Welcome back' : 'Take a seat'}
+      title={forgot ? 'Reset your password' : signingIn ? 'Welcome back' : 'Take a seat'}
       footer={
+        forgot ? (
+          <div className="flex flex-col gap-2">
+            {mode === 'forgot' && (
+              <button type="submit" form={formId} disabled={busy || !supabaseEnabled} className="btn btn-gold w-full">
+                {busy ? 'Sending…' : (
+                  <>
+                    <Send className="w-4 h-4" /> Email me a reset link
+                  </>
+                )}
+              </button>
+            )}
+            <button type="button" onClick={backToSignIn} className="btn btn-ghost w-full">
+              <ArrowLeft className="w-4 h-4" /> Back to sign in
+            </button>
+          </div>
+        ) : (
         <div className="flex flex-col gap-2">
           <button type="submit" form={formId} disabled={busy || !supabaseEnabled} className="btn btn-gold w-full">
             {busy ? (
@@ -91,6 +119,7 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
             Continue as guest
           </button>
         </div>
+        )
       }
     >
       <div className="flex items-center gap-3.5 mb-4">
@@ -103,11 +132,24 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
           ♠
         </div>
         <p className="text-[13.5px] leading-snug text-muted">
-          {signingIn ? 'Sign in so your seat, rating and friends follow you to any table.' : 'Make an account to keep your rating, achievements and friends.'}
+          {forgot
+            ? "Enter your account's email and we'll send you a link to choose a new password."
+            : signingIn
+              ? 'Sign in so your seat, rating and friends follow you to any table.'
+              : 'Make an account to keep your rating, achievements and friends.'}
         </p>
       </div>
 
-      <Tabs value={tab} onChange={setTab} />
+      {!forgot && <Tabs value={tab} onChange={setTab} />}
+
+      {mode === 'sent' && (
+        <div role="status" className="mt-2 rounded-2xl px-4 py-4 flex items-start gap-3" style={{ background: 'rgb(212 166 74 / 0.08)', border: '1px solid rgb(212 166 74 / 0.35)' }}>
+          <MailCheck className="w-6 h-6 text-gold shrink-0 mt-0.5" />
+          <p className="text-[13.5px] leading-relaxed text-muted">
+            If <b className="text-paper">{email}</b> has an account, a reset link is on its way. Open it on this device, then choose a new password. Check your spam folder if it isn't there in a few minutes.
+          </p>
+        </div>
+      )}
 
       {!supabaseEnabled && (
         <div className="mt-4 rounded-2xl px-3.5 py-3 text-[12.5px] leading-relaxed text-muted" style={{ background: 'rgb(212 166 74 / 0.07)', border: '1px solid rgb(212 166 74 / 0.3)' }}>
@@ -116,6 +158,7 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
         </div>
       )}
 
+      {mode !== 'sent' && (
       <form id={formId} onSubmit={submit} className="flex flex-col gap-3 mt-4">
         <label className="relative block">
           <span className="sr-only">Email address</span>
@@ -131,6 +174,7 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
             className="field !pl-11 text-base placeholder:text-faint"
           />
         </label>
+        {!forgot && (
         <label className="relative block">
           <span className="sr-only">Password</span>
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gold/70 pointer-events-none" />
@@ -144,6 +188,19 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
             className="field !pl-11 text-base placeholder:text-faint"
           />
         </label>
+        )}
+        {signingIn && !forgot && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode('forgot')
+              setError(null)
+            }}
+            className="self-end -mt-1 px-1 min-h-9 text-[12.5px] font-semibold text-gold-hi hover:underline underline-offset-4"
+          >
+            Forgot password?
+          </button>
+        )}
         <AnimatePresence>
           {error && (
             <motion.p
@@ -158,6 +215,7 @@ export default function AuthModal({ onClose, onAuthed, onGuest }) {
           )}
         </AnimatePresence>
       </form>
+      )}
     </Sheet>
   )
 }

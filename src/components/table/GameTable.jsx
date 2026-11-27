@@ -403,7 +403,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
 
   const suggested = myBidTurn && handCards.length ? Math.max(E.minimumBid(view, mySeat, rules), E.estimateBid(handCards, rules.jokers)) : undefined
   const turnPlayer = seatPlayer(view.turn)
-  const avatarFor = (p) => (p?.id === user?.id ? profile?.avatar_url : avatars[p?.id])
+  // You're seated under your account id online, but as 'me' in practice.
+  const isMe = (p) => !!p && !p.isBot && (p.id === user?.id || p.id === 'me')
+  const avatarFor = (p) => (isMe(p) ? profile?.avatar_url : avatars[p?.id])
   const seatProps = (seat) => {
     const p = seatPlayer(seat)
     return {

@@ -1,3 +1,4 @@
+import ART_V from './artVersions.json'
 // Tables and decks — the Sun & Ink lacquer revamp (Nov 2026).
 //
 // Every theme keeps its old `id` so a player's saved choice still resolves,
@@ -178,7 +179,7 @@ const deck = (id, name, tag, family, opts) => ({
   backTint: opts.backTint ?? '#0b0a08',
   art: opts.art,
   description: opts.description,
-  backImage: `/art/backs/${id}.webp`,
+  backImage: `/art/backs/${id}.webp${ART_V.backs ? `?v=${ART_V.backs}` : ''}`,
   // Legacy shape some older components still read.
   back: { from: opts.backTint ?? '#0b0a08', to: '#050403', border: opts.edge ?? '#d4a64a' },
 })
