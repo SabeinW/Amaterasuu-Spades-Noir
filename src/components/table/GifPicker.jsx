@@ -1,113 +1,120 @@
-// Search GIPHY for a GIF or sticker to throw at the table. One-tap searches
-// up top so most picks never need the keyboard; typed searches run when you
-// press search (not on every letter), since the key allows 100 an hour.
+// GIFs, GIPHY stickers and your own stickers to throw at the table.
+// GIFs/Stickers: one-tap searches up top so most picks never need the
+// keyboard; typed searches run when you press search (not on every letter),
+// since the GIPHY key allows 100 an hour. Mine: your own pictures, added from
+// Photos or pasted in, saved to your account.
 import { useEffect, useRef, useState } from 'react'
-import { Search } from 'lucide-react'
+import { ImagePlus, Search, X } from 'lucide-react'
 import Sheet from '../ui/Sheet'
 import { QUICK, searchGiphy } from '../../lib/giphy'
+import { MAX_STICKERS, addSticker, imageFromElement, imageFromTransfer, listMyStickers, prepareSticker, removeSticker } from '../../lib/stickers'
+import { forgetPick } from '../../data/taunts'
 
-export function GifSheet({ open, onClose, onPick }) {
-  const [kind, setKind] = useState('gifs')
-  const [text, setText] = useState('')
-  const [query, setQuery] = useState(QUICK.gifs[0])
-  const [state, setState] = useState({ items: [], loading: false, error: null })
-  const inputRef = useRef(null)
+const TABS = [
+  { id: 'gifs', label: 'GIFs', title: 'GIFs' },
+  { id: 'stickers', label: 'Stickers', title: 'Stickers' },
+  { id: 'mine', label: 'Mine', title: 'Your stickers' },
+]
 
-  useEffect(() => {
-    if (!open || !query) return
-    const ac = new AbortController()
-    setState((s) => ({ ...s, loading: true, error: null }))
-    searchGiphy(kind, query, { signal: ac.signal })
-      .then((items) => setState({ items, loading: false, error: null }))
-      .catch((e) => e.name !== 'AbortError' && setState({ items: [], loading: false, error: e.message }))
-    return () => ac.abort()
-  }, [open, kind, query])
+const pill = (on) =>
+  on
+    ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a', border: '1px solid rgb(241 210 138 / 0.55)' }
+    : { color: 'rgb(243 234 219 / 0.75)', border: '1px solid rgb(212 166 74 / 0.2)' }
 
-  function run(q) {
-    setText(q)
-    setQuery(q)
-  }
-  function submit(e) {
-    e.preventDefault()
-    const q = text.trim()
-    if (q) setQuery(q)
-    inputRef.current?.blur() // drops the iPhone keyboard so the results show
-  }
-  function switchKind(k) {
-    if (k === kind) return
-    setKind(k)
-    if (!text.trim()) setQuery(QUICK[k][0])
-  }
-
+export function GifSheet({ open, onClose, onPick, userId }) {
+  const [tab, setTab] = useState('gifs')
+  const giphy = tab !== 'mine'
   return (
     <Sheet
       open={open}
       onClose={onClose}
       eyebrow="Trash talk"
-      title={kind === 'gifs' ? 'GIFs' : 'Stickers'}
+      title={TABS.find((t) => t.id === tab).title}
       z={75}
       footer={
-        <p className="text-center text-[11px] font-bold tracking-[0.16em] uppercase text-faint">
-          Powered by <span className="text-paper">GIPHY</span>
-        </p>
+        giphy ? (
+          <p className="text-center text-[11px] font-bold tracking-[0.16em] uppercase text-faint">
+            Powered by <span className="text-paper">GIPHY</span>
+          </p>
+        ) : null
       }
     >
-      <form onSubmit={submit} className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-faint absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            ref={inputRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Search GIPHY"
-            enterKeyHint="search"
-            maxLength={50}
-            className="field !pl-9"
-            aria-label="Search GIPHY"
-          />
-        </div>
-        <div className="flex rounded-xl overflow-hidden shrink-0" style={{ border: '1px solid rgb(212 166 74 / 0.3)' }} role="tablist">
-          {['gifs', 'stickers'].map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={kind === k}
-              onClick={() => switchKind(k)}
-              className="px-3 text-[12.5px] font-bold"
-              style={kind === k ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a' } : { color: 'rgb(243 234 219 / 0.6)' }}
-            >
-              {k === 'gifs' ? 'GIFs' : 'Stickers'}
-            </button>
-          ))}
-        </div>
-      </form>
-
-      <div className="flex gap-1.5 mt-2.5 overflow-x-auto no-scrollbar">
-        {QUICK[kind].map((q) => (
+      <div className="grid grid-cols-3 rounded-xl overflow-hidden mb-3" style={{ border: '1px solid rgb(212 166 74 / 0.3)' }} role="tablist">
+        {TABS.map((t) => (
           <button
-            key={q}
+            key={t.id}
             type="button"
-            onClick={() => run(q)}
-            className="shrink-0 rounded-full px-3 h-8 text-[12.5px] font-semibold whitespace-nowrap"
-            style={
-              query === q
-                ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a', border: '1px solid rgb(241 210 138 / 0.55)' }
-                : { color: 'rgb(243 234 219 / 0.75)', border: '1px solid rgb(212 166 74 / 0.2)' }
-            }
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className="h-9 text-[13px] font-bold"
+            style={tab === t.id ? { background: 'rgb(212 166 74 / 0.22)', color: '#f6dc9a' } : { color: 'rgb(243 234 219 / 0.6)' }}
           >
-            {q}
+            {t.label}
           </button>
         ))}
       </div>
+      {giphy ? <GiphyPanel kind={tab} open={open} onPick={onPick} /> : <MyStickers userId={userId} onPick={onPick} />}
+    </Sheet>
+  )
+}
 
+function GiphyPanel({ kind, open, onPick }) {
+  const [text, setText] = useState('')
+  const [query, setQuery] = useState({ gifs: QUICK.gifs[0], stickers: QUICK.stickers[0] })
+  const [state, setState] = useState({ items: [], loading: false, error: null })
+  const inputRef = useRef(null)
+  const q = query[kind]
+
+  useEffect(() => {
+    if (!open || !q) return
+    const ac = new AbortController()
+    setState((s) => ({ ...s, loading: true, error: null }))
+    searchGiphy(kind, q, { signal: ac.signal })
+      .then((items) => setState({ items, loading: false, error: null }))
+      .catch((e) => e.name !== 'AbortError' && setState({ items: [], loading: false, error: e.message }))
+    return () => ac.abort()
+  }, [open, kind, q])
+
+  const run = (next) => {
+    setText(next)
+    setQuery((all) => ({ ...all, [kind]: next }))
+  }
+  function submit(e) {
+    e.preventDefault()
+    if (text.trim()) run(text.trim())
+    inputRef.current?.blur() // drops the iPhone keyboard so the results show
+  }
+
+  return (
+    <>
+      <form onSubmit={submit} className="relative">
+        <Search className="w-4 h-4 text-faint absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Search GIPHY"
+          enterKeyHint="search"
+          maxLength={50}
+          className="field !pl-9"
+          aria-label="Search GIPHY"
+        />
+      </form>
+      <div className="flex gap-1.5 mt-2.5 overflow-x-auto no-scrollbar">
+        {QUICK[kind].map((chip) => (
+          <button key={chip} type="button" onClick={() => run(chip)} className="shrink-0 rounded-full px-3 h-8 text-[12.5px] font-semibold whitespace-nowrap" style={pill(q === chip)}>
+            {chip}
+          </button>
+        ))}
+      </div>
       <div className="mt-3 min-h-[240px]">
         {state.error ? (
           <p className="text-center text-[13px] text-verm-hi mt-10">{state.error}</p>
         ) : state.loading && !state.items.length ? (
           <p className="text-center text-[13px] text-faint mt-10">Finding {kind === 'gifs' ? 'GIFs' : 'stickers'}…</p>
         ) : !state.items.length ? (
-          <p className="text-center text-[13px] text-faint mt-10">Nothing for “{query}”. Try another search.</p>
+          <p className="text-center text-[13px] text-faint mt-10">Nothing for “{q}”. Try another search.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5" style={{ opacity: state.loading ? 0.5 : 1 }}>
             {state.items.map((g) => (
@@ -125,6 +132,169 @@ export function GifSheet({ open, onClose, onPick }) {
           </div>
         )}
       </div>
-    </Sheet>
+    </>
+  )
+}
+
+function MyStickers({ userId, onPick }) {
+  const [items, setItems] = useState(null) // null while loading
+  const [msg, setMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const fileRef = useRef(null)
+  const pasteRef = useRef(null)
+
+  useEffect(() => {
+    if (!userId) return
+    listMyStickers(userId)
+      .then(setItems)
+      .catch((e) => {
+        setItems([])
+        setMsg({ ok: false, text: e.message })
+      })
+  }, [userId])
+
+  if (!userId) return <p className="text-center text-[13px] text-faint mt-8">Sign in to save your own stickers.</p>
+
+  const count = items?.length ?? 0
+  async function add(blobs) {
+    const room = MAX_STICKERS - count
+    if (!blobs.length) return
+    if (room <= 0) return setMsg({ ok: false, text: `You have ${MAX_STICKERS} stickers. Remove one to add another.` })
+    setBusy(true)
+    setMsg(null)
+    let added = 0
+    try {
+      for (const blob of blobs.slice(0, room)) {
+        const saved = await addSticker(userId, await prepareSticker(blob))
+        setItems((list) => [saved, ...(list ?? [])])
+        added++
+      }
+      setMsg({ ok: true, text: added === 1 ? 'Saved. Tap it to throw it.' : `${added} stickers saved.` })
+      if (blobs.length > room) setMsg({ ok: false, text: `Saved ${added}. That's the ${MAX_STICKERS}-sticker limit.` })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message || 'That sticker didn’t save. Try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // The paste box: a pasted or dropped picture, or one the keyboard drops in.
+  function onPaste(e) {
+    const file = imageFromTransfer(e.clipboardData)
+    e.preventDefault()
+    if (file) add([file])
+    else setMsg({ ok: false, text: 'Copy a sticker or picture first, then paste it here.' })
+  }
+  async function onInput() {
+    const box = pasteRef.current
+    const img = box?.querySelector('img')
+    if (img) {
+      const blob = await imageFromElement(img)
+      box.innerHTML = ''
+      if (blob) add([blob])
+      else setMsg({ ok: false, text: 'That sticker couldn’t be read here. Try copying it and pasting instead.' })
+    } else if (box && box.textContent) {
+      box.textContent = ''
+    }
+  }
+  async function remove(s) {
+    try {
+      await removeSticker(s.path)
+      forgetPick(s.url)
+      setItems((list) => list.filter((x) => x.path !== s.path))
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    }
+  }
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className="btn btn-gold !min-h-12 !text-[13.5px]" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <ImagePlus className="w-4 h-4" /> Add from Photos
+        </button>
+        <div
+          ref={pasteRef}
+          contentEditable={!busy}
+          suppressContentEditableWarning
+          role="textbox"
+          aria-label="Paste a sticker"
+          data-placeholder="Paste a sticker"
+          onPaste={onPaste}
+          onDrop={(e) => {
+            e.preventDefault()
+            const file = imageFromTransfer(e.dataTransfer)
+            if (file) add([file])
+          }}
+          onInput={onInput}
+          className="min-h-12 rounded-2xl px-3 flex items-center justify-center text-[13px] font-semibold text-center outline-none overflow-hidden empty:before:content-[attr(data-placeholder)] empty:before:text-faint focus:border-solid"
+          style={{ border: '1.5px dashed rgb(241 210 138 / 0.45)', background: 'rgb(243 234 219 / 0.04)' }}
+        />
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          add([...(e.target.files ?? [])])
+          e.target.value = ''
+        }}
+      />
+      <p className="text-[11.5px] text-faint mt-2 leading-snug">
+        On iPhone: press and hold a sticker in Messages (or lift a subject in Photos), tap Copy, then tap the paste box and Paste.
+      </p>
+      {(msg || busy) && (
+        <p className="text-[12px] mt-1.5" style={{ color: busy ? '#f6dc9a' : msg.ok ? '#9ff0b0' : '#ffb4a6' }}>
+          {busy ? 'Saving…' : msg.text}
+        </p>
+      )}
+
+      <div className="flex items-baseline justify-between mt-3 mb-1.5">
+        <p className="eyebrow">
+          Your stickers · {count} of {MAX_STICKERS}
+        </p>
+        {count > 0 && (
+          <button type="button" className="text-[12.5px] font-bold text-gold-hi" onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Done' : 'Edit'}
+          </button>
+        )}
+      </div>
+      {items === null ? (
+        <p className="text-center text-[13px] text-faint mt-6">Loading your stickers…</p>
+      ) : count === 0 ? (
+        <p className="text-center text-[13px] text-faint mt-6">No stickers yet. Add one from Photos or paste one in.</p>
+      ) : (
+        <div className="grid grid-cols-4 gap-1.5">
+          {items.map((s) => (
+            <div key={s.path} className="relative">
+              <button
+                type="button"
+                onClick={() => !editing && onPick({ kind: 'g', id: s.id, url: s.url, w: s.w, h: s.h, sticker: true })}
+                aria-label="Send your sticker"
+                className="w-full aspect-square rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+                style={{ background: 'rgb(243 234 219 / 0.06)', border: '1px solid rgb(212 166 74 / 0.16)', opacity: editing ? 0.7 : 1 }}
+              >
+                <img src={s.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1" />
+              </button>
+              {editing && (
+                // .btn-style buttons set their own position; this one is a plain button
+                <button
+                  type="button"
+                  onClick={() => remove(s)}
+                  aria-label="Delete this sticker"
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
+                  style={{ background: '#e0442e', color: '#fff', boxShadow: '0 2px 6px rgb(0 0 0 / 0.5)' }}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

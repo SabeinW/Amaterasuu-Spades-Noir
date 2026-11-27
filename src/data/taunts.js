@@ -1,8 +1,10 @@
 // Table talk: the emojis and lines a player can throw at the table. They're
 // sent over the wire by id, never as free text, so a player can only show
 // what's on these lists. GIFs and stickers (lib/giphy.js) travel as a GIPHY
-// link, and anything not on GIPHY's own media servers is dropped.
+// link, players' own stickers as a link into the app's sticker bucket
+// (lib/stickerUrl.js); a link to anywhere else is dropped.
 import { safeGifUrl } from '../lib/giphy.js'
+import { parseOwnSticker } from '../lib/stickerUrl.js'
 //
 // Kept clean for a family table (no actual swear words: 🤬's symbols are as
 // far as it goes), and in line with the app's rules: no drinks, no pigs, no
@@ -112,6 +114,8 @@ export function readEmote(p) {
   const id = p.id ?? p.emoji
   const tone = typeof p.tone === 'string' ? p.tone : 'brown'
   if (kind === 'g') {
+    const own = parseOwnSticker(p.url)
+    if (own) return { kind: 'g', key: own.id, url: p.url, w: own.w, h: own.h, sticker: true, own: true }
     if (typeof id !== 'string' || id.length > 64 || !safeGifUrl(p.url)) return null
     const size = (n) => Math.min(600, Math.max(20, Number(n) || 200))
     return { kind: 'g', key: id, url: p.url, w: size(p.w), h: size(p.h), sticker: !!(p.st ?? p.sticker) }
@@ -158,6 +162,14 @@ export function recentPicks() {
     return []
   }
 }
+export function forgetPick(url) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recentPicks().filter((p) => p.url !== url)))
+  } catch {
+    // storage unavailable
+  }
+}
+
 export function rememberPick(pick) {
   const list = [pick, ...recentPicks().filter((p) => !(p.kind === pick.kind && p.id === pick.id))].slice(0, 14)
   try {

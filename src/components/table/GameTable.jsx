@@ -606,6 +606,8 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
       })())
   const luck = roundOver ? luckTotals(view.history, roundDealt && { round: view.round, spades: roundDealt.map((d) => d.spades), big: roundDealt.map((d) => d.big.length) }) : null
 
+  const toastsUp = trayOpen || gifOpen || !!emotes[mySeat]
+
   const statusText = (() => {
     if (view.phase === 'bidding') {
       if (myBidTurn) return null
@@ -839,6 +841,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
       {gifsEnabled && (
         <GifSheet
           open={gifOpen}
+          userId={user?.id}
           onClose={() => setGifOpen(false)}
           onPick={(pick) => {
             if (sendEmote(pick)) setGifOpen(false)
@@ -878,10 +881,11 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
 
       {/* toasts & rank-up */}
       {/* notices sit just above your hand, clear of the seats and the trick;
-          with the trash-talk tray open they move up under the score bar instead */}
+          while you're picking or throwing trash talk they move up under the
+          score bar instead, so they don't cover it */}
       <div
-        className={`pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex ${trayOpen ? 'flex-col' : 'flex-col-reverse'} items-center gap-2 w-[min(92vw,440px)]`}
-        style={trayOpen ? { top: 'calc(76px + var(--safe-t))' } : { bottom: `calc(${Math.round(hw * 1.4 + 96 + (coachH ? coachH + 4 : 0))}px + var(--safe-b))` }}
+        className={`pointer-events-none fixed left-1/2 -translate-x-1/2 z-[80] flex ${toastsUp ? 'flex-col' : 'flex-col-reverse'} items-center gap-2 w-[min(92vw,440px)]`}
+        style={toastsUp ? { top: 'calc(76px + var(--safe-t))' } : { bottom: `calc(${Math.round(hw * 1.4 + 96 + (coachH ? coachH + 4 : 0))}px + var(--safe-b))` }}
       >
         <AnimatePresence initial={false}>
           {toasts.map((t) => (
