@@ -121,6 +121,44 @@ export function isPlayable(card, hand, trick, spadesBroken, jd = false, spadesBr
   return true
 }
 
+// What each seat was dealt in a round, rebuilt from that round's plays. By the
+// end of a round every card has been played face up, so this is public then
+// (never call it on a round still being played: it returns null until all 52
+// cards are down).
+export function dealtHands(events, round) {
+  let start = -1
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].t === 'deal' && (round === undefined || events[i].round === round)) {
+      start = i
+      break
+    }
+  }
+  if (start < 0) return null
+  const hands = [[], [], [], []]
+  for (let i = start + 1; i < events.length; i++) {
+    const ev = events[i]
+    if (ev.t === 'deal' || ev.t === 'rematch') break
+    if (ev.t === 'play') hands[ev.seat].push(ev.card)
+  }
+  return hands.every((h) => h.length === 13) ? hands : null
+}
+
+// The cards people mean by "a good hand": every Ace, plus the Jokers and
+// promoted deuces (Jokers & Deuces) or K♠ and Q♠ (a standard deck).
+export function isBigCard(card, jd) {
+  if (card.value === 'A') return true
+  if (jd) return isTopTrump(card, jd)
+  return card.suit === 'S' && (card.value === 'K' || card.value === 'Q')
+}
+
+// Per seat: how many spades (trumps) and which big cards they were dealt.
+export function dealtSummary(hands, jd) {
+  return hands.map((h) => ({
+    spades: h.filter((c) => effectiveSuit(c, jd) === 'S').length,
+    big: sortHand(h.filter((c) => isBigCard(c, jd)), jd).map((c) => c.id),
+  }))
+}
+
 export function cardLabel(card) {
   if (card.suit === 'JOKER') return card.value === 'BIG' ? 'Big Joker' : 'Little Joker'
   return `${card.value}${SUIT_SYMBOL[card.suit]}`
@@ -474,9 +512,13 @@ export function scoreRound(pub) {
 function endRound(full, ctx) {
   const { pub } = full
   const result = scoreRound(pub)
+  // What everyone was dealt, so the table can see the luck even out.
+  const hands = dealtHands(pub.events, pub.round)
+  if (hands) result.dealt = dealtSummary(hands, pub.rules.jokers)
   pub.round_result = result
   pub.scores = { A: { total: result.A.total, bags: result.A.bags }, B: { total: result.B.total, bags: result.B.bags } }
-  pub.history.push({ round: pub.round, A: result.A.delta, B: result.B.delta, totalA: result.A.total, totalB: result.B.total })
+  const luck = result.dealt ? { spades: result.dealt.map((d) => d.spades), big: result.dealt.map((d) => d.big.length) } : {}
+  pub.history.push({ round: pub.round, A: result.A.delta, B: result.B.delta, totalA: result.A.total, totalB: result.B.total, ...luck })
   pub.turn = null
   emit(pub, { t: 'round', round: pub.round, result })
 

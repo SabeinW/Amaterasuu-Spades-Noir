@@ -132,6 +132,12 @@ for (let i = 0; i < 700 && summaries < ROUNDS; i++) {
     const guestText = await guest.locator('[role=dialog]').innerText()
     const nums = (t) => (t.match(/Total -?\d+/g) ?? []).join(',')
     console.log(`round ${summaries}: host sees ${nums(hostText)} | guest sees ${nums(guestText)}`)
+    // Both see what everyone was dealt, and it's the same deal.
+    const dealt = async (page) => (await page.locator('[data-luck="round"] span.w-8.font-display').allInnerTexts()).map((t) => parseInt(t, 10)).sort((a, b) => a - b)
+    const [hd, gd] = await Promise.all([dealt(host), dealt(guest)])
+    const sum = hd.reduce((a, b) => a + b, 0)
+    console.log(`round ${summaries}: dealt spades host ${hd.join(',')} | guest ${gd.join(',')}`)
+    if (hd.length !== 4 || hd.join() !== gd.join() || ![13, 16].includes(sum)) errors.push(`round ${summaries}: dealt box missing or different`)
     await host.getByRole('button', { name: /Deal next round/ }).click()
     await guest.getByRole('button', { name: /Deal next round/ }).click()
     await host.waitForTimeout(1500)

@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Check, Crown, LogOut, RotateCcw } from 'lucide-react'
 import Sheet from '../ui/Sheet'
+import { SUIT_SYMBOL, nextSeat, partnerOf, teamOf } from '../../lib/engine'
 
 // Gold-leaf flakes drifting down — the win celebration (no music).
 export function GoldLeaf({ count = 90 }) {
@@ -103,7 +104,101 @@ function TeamLine({ label, tone, r }) {
   )
 }
 
-export function RoundSummary({ open, result, round, myTeam, players, ready, mySeat, deadline, serverNow, onContinue, online, busy, coachNotes }) {
+// ── luck: what everyone was dealt ───────────────────────────────────────
+const bigLabel = (id) => (id === 'JOKER_BIG' ? 'Big J' : id === 'JOKER_SMALL' ? 'Little J' : `${id.slice(0, -1)}${SUIT_SYMBOL[id.slice(-1)]}`)
+const isRed = (id) => /[HD]$/.test(id)
+// An even share per seat: 16 spades and 8 big cards with Jokers & Deuces, 13 and 6 without.
+const fairShare = (jd) => (jd ? { spades: 4, big: 2 } : { spades: 3.25, big: 1.5 })
+const teamColor = (team, myTeam) => (team === myTeam ? '#f1d28a' : '#ff8a72')
+const seatOrder = (mySeat) => [mySeat, partnerOf(mySeat), nextSeat(mySeat), nextSeat(partnerOf(mySeat))]
+const fmt = (n) => (Number.isInteger(n) ? n : n.toFixed(1))
+
+// Spades and big cards dealt per seat over the rounds that recorded them.
+export function luckTotals(history = [], current) {
+  const rows = history.filter((h) => Array.isArray(h.spades))
+  if (current && !rows.some((h) => h.round === current.round)) rows.push(current)
+  const seats = [0, 1, 2, 3].map((s) => ({
+    spades: rows.reduce((n, h) => n + h.spades[s], 0),
+    big: rows.reduce((n, h) => n + (h.big?.[s] ?? 0), 0),
+  }))
+  return { rounds: rows.length, first: rows[0]?.round, last: rows[rows.length - 1]?.round, seats }
+}
+
+function TeamLuck({ label, tone, spades, big }) {
+  return (
+    <span>
+      <span className="font-bold" style={{ color: tone }}>
+        {label}
+      </span>{' '}
+      <b className="text-paper tabular-nums">{spades}♠</b> <span className="tabular-nums">· {big} big</span>
+    </span>
+  )
+}
+
+// rows: per seat { spades, big } counts → that team's totals.
+const teamTotal = (rows, team) => {
+  const seats = [0, 1, 2, 3].filter((s) => teamOf(s) === team)
+  return { spades: seats.reduce((n, s) => n + rows[s].spades, 0), big: seats.reduce((n, s) => n + rows[s].big, 0) }
+}
+
+const teamSpades = (perSeat, team) => [0, 1, 2, 3].filter((s) => teamOf(s) === team).reduce((n, s) => n + perSeat[s], 0)
+
+function TeamsLine({ rows, myTeam }) {
+  const them = myTeam === 'A' ? 'B' : 'A'
+  return (
+    <div className="flex justify-between gap-2">
+      <TeamLuck label="Us" tone={teamColor(myTeam, myTeam)} {...teamTotal(rows, myTeam)} />
+      <TeamLuck label="Them" tone={teamColor(them, myTeam)} {...teamTotal(rows, them)} />
+    </div>
+  )
+}
+
+function DealtBox({ dealt, players, mySeat, myTeam, jd, tally }) {
+  const fair = fairShare(jd)
+  const counts = dealt.map((d) => ({ spades: d.spades, big: d.big.length }))
+  return (
+    <div data-luck="round" className="rounded-2xl px-3 py-2.5" style={{ background: 'rgb(0 0 0 / 0.25)', border: '1px solid rgb(212 166 74 / 0.18)' }}>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <p className="font-bold text-gold-hi text-[13px]">Dealt this round</p>
+        <p className="text-[11px] text-faint">
+          even share: {fmt(fair.spades)}♠ · {fmt(fair.big)} big each
+        </p>
+      </div>
+      {seatOrder(mySeat).map((s) => {
+        const d = dealt[s]
+        const name = s === mySeat ? 'You' : (players.find((p) => p.seat === s)?.name ?? '—')
+        return (
+          <div key={s} className="flex items-center gap-2 py-[3px] text-[12.5px]">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: teamColor(teamOf(s), myTeam) }} />
+            <span className="truncate w-[78px] shrink-0">{name}</span>
+            <span className="font-display font-bold tabular-nums w-8 shrink-0">{d.spades}♠</span>
+            <span className="flex flex-wrap gap-1 min-w-0">
+              {d.big.length === 0 && <span className="text-faint">no big cards</span>}
+              {d.big.map((id) => (
+                <span key={id} className="rounded-md px-1.5 py-px text-[11.5px] font-bold leading-snug" style={{ background: '#f3eadb', color: isRed(id) || id === 'JOKER_BIG' ? '#b3261e' : '#1b1307' }}>
+                  {bigLabel(id)}
+                </span>
+              ))}
+            </span>
+          </div>
+        )
+      })}
+      <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[12px] text-muted">
+        <TeamsLine rows={counts} myTeam={myTeam} />
+      </div>
+      {tally?.rounds > 1 && (
+        <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[12px] text-muted">
+          <p className="text-[11px] text-faint mb-0.5">
+            {tally.first === 1 ? `This game so far (${tally.rounds} rounds)` : `Rounds ${tally.first}–${tally.last}`} · even share {fmt(fair.spades * 2 * tally.rounds)}♠ · {fmt(fair.big * 2 * tally.rounds)} big a team
+          </p>
+          <TeamsLine rows={tally.seats} myTeam={myTeam} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function RoundSummary({ open, result, round, myTeam, players, ready, mySeat, deadline, serverNow, onContinue, online, busy, coachNotes, dealt, tally, jd }) {
   if (!result) return null
   const them = myTeam === 'A' ? 'B' : 'A'
   const iAmReady = ready?.[mySeat]
@@ -150,6 +245,7 @@ export function RoundSummary({ open, result, round, myTeam, players, ready, mySe
             )
           })}
         </div>
+        {dealt && <DealtBox dealt={dealt} players={players} mySeat={mySeat} myTeam={myTeam} jd={jd} tally={tally} />}
         {coachNotes?.length > 0 && (
           <div className="rounded-2xl px-3 py-2.5 text-[12.5px] leading-snug" style={{ background: 'rgb(241 210 138 / 0.08)', border: '1px solid rgb(241 210 138 / 0.28)' }}>
             <p className="font-bold text-gold-hi mb-1">How the points worked</p>
@@ -165,7 +261,33 @@ export function RoundSummary({ open, result, round, myTeam, players, ready, mySe
   )
 }
 
-export function MatchSummary({ open, pub, myTeam, onRematch, onLeave, busy, online }) {
+// The whole game's luck: what each player was dealt, round after round.
+function GameLuck({ tally, players, mySeat, myTeam, jd }) {
+  const fair = fairShare(jd)
+  return (
+    <div data-luck="game" className="mt-4 rounded-2xl px-3 py-2.5 text-[12.5px]" style={{ background: 'rgb(0 0 0 / 0.25)', border: '1px solid rgb(212 166 74 / 0.18)' }}>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <p className="font-bold text-gold-hi text-[13px]">Cards dealt this game</p>
+        <p className="text-[11px] text-faint">
+          {tally.first === 1 ? `${tally.rounds} rounds` : `rounds ${tally.first}–${tally.last}`} · even share {fmt(fair.spades * tally.rounds)}♠ · {fmt(fair.big * tally.rounds)} big each
+        </p>
+      </div>
+      {seatOrder(mySeat).map((s) => (
+        <div key={s} className="flex items-center gap-2 py-[3px]">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: teamColor(teamOf(s), myTeam) }} />
+          <span className="truncate flex-1 min-w-0">{s === mySeat ? 'You' : (players.find((p) => p.seat === s)?.name ?? '—')}</span>
+          <span className="font-display font-bold tabular-nums w-12 text-right">{tally.seats[s].spades}♠</span>
+          <span className="tabular-nums text-muted w-14 text-right">{tally.seats[s].big} big</span>
+        </div>
+      ))}
+      <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[12px] text-muted">
+        <TeamsLine rows={tally.seats} myTeam={myTeam} />
+      </div>
+    </div>
+  )
+}
+
+export function MatchSummary({ open, pub, myTeam, onRematch, onLeave, busy, online, players = [], mySeat = 0, tally }) {
   if (!pub?.winner) return null
   const won = pub.winner === myTeam
   const them = myTeam === 'A' ? 'B' : 'A'
@@ -214,6 +336,7 @@ export function MatchSummary({ open, pub, myTeam, onRematch, onLeave, busy, onli
             </div>
           </div>
         </div>
+        {tally?.rounds > 0 && <GameLuck tally={tally} players={players} mySeat={mySeat} myTeam={myTeam} jd={pub.rules?.jokers} />}
         <div className="mt-5">
           <p className="eyebrow mb-2">Rounds</p>
           <div className="max-h-44 overflow-y-auto no-scrollbar rounded-xl" style={{ background: 'rgb(0 0 0 / 0.25)' }}>
@@ -225,6 +348,11 @@ export function MatchSummary({ open, pub, myTeam, onRematch, onLeave, busy, onli
                   <span className="text-faint">R{h.round}</span>
                   <span className={mine >= 0 ? 'text-gold-hi' : 'text-verm-hi'}>{mine >= 0 ? '+' : ''}{mine}</span>
                   <span className={theirs >= 0 ? 'text-paper/80' : 'text-verm-hi'}>{theirs >= 0 ? '+' : ''}{theirs}</span>
+                  {tally?.rounds > 0 && (
+                    <span className="text-faint text-[11.5px] w-16 text-right" title="Spades dealt: us – them">
+                      {Array.isArray(h.spades) ? `${teamSpades(h.spades, myTeam)}–${teamSpades(h.spades, them)}♠` : ''}
+                    </span>
+                  )}
                 </div>
               )
             })}

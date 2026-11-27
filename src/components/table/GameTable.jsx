@@ -20,7 +20,7 @@ import TrickArea from './TrickArea'
 import DealLayer from './DealLayer'
 import BidSheet from './BidSheet'
 import ScoreBar from './ScoreBar'
-import { MatchSummary, RoundSummary } from './Summaries'
+import { MatchSummary, RoundSummary, luckTotals } from './Summaries'
 import { ChatSheet, RulesSummary, TableMenu } from './TableExtras'
 import { DeckPicker, TablePicker } from '../ThemePickers'
 import CoachBubble from './CoachBubble'
@@ -102,8 +102,14 @@ function MiniFan({ count, slot, cw, deck }) {
   const spread = Math.min(7, 70 / Math.max(n, 1))
   const box = sh * 1.25
   const rot = slot === 'top' ? 180 : slot === 'left' ? -90 : slot === 'right' ? 90 : 0
+  // Side seats hold the fan on its side, so its spread becomes its height.
+  // Make the box that tall (the outer card's far corner, swung round the
+  // pivot below the cards) so the fan never rides up over the seat's bid.
+  const phi = (((n - 1) / 2) * spread * Math.PI) / 180
+  const reach = (small / 2) * Math.cos(phi) + sh * 1.1 * Math.sin(phi)
+  const height = slot === 'left' || slot === 'right' ? Math.max(box * 0.78, 2 * reach + 4) : box * 0.78
   return (
-    <div className="relative pointer-events-none" style={{ width: box, height: box * 0.78 }}>
+    <div className="relative pointer-events-none" style={{ width: box, height }}>
       <div className="absolute left-1/2 top-1/2" style={{ transform: `translate(-50%, -50%) rotate(${rot}deg)` }}>
         {Array.from({ length: n }, (_, i) => (
           <div
@@ -585,6 +591,18 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
     }
   }
 
+  // What everyone was dealt in the round just finished. The server adds it to
+  // the result; for one that doesn't yet, rebuild it from the round's plays.
+  const roundOver = view.phase === 'round_over' || view.phase === 'game_over'
+  const roundDealt = !roundOver
+    ? null
+    : (view.round_result?.dealt ??
+      (() => {
+        const h = E.dealtHands(pub?.events ?? [], view.round)
+        return h ? E.dealtSummary(h, rules.jokers) : null
+      })())
+  const luck = roundOver ? luckTotals(view.history, roundDealt && { round: view.round, spades: roundDealt.map((d) => d.spades), big: roundDealt.map((d) => d.big.length) }) : null
+
   const statusText = (() => {
     if (view.phase === 'bidding') {
       if (myBidTurn) return null
@@ -762,8 +780,11 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
         busy={busy}
         onContinue={() => send({ type: 'ready' })}
         coachNotes={coachOn && view.round_result ? roundStory(view.round_result, myTeam, rules, nameOf) : null}
+        dealt={roundDealt}
+        tally={luck}
+        jd={rules.jokers}
       />
-      <MatchSummary open={view.phase === 'game_over'} pub={view} myTeam={myTeam} online={online} busy={busy} onRematch={() => send({ type: 'rematch' })} onLeave={leave} />
+      <MatchSummary open={view.phase === 'game_over'} pub={view} myTeam={myTeam} online={online} busy={busy} onRematch={() => send({ type: 'rematch' })} onLeave={leave} players={players} mySeat={mySeat} tally={luck} />
 
       <TableMenu
         open={menu === 'menu'}
