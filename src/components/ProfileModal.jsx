@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw } from 'lucide-react'
+import { Pencil, Check, LogOut, UserPlus, UserMinus, UserCheck, UserX, Search, Lock, Camera, RotateCcw, LogIn } from 'lucide-react'
 import Sheet from './ui/Sheet'
 import Avatar from './ui/Avatar'
 import { AVATAR_EMOJIS, AVATAR_COLORS, ART_AVATARS, PROFILE_BORDERS, parseAvatar, serializeAvatar, fileToAvatarDataUrl, borderStyle, DEFAULT_AVATAR, defaultArtAvatar } from '../data/avatars'
-import { ACHIEVEMENTS, TIER_STYLE, tierForCount } from '../data/achievements'
+import { ACHIEVEMENTS, MILESTONES, TIER_STYLE, milestoneStatus, tierForCount } from '../data/achievements'
+import { levelProgress, levelColor } from '../data/levels'
+import LevelBadge from './ui/LevelBadge'
 import { rankProgress } from '../data/ranks'
 import { updateProfile } from '../lib/auth'
 import {
@@ -14,6 +16,7 @@ import {
   respondToFriendRequest,
   removeFriend,
   fetchAchievementCounts,
+  friendsAtTables,
 } from '../lib/social'
 
 const TABS = ['Overview', 'Achievements', 'Friends']
@@ -82,7 +85,7 @@ function Bar({ pct }) {
   )
 }
 
-function PersonRow({ person, dim = false, children }) {
+function PersonRow({ person, dim = false, sub, children }) {
   return (
     <motion.li
       initial={{ opacity: 0, y: 6 }}
@@ -92,7 +95,13 @@ function PersonRow({ person, dim = false, children }) {
       style={ROW}
     >
       <ProfileAvatar avatarUrl={person.avatar_url} name={person.username} size={40} />
-      <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{person.username}</span>
+      <span className="flex-1 min-w-0">
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[14.5px] font-semibold truncate">{person.username}</span>
+          {person.xp != null && <LevelBadge xp={person.xp} />}
+        </span>
+        {sub && <span className="block text-[11.5px] text-gold-hi truncate">{sub}</span>}
+      </span>
       <div className="flex items-center gap-1.5 shrink-0">{children}</div>
     </motion.li>
   )
@@ -102,7 +111,7 @@ function SectionLabel({ children }) {
   return <p className="eyebrow mb-2 px-1">{children}</p>
 }
 
-export default function ProfileModal({ user, profile, onClose, onProfileUpdate, onSignOut }) {
+export default function ProfileModal({ user, profile, onClose, onProfileUpdate, onSignOut, onJoinTable }) {
   const [tab, setTab] = useState('Overview')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
@@ -115,6 +124,7 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [atTables, setAtTables] = useState({})
 
   const avatar = profile?.avatar_url ? parseAvatar(profile.avatar_url) : defaultArtAvatar(profile?.username)
   // With no saved avatar the medallion shows a default face, so no emoji or
@@ -127,6 +137,17 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
     fetchAchievementCounts(user.id).then(setAchievementCounts)
     listFriends(user.id).then(setFriendsData)
   }, [user?.id])
+
+  // Which friends are sitting at an open table right now (so you can join them).
+  const friendKey = friendsData.friends.map((f) => f.id).join(',')
+  useEffect(() => {
+    if (!friendKey) return
+    const ids = friendKey.split(',')
+    const look = () => friendsAtTables(ids).then(setAtTables)
+    look()
+    const t = setInterval(look, 10000)
+    return () => clearInterval(t)
+  }, [friendKey])
 
   async function saveAvatarUrl(avatarUrl) {
     setSaving(true)
@@ -228,7 +249,17 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
     { label: 'Best Streak', value: profile?.best_streak ?? 0 },
   ]
 
-  const unlockedCount = ACHIEVEMENTS.filter((a) => (achievementCounts[a.id] ?? 0) > 0).length
+  const BADGES = ACHIEVEMENTS.filter((a) => !a.legacy)
+  const unlockedCount = BADGES.filter((a) => (achievementCounts[a.id] ?? 0) > 0).length
+  const lvl = levelProgress(profile?.xp ?? 0)
+  const lvlColor = levelColor(lvl.level)
+  const milestoneStats = {
+    wins: profile?.wins ?? 0,
+    bestStreak: profile?.best_streak ?? 0,
+    games: profile?.total_games ?? 0,
+    level: lvl.level,
+    friends: friendsData.friends.length,
+  }
   // Emoji and colour picks build on the current emoji avatar, or on the
   // default one (keeping the border) when the player has a photo.
   const emojiBase = avatar.kind === 'emoji' ? avatar : { ...DEFAULT_AVATAR, border: avatar.border }
@@ -287,10 +318,13 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
             </button>
           )}
           <p className="text-[12.5px] text-faint truncate">{user?.email}</p>
-          <span className="chip mt-2" style={{ color: rank.color, borderColor: `${rank.color}55`, background: `${rank.color}12` }}>
-            <span aria-hidden="true">{rank.icon}</span>
-            {rank.label}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <LevelBadge xp={profile?.xp ?? 0} size="lg" />
+            <span className="chip" style={{ color: rank.color, borderColor: `${rank.color}55`, background: `${rank.color}12` }}>
+              <span aria-hidden="true">{rank.icon}</span>
+              {rank.label}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -452,6 +486,33 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
         >
           {tab === 'Overview' && (
             <div className="flex flex-col gap-3">
+              <div className="rounded-2xl p-4" style={{ background: `radial-gradient(120% 90% at 0% 0%, ${lvlColor}1f, transparent 60%), rgb(243 234 219 / 0.03)`, border: `1px solid ${lvlColor}55` }}>
+                <div className="flex items-center gap-3">
+                  <span className="w-14 h-14 shrink-0 rounded-full flex flex-col items-center justify-center" style={{ background: 'rgb(0 0 0 / 0.35)', border: `2px solid ${lvlColor}`, boxShadow: `0 0 16px -4px ${lvlColor}` }}>
+                    <span className="text-[9px] uppercase tracking-[0.14em] font-bold text-faint leading-none">Level</span>
+                    <span className="font-display font-extrabold text-[22px] leading-none tabular-nums" style={{ color: lvlColor }}>
+                      {lvl.level}
+                    </span>
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-[17px] font-extrabold leading-tight" style={{ color: lvlColor }}>
+                      {lvl.title}
+                    </p>
+                    {lvl.needed ? (
+                      <>
+                        <div className="mt-2">
+                          <Bar pct={Math.round(lvl.progress * 100)} />
+                        </div>
+                        <p className="text-[12px] text-muted mt-1.5 tabular-nums">
+                          {lvl.into.toLocaleString()} / {lvl.needed.toLocaleString()} XP to level {lvl.level + 1}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[12px] text-muted mt-1">Max level reached</p>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div
                 className="rounded-2xl p-4 flex flex-col items-center text-center"
                 style={{ background: `radial-gradient(120% 90% at 50% 0%, ${rank.color}22, transparent 62%), rgb(243 234 219 / 0.03)`, border: `1px solid ${rank.color}55` }}
@@ -499,15 +560,58 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
 
           {tab === 'Achievements' && (
             <div>
+              <SectionLabel>Milestones</SectionLabel>
+              <ul className="flex flex-col gap-2 mb-5">
+                {MILESTONES.map((m, i) => {
+                  const st = milestoneStatus(m, milestoneStats)
+                  const tone = st.tier?.color ?? 'rgb(243 234 219 / 0.35)'
+                  return (
+                    <motion.li
+                      key={m.id}
+                      className="rounded-2xl px-3 py-2.5 flex items-center gap-3"
+                      style={st.tier ? { background: `radial-gradient(100% 120% at 0% 50%, ${tone}1a, transparent 65%), rgb(243 234 219 / 0.03)`, border: `1px solid ${tone}55` } : ROW}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03, duration: 0.3, ease: EASE }}
+                    >
+                      <span className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-2xl" style={{ background: 'rgb(0 0 0 / 0.3)', border: `1px solid ${st.tier ? `${tone}66` : 'rgb(243 234 219 / 0.08)'}`, filter: st.tier ? 'none' : 'grayscale(1)', opacity: st.tier ? 1 : 0.6 }}>
+                        {m.icon}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="flex items-center gap-2">
+                          <span className="text-[13.5px] font-bold truncate">{m.title}</span>
+                          {st.tier && (
+                            <span className="text-[8.5px] font-extrabold tracking-[0.12em] uppercase px-1.5 py-0.5 rounded-full shrink-0" style={{ background: `${tone}26`, color: tone, border: `1px solid ${tone}55` }}>
+                              {st.tier.label}
+                            </span>
+                          )}
+                        </p>
+                        {st.next ? (
+                          <>
+                            <div className="mt-1.5">
+                              <Bar pct={Math.round(st.progress * 100)} />
+                            </div>
+                            <p className="text-[11px] text-faint mt-1 tabular-nums">
+                              {st.value} / {st.next.at} {m.unit} for <span style={{ color: st.next.tier.color }}>{st.next.tier.label}</span>
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-[11px] text-gold-hi mt-1">Every tier complete · {st.value} {m.unit}</p>
+                        )}
+                      </div>
+                    </motion.li>
+                  )
+                })}
+              </ul>
               <div className="flex items-baseline justify-between mb-2 px-1">
-                <p className="eyebrow">Unlocked</p>
+                <p className="eyebrow">Badges</p>
                 <p className="font-display font-bold tabular-nums text-gold-hi text-[15px]">
                   {unlockedCount}
-                  <span className="text-faint"> / {ACHIEVEMENTS.length}</span>
+                  <span className="text-faint"> / {BADGES.length}</span>
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {ACHIEVEMENTS.map((a, i) => {
+                {BADGES.map((a, i) => {
                   const count = achievementCounts[a.id] ?? 0
                   const unlocked = count > 0
                   const tier = TIER_STYLE[tierForCount(count)]
@@ -602,7 +706,12 @@ export default function ProfileModal({ user, profile, onClose, onProfileUpdate, 
                 ) : (
                   <ul className="flex flex-col gap-1.5">
                     {friendsData.friends.map((f) => (
-                      <PersonRow key={f.rowId} person={f}>
+                      <PersonRow key={f.rowId} person={f} sub={atTables[f.id] ? `At table ${atTables[f.id]}` : null}>
+                        {atTables[f.id] && onJoinTable && (
+                          <button onClick={() => onJoinTable(atTables[f.id]).catch((e) => setError(e.message))} className="btn btn-gold !min-h-10 !px-3.5 !rounded-full text-[13px]">
+                            <LogIn className="w-4 h-4" /> Join
+                          </button>
+                        )}
                         <button onClick={() => handleRemoveFriend(f.rowId)} className="btn btn-icon !text-faint hover:!text-verm-hi" aria-label={`Remove ${f.username}`} title="Remove friend">
                           <UserMinus className="w-4 h-4" />
                         </button>

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { BookOpen, Flame, Layers, Palette, RotateCcw, Trophy, User, Users, Bot, LogIn } from 'lucide-react'
 import Card from './cards/Card'
 import Avatar from './ui/Avatar'
+import LevelBadge from './ui/LevelBadge'
+import { levelProgress } from '../data/levels'
 import { ALL_DECKS } from '../data/tableThemes'
 
 // The home screen always shows the Sun Court deck's royals.
@@ -96,7 +98,17 @@ export default function Landing({
           {user ? (
             <button onClick={onOpenProfile} className="flex items-center gap-2 panel-soft rounded-full pl-1 pr-3 py-1" aria-label="Profile">
               <Avatar avatarUrl={profile?.avatar_url} size={32} />
-              <span className="text-[13px] font-semibold max-w-[110px] truncate">{name}</span>
+              <span className="flex flex-col items-start leading-tight min-w-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[13px] font-semibold max-w-[110px] truncate">{name}</span>
+                  {profile && <LevelBadge xp={profile.xp ?? 0} />}
+                </span>
+                {profile && (
+                  <span className="mt-1 h-1 w-full min-w-[64px] rounded-full overflow-hidden" style={{ background: 'rgb(0 0 0 / 0.45)' }} aria-hidden="true">
+                    <span className="block h-full rounded-full" style={{ width: `${Math.round(levelProgress(profile.xp ?? 0).progress * 100)}%`, background: 'var(--gold-leaf)' }} />
+                  </span>
+                )}
+              </span>
             </button>
           ) : (
             <button onClick={onOpenAuth} className="btn btn-ghost !min-h-10 !px-4 !text-[13px]">

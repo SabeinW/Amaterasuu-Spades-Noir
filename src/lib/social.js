@@ -1,15 +1,37 @@
 import { supabase, supabaseEnabled } from './supabase'
 import { ACHIEVEMENTS, checkNewAchievements, tierForCount } from '../data/achievements'
 
-export async function fetchLeaderboard(limit = 20) {
+// Leaderboard boards: which profile column each one ranks by.
+export const BOARDS = {
+  rating: { column: 'elo_rating', label: 'Rating' },
+  level: { column: 'xp', label: 'Level' },
+  wins: { column: 'wins', label: 'Wins' },
+  streak: { column: 'best_streak', label: 'Streak' },
+}
+const BOARD_FIELDS = 'id, username, avatar_url, elo_rating, xp, wins, losses, total_games, best_streak'
+
+// Top players on one board; pass `ids` to rank only those players (friends).
+export async function fetchLeaderboard(limit = 20, { board = 'rating', ids = null } = {}) {
   if (!supabaseEnabled) return []
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, avatar_url, elo_rating, wins, losses, total_games')
-    .order('elo_rating', { ascending: false })
-    .limit(limit)
+  const { column } = BOARDS[board] ?? BOARDS.rating
+  let q = supabase.from('profiles').select(BOARD_FIELDS).order(column, { ascending: false, nullsFirst: false }).limit(limit)
+  if (ids) q = q.in('id', ids)
+  const { data, error } = await q
   if (error) return []
   return data
+}
+
+// Your own row and place on a board (1 + how many players are ahead), so
+// you can see where you stand even outside the top list.
+export async function fetchMyPlace(userId, { board = 'rating', ids = null } = {}) {
+  if (!supabaseEnabled || !userId) return null
+  const { column } = BOARDS[board] ?? BOARDS.rating
+  const { data: me } = await supabase.from('profiles').select(BOARD_FIELDS).eq('id', userId).maybeSingle()
+  if (!me) return null
+  let q = supabase.from('profiles').select('id', { count: 'exact', head: true }).gt(column, me[column] ?? 0)
+  if (ids) q = q.in('id', ids)
+  const { count } = await q
+  return { ...me, place: (count ?? 0) + 1 }
 }
 
 export async function searchProfiles(query, excludeUserId) {
@@ -37,7 +59,7 @@ export async function listFriends(userId) {
 
   const otherIds = data.map((r) => (r.user_id === userId ? r.friend_id : r.user_id))
   const profiles = otherIds.length
-    ? (await supabase.from('profiles').select('id, username, avatar_url, elo_rating').in('id', otherIds)).data ?? []
+    ? (await supabase.from('profiles').select('id, username, avatar_url, elo_rating, xp, wins').in('id', otherIds)).data ?? []
     : []
   const profileById = Object.fromEntries(profiles.map((p) => [p.id, p]))
 
@@ -53,6 +75,19 @@ export async function listFriends(userId) {
     else if (row.status === 'pending' && row.user_id === userId) outgoing.push({ rowId: row.id, ...profile })
   }
   return { friends, incoming, outgoing }
+}
+
+// Open tables (still in the waiting room) that each friend is sitting at, so
+// the friends list can offer "Join". Returns { friendId: roomCode }.
+export async function friendsAtTables(friendIds) {
+  if (!supabaseEnabled || !friendIds?.length) return {}
+  const { data } = await supabase.from('rooms').select('code, players, status').eq('status', 'waiting').limit(100)
+  const at = {}
+  for (const room of data ?? []) {
+    if ((room.players?.length ?? 0) >= 4) continue
+    for (const p of room.players ?? []) if (friendIds.includes(p.id)) at[p.id] = room.code
+  }
+  return at
 }
 
 export async function sendFriendRequest(userId, friendId) {

@@ -14,9 +14,10 @@ const showGallery = new URLSearchParams(window.location.search).has('gallery')
 const OnlineTable = lazyLoad(() => import('./components/table/Tables').then((m) => ({ default: m.OnlineTable })))
 const PracticeTable = lazyLoad(() => import('./components/table/Tables').then((m) => ({ default: m.PracticeTable })))
 import { DeckPicker, TablePicker } from './components/ThemePickers'
+import InviteBanner from './components/online/InviteBanner'
 import { onAuthStateChange, getSession, signOut, fetchOrCreateProfile } from './lib/auth'
 import { supabaseEnabled } from './lib/supabase'
-import { fetchRoom, joinTable } from './lib/online'
+import { fetchRoom, joinTable, leaveTable } from './lib/online'
 import { clearSavedPractice, loadSavedPractice } from './game/useLocalGame'
 import { ALL_DECKS, ALL_TABLES, DEFAULT_DECK, TABLE_THEMES, customTableTheme, MAX_CUSTOM_TABLES } from './data/tableThemes'
 import { DEFAULT_GAME_RULES } from './data/challenges'
@@ -154,6 +155,16 @@ export default function App() {
     }
   }
 
+  // Join a friend's table by its code (from an invite or the friends list),
+  // leaving any waiting room you're already sitting in.
+  async function joinByCode(code) {
+    const name = profile?.username || user?.email?.split('@')[0] || 'Player'
+    if (room && view === 'waiting' && room.code !== code) leaveTable(room.id).catch(() => {})
+    const res = await joinTable(code, name)
+    setModal(null)
+    enterRoom(res.room)
+  }
+
   function startPractice(resume = null) {
     if (!resume) clearSavedPractice()
     setPractice({ key: Date.now(), resume })
@@ -246,7 +257,8 @@ export default function App() {
         onEnterRoom={enterRoom}
       />
       {modal === 'challenges' && <ChallengesModal user={user} onClose={() => setModal(null)} />}
-      {modal === 'profile' && user && <ProfileModal user={user} profile={profile} onClose={() => setModal(null)} onProfileUpdate={setProfile} onSignOut={handleSignOut} />}
+      {modal === 'profile' && user && <ProfileModal user={user} profile={profile} onClose={() => setModal(null)} onProfileUpdate={setProfile} onSignOut={handleSignOut} onJoinTable={joinByCode} />}
+      {user && view !== 'online' && !showGallery && <InviteBanner user={user} onJoin={joinByCode} />}
       {modal === 'leaderboard' && <LeaderboardModal currentUserId={user?.id} onClose={() => setModal(null)} />}
       {modal === 'rules' && (
         <RulesModal

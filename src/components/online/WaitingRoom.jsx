@@ -4,10 +4,79 @@
 // mid-game by joining with the same code.
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Check, Copy, Crown, LogOut, Share2 } from 'lucide-react'
+import { Bot, Check, Copy, Crown, LogOut, Send, Share2, UserPlus } from 'lucide-react'
 import Avatar from '../ui/Avatar'
+import Sheet from '../ui/Sheet'
+import LevelBadge from '../ui/LevelBadge'
+import { listFriends } from '../../lib/social'
+import { sendInvite } from '../../lib/invites'
 import { fetchAvatars, fetchRoom, leaveTable, sitAt, startTable, subscribeRoom } from '../../lib/online'
 import { ruleChips } from './Lobby'
+
+// Your friends, each with an Invite button: they get a pop-up with Join.
+function InviteFriends({ open, onClose, user, room, onShare, copied }) {
+  const [friends, setFriends] = useState(null)
+  const [sent, setSent] = useState({})
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    if (open && user?.id) listFriends(user.id).then(({ friends: f }) => setFriends(f))
+  }, [open, user?.id])
+  const seated = new Set(room.players.map((p) => p.id))
+
+  async function invite(f) {
+    setError(null)
+    setSent((s) => ({ ...s, [f.id]: 'sending' }))
+    try {
+      await sendInvite(user.id, f.id, room.code)
+      setSent((s) => ({ ...s, [f.id]: 'sent' }))
+    } catch (e) {
+      setSent((s) => ({ ...s, [f.id]: null }))
+      setError(e.message)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} eyebrow={`Table ${room.code}`} title="Invite friends">
+      {friends === null ? (
+        <p className="text-[13px] text-faint text-center py-6">Loading your friends…</p>
+      ) : friends.length === 0 ? (
+        <p className="text-[13px] text-muted text-center py-6">No friends yet. Add them from your profile, or share the link below.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {friends.map((f) => {
+            const state = seated.has(f.id) ? 'seated' : sent[f.id]
+            return (
+              <li key={f.id} className="flex items-center gap-3 rounded-2xl pl-2.5 pr-1.5 py-1.5 min-h-[58px]" style={{ background: 'rgb(243 234 219 / 0.03)', border: '1px solid rgb(243 234 219 / 0.07)' }}>
+                <Avatar avatarUrl={f.avatar_url} name={f.username} size={40} />
+                <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <span className="text-[14.5px] font-semibold truncate">{f.username}</span>
+                  <LevelBadge xp={f.xp} />
+                </span>
+                {state === 'seated' ? (
+                  <span className="chip mr-1.5">At the table</span>
+                ) : state === 'sent' ? (
+                  <span className="chip mr-1.5 !text-gold-hi">
+                    <Check className="w-3.5 h-3.5" /> Invited
+                  </span>
+                ) : (
+                  <button onClick={() => invite(f)} disabled={state === 'sending'} className="btn btn-gold !min-h-10 !px-3.5 !rounded-full text-[13px]">
+                    <Send className="w-4 h-4" /> {state === 'sending' ? 'Sending…' : 'Invite'}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {error && <p className="text-[13px] text-verm-hi mt-3">{error}</p>}
+      <button className="btn btn-ghost w-full mt-4 !text-[13.5px]" onClick={onShare}>
+        {copied ? <Check className="w-4 h-4 text-gold" /> : navigator.share ? <Share2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+        {copied ? 'Link copied' : 'Share a link instead'}
+      </button>
+      <div aria-hidden="true" style={{ height: 'var(--safe-b)' }} />
+    </Sheet>
+  )
+}
 
 export default function WaitingRoom({ room: initial, user, table, onStart, onLeave }) {
   const [room, setRoom] = useState(initial)
@@ -15,6 +84,7 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [avatars, setAvatars] = useState({})
+  const [inviting, setInviting] = useState(false)
   const versionRef = useRef(initial.version ?? 0)
   const startedRef = useRef(false)
 
@@ -121,9 +191,12 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
             {room.code}
           </motion.p>
           <div className="flex justify-center gap-2 mt-3">
-            <button className="btn btn-ghost !min-h-10 !text-[13px]" onClick={share}>
+            <button className="btn btn-gold !min-h-10 !text-[13px]" onClick={() => setInviting(true)}>
+              <UserPlus className="w-4 h-4" /> Invite friends
+            </button>
+            <button className="btn btn-ghost !min-h-10 !text-[13px]" onClick={share} aria-label="Share link">
               {copied ? <Check className="w-4 h-4 text-gold" /> : navigator.share ? <Share2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Link copied' : 'Invite friends'}
+              {copied ? 'Copied' : 'Link'}
             </button>
           </div>
           <div className="flex flex-wrap justify-center gap-1.5 mt-4">
@@ -201,6 +274,7 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
           <p className="text-[11.5px] text-faint text-center mt-2">Empty seats get AI players. A friend can still take one over later with the code.</p>
         </div>
       </div>
+      <InviteFriends open={inviting} onClose={() => setInviting(false)} user={user} room={room} onShare={share} copied={copied} />
     </div>
   )
 }

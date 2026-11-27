@@ -26,6 +26,7 @@ const rankMin = (id) => RANKS.find((r) => r.id === id).min
 export const ACHIEVEMENTS = [
   {
     id: 'first_win',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'First Blood',
     description: 'Win your first match',
     icon: '🏆',
@@ -35,6 +36,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'win_streak_3',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'On a Roll',
     description: 'Win 3 matches in a row',
     icon: '🔥',
@@ -44,6 +46,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'win_streak_5',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Unstoppable',
     description: 'Win 5 matches in a row',
     icon: '⚡',
@@ -53,6 +56,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'veteran',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Veteran',
     description: 'Play 10 matches',
     icon: '🎖️',
@@ -62,6 +66,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'century_club',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Century Club',
     description: 'Play 100 matches',
     icon: '💯',
@@ -71,6 +76,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'big_winner',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Big Winner',
     description: 'Win 25 matches',
     icon: '👑',
@@ -80,6 +86,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'social_butterfly',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Social Butterfly',
     description: 'Add 5 friends',
     icon: '🦋',
@@ -116,6 +123,36 @@ export const ACHIEVEMENTS = [
     scope: 'live',
     repeatable: true,
     check: (ctx) => ctx.consecutiveTricks >= 4,
+  },
+  {
+    id: 'run_the_table',
+    title: 'Run the Table',
+    description: 'Win 7 tricks in a row',
+    icon: '🏃',
+    color: '#ef4444',
+    scope: 'live',
+    repeatable: true,
+    check: (ctx) => ctx.consecutiveTricks >= 7,
+  },
+  {
+    id: 'hot_hands',
+    title: 'Hot Hands',
+    description: 'Make your bid 3 hands in a row',
+    icon: '🙌',
+    color: '#f59e0b',
+    scope: 'live',
+    repeatable: true,
+    check: (ctx) => ctx.madeInRow >= 3,
+  },
+  {
+    id: 'on_fire',
+    title: 'On Fire',
+    description: 'Make your bid 5 hands in a row',
+    icon: '☄️',
+    color: '#f43f5e',
+    scope: 'live',
+    repeatable: true,
+    check: (ctx) => ctx.madeInRow >= 5,
   },
   {
     id: 'nil_master',
@@ -219,6 +256,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'dynasty',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Dynasty',
     description: 'Win 10 matches in a row',
     icon: '🏛️',
@@ -228,6 +266,7 @@ export const ACHIEVEMENTS = [
   },
   {
     id: 'card_shark',
+    legacy: true, // replaced by a tiered milestone (MILESTONES below)
     title: 'Card Shark',
     description: 'Win 50 matches',
     icon: '🦈',
@@ -297,7 +336,7 @@ export const ACHIEVEMENTS = [
 // is the point (their tier evolves with the repeat count, handled by the
 // caller).
 export function checkNewAchievements(scope, ctx, alreadyUnlockedIds = new Set()) {
-  return ACHIEVEMENTS.filter((a) => a.scope === scope && (a.repeatable || !alreadyUnlockedIds.has(a.id)) && a.check(ctx))
+  return ACHIEVEMENTS.filter((a) => !a.legacy && a.scope === scope && (a.repeatable || !alreadyUnlockedIds.has(a.id)) && a.check(ctx))
 }
 
 // 1st earn = base badge (no tier), then progressively rarer tiers the more
@@ -333,4 +372,41 @@ export const TIER_STYLE = {
   radiant: { label: 'RADIANT', ring: '#fb923c' },
   celestial: { label: 'CELESTIAL', ring: '#38bdf8' },
   cosmic: { label: 'COSMIC', ring: '#f8fafc' },
+}
+
+// ── Tiered milestones ──────────────────────────────────────────────────────
+// Long-term goals that level up through five tiers instead of being separate
+// one-off badges. Worked out live from the player's stats (profile, level,
+// friends), so they're always accurate and count everything already played.
+export const MILESTONE_TIERS = [
+  { id: 'bronze', label: 'Bronze', color: '#cd7f32' },
+  { id: 'silver', label: 'Silver', color: '#c8ccd4' },
+  { id: 'gold', label: 'Gold', color: '#ffd700' },
+  { id: 'diamond', label: 'Diamond', color: '#67e8f9' },
+  { id: 'legendary', label: 'Legendary', color: '#f472b6' },
+]
+
+export const MILESTONES = [
+  { id: 'm_wins', title: 'Winner', icon: '👑', unit: 'wins', steps: [1, 10, 25, 50, 100], value: (s) => s.wins },
+  { id: 'm_streak', title: 'Hot Streak', icon: '🔥', unit: 'wins in a row', steps: [3, 5, 7, 10, 15], value: (s) => s.bestStreak },
+  { id: 'm_games', title: 'Veteran', icon: '🎖️', unit: 'games', steps: [10, 50, 100, 250, 500], value: (s) => s.games },
+  { id: 'm_level', title: 'Climber', icon: '⭐', unit: 'level', steps: [5, 10, 25, 50, 75], value: (s) => s.level },
+  { id: 'm_friends', title: 'Crew', icon: '🤝', unit: 'friends', steps: [1, 3, 5, 10, 20], value: (s) => s.friends },
+]
+
+// stats = { wins, bestStreak, games, level, friends }
+export function milestoneStatus(m, stats) {
+  const value = Math.max(0, m.value(stats) ?? 0)
+  let reached = -1
+  m.steps.forEach((step, i) => {
+    if (value >= step) reached = i
+  })
+  const nextStep = m.steps[reached + 1]
+  const prevStep = reached >= 0 ? m.steps[reached] : 0
+  return {
+    value,
+    tier: reached >= 0 ? MILESTONE_TIERS[reached] : null,
+    next: nextStep != null ? { tier: MILESTONE_TIERS[reached + 1], at: nextStep } : null,
+    progress: nextStep != null ? Math.min(1, (value - prevStep) / (nextStep - prevStep)) : 1,
+  }
 }

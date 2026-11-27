@@ -13,6 +13,7 @@ import { fetchProfile } from '../../lib/auth'
 import { checkAndUnlockAchievements, listFriends, unlockAchievementNow } from '../../lib/social'
 import { rankForRating, rankIndex } from '../../data/ranks'
 import { TIER_STYLE } from '../../data/achievements'
+import { levelColor, levelForXp, titleForLevel } from '../../data/levels'
 import Seat from './Seat'
 import HandFan from './HandFan'
 import TrickArea from './TrickArea'
@@ -149,12 +150,14 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
   const [present, setPresent] = useState(null)
   const [avatars, setAvatars] = useState({})
   const [rankUp, setRankUp] = useState(null)
+  const [levelUp, setLevelUp] = useState(null)
   // A won trick is in flight to this seat: hold its count back until it lands.
   const [pendingWin, setPendingWin] = useState(null)
   const [burst, setBurst] = useState(null)
   const fromRects = useRef({})
   const streakRef = useRef(0)
   const maxDeficitRef = useRef(0)
+  const madeInRowRef = useRef(0)
   const lastTurnSoundRef = useRef(null)
   const recordedRef = useRef(false)
 
@@ -194,8 +197,9 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
           }, T.sweep * 1000 - 80)
           if (ev.winner === mySeat) {
             streakRef.current += 1
-            if (streakRef.current === 4 && user?.id) {
-              unlockAchievementNow(user.id, 'walk_em_down').then((a) => a && toast(`Achievement: ${a.title}`, 'gold', a.icon, 5500))
+            const live = { 4: 'walk_em_down', 7: 'run_the_table' }[streakRef.current]
+            if (live && user?.id) {
+              unlockAchievementNow(user.id, live).then((a) => a && toast(`Achievement: ${a.title}`, 'gold', a.icon, 5500))
             }
           } else streakRef.current = 0
           break
@@ -203,6 +207,16 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         case 'round': {
           const deficit = ev.result[theirTeam].total - ev.result[myTeam].total
           maxDeficitRef.current = Math.max(maxDeficitRef.current, deficit)
+          {
+            // Hands in a row where you made your bid (or your nil).
+            const mine = ev.result.seats[mySeat]
+            const made = mine.bid === 0 ? mine.taken === 0 : mine.taken >= mine.bid
+            madeInRowRef.current = made ? madeInRowRef.current + 1 : 0
+            const live = { 3: 'hot_hands', 5: 'on_fire' }[madeInRowRef.current]
+            if (live && user?.id) {
+              unlockAchievementNow(user.id, live).then((a) => a && toast(`Achievement: ${a.title}`, 'gold', a.icon, 5500))
+            }
+          }
           if (user?.id) {
             const mine = ev.result.seats[mySeat]
             const partner = ev.result.seats[partnerSeat]
@@ -288,6 +302,7 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
     const yourScore = view.scores[myTeam].total
     const oppScore = view.scores[theirTeam].total
     const before = profile?.elo_rating ?? 1200
+    const xpBefore = profile?.xp ?? 0
     const afterProfile = online
       ? new Promise((r) => setTimeout(r, 900)).then(() => fetchProfile(user.id))
       : recordPracticeResult({ won, yourScore, opponentScore: oppScore, rounds: view.round })
@@ -297,6 +312,11 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
       const a = rankForRating(before)
       const b = rankForRating(updated.elo_rating ?? 1200)
       if (rankIndex(b.id) > rankIndex(a.id)) setRankUp(b)
+      const gained = (updated.xp ?? 0) - xpBefore
+      if (gained > 0) toast(`+${gained} XP`, 'gold', '✨', 4500)
+      const lvBefore = levelForXp(xpBefore)
+      const lvAfter = levelForXp(updated.xp ?? 0)
+      if (lvAfter > lvBefore) setTimeout(() => setLevelUp({ level: lvAfter, title: titleForLevel(lvAfter), newTitle: titleForLevel(lvAfter) !== titleForLevel(lvBefore) }), rankIndex(b.id) > rankIndex(a.id) ? 2600 : 600)
       const { friends } = await listFriends(user.id)
       const list = await checkAndUnlockAchievements(user.id, 'match', {
         won,
@@ -650,6 +670,25 @@ export default function GameTable({ game, mode, deck, table, user, profile, onPr
         </AnimatePresence>
       </div>
       <AnimatePresence>
+        {levelUp && !rankUp && (
+          <motion.div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setLevelUp(null)}>
+            <motion.div className="panel rounded-3xl px-10 py-8 text-center" initial={{ scale: 0.5, rotate: 6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}>
+              <p className="eyebrow">Level up</p>
+              <motion.p
+                className="font-display text-7xl font-extrabold leading-none mt-2 tabular-nums"
+                style={{ color: levelColor(levelUp.level), filter: `drop-shadow(0 0 18px ${levelColor(levelUp.level)})` }}
+                initial={{ scale: 0.4 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 12, delay: 0.1 }}
+              >
+                {levelUp.level}
+              </motion.p>
+              <p className="font-display text-xl font-extrabold mt-2" style={{ color: levelColor(levelUp.level) }}>
+                {levelUp.newTitle ? `New title: ${levelUp.title}` : levelUp.title}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
         {rankUp && (
           <motion.div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setRankUp(null)}>
             <motion.div className="panel rounded-3xl px-10 py-8 text-center" initial={{ scale: 0.5, rotate: -6 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 14 }}>
