@@ -33,7 +33,7 @@ export function systemPrompt(id) {
     `How you type: ${b.style}`,
     'Those phrases only show your voice. Make up a fresh line every time: never reuse them word for word, and never repeat anything already said at the table. Be specific about what just happened (who said what, the bids, the books, the score) and call people by name.',
     'You are a strong player and a funny trash talker. Keep it playful, never truly mean.',
-    'Table rules, never break them: no swearing at all, not even mild words, and no innuendo. Nothing about drinking, drugs, smoking, betting money, flirting or dating, religion or politics. Never joke about anyone\'s looks, race, weight or family. Never say what cards you hold or what you will play. You never bid Nil; with a weak hand you bid what the board needs. If someone sincerely asks whether you are a bot, an AI or a real person, say you are an AI player, still in character.',
+    'Table rules, never break them: no swearing at all, not even mild words, and no innuendo. Nothing about drinking, drugs, smoking, betting money, flirting or dating, religion or politics. Never joke about anyone\'s looks, race, weight or family. Never say what cards you hold or what you will play. Never guess whether someone is a man or a woman: go by what you are told, otherwise call them by name. You never bid Nil; with a weak hand you bid what the board needs. If someone sincerely asks whether you are a bot, an AI or a real person, say you are an AI player, still in character.',
     'Answer with ONLY a JSON object like {"say": "", "emoji": "", "gif": ""}:',
     '- "say": what you type in the table chat, under 90 characters, or "" to stay quiet.',
     `- "emoji": one emoji to throw at the table from this list, or "": ${BOT_EMOJI.join(' ')}`,
@@ -46,7 +46,7 @@ const TEAM_WORD = { A: [0, 2], B: [1, 3] }
 
 // Everything the bot is told about the table: who's who, the score, this
 // hand's bids and books, the recent talk, and what just happened.
-export function contextPrompt(id, seat, room, talk, happened, memory = '') {
+export function contextPrompt(id, seat, room, talk, happened, memory = '', about = '') {
   const pub = room.game_state ?? {}
   const players = room.players ?? []
   const name = (s) => players.find((p) => p.seat === s)?.name ?? `Seat ${s + 1}`
@@ -55,6 +55,7 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '') {
   const usTeam = seat % 2 === 0 ? 'A' : 'B'
   const themTeam = usTeam === 'A' ? 'B' : 'A'
   const out = [`Who's at the table: your partner ${name(partner)}; the other team is ${name(opps[0])} and ${name(opps[1])}.`]
+  if (about) out.push(about)
   if (pub.scores) {
     // Spelled out, winner first, so no model gets it backwards.
     const us = pub.scores[usTeam].total
@@ -172,7 +173,7 @@ const MAX_NOTES = 5
 // Asks for updated notes on each person from what was just said at the
 // table plus what the bots already remembered.
 //   people: [{ name, notes: [] }]   lines: [{ who, text }]   bots: names
-export function summaryMessages(bots, people, lines, outcome = '') {
+export function summaryMessages(bots, people, lines, outcome = '', about = '') {
   const old = people.map((p) => `- ${p.name}: ${p.notes.length ? p.notes.join('; ') : '(nothing yet)'}`).join('\n')
   return [
     {
@@ -189,7 +190,7 @@ export function summaryMessages(bots, people, lines, outcome = '') {
     },
     {
       role: 'user',
-      content: `People: ${people.map((p) => p.name).join(', ')}\n\nWhat they already remember:\n${old}\n\nTable talk:\n${lines.map((l) => `${l.who}: ${l.text}`).join('\n')}${outcome ? `\n\nHow it went: ${outcome}` : ''}`,
+      content: `People: ${people.map((p) => p.name).join(', ')}${about ? `\n${about}` : ''}\n\nWhat they already remember:\n${old}\n\nTable talk:\n${lines.map((l) => `${l.who}: ${l.text}`).join('\n')}${outcome ? `\n\nHow it went: ${outcome}` : ''}`,
     },
   ]
 }
@@ -237,4 +238,33 @@ export function samey(id, say, talk) {
     .filter((l) => l.who === BOTS[id].name)
     .slice(-5)
     .some((l) => opening(l.text) === o)
+}
+
+// ------------------------------------------------------------ who's who ---
+
+const WHO = { he: 'a man (he/him)', she: 'a woman (she/her)', they: 'they/them' }
+const SPOUSE = { he: 'husband', she: 'wife' }
+
+// Pronouns and marriages for the people at the table, from person_facts:
+//   people: [{ id, name }]   facts: { [id]: { pronouns, spouse_id } }
+export function aboutText(people, facts) {
+  const lines = []
+  for (const p of people) if (WHO[facts?.[p.id]?.pronouns]) lines.push(`${p.name} is ${WHO[facts[p.id].pronouns]}.`)
+  const paired = new Set()
+  for (const p of people) {
+    const sid = facts?.[p.id]?.spouse_id
+    if (!sid || paired.has(p.id)) continue
+    const s = people.find((x) => x.id === sid)
+    if (!s) {
+      lines.push(`${p.name} is married; ${{ he: 'his', she: 'her' }[facts[p.id].pronouns] ?? 'their'} spouse isn't at this table.`)
+      continue
+    }
+    paired.add(p.id)
+    paired.add(s.id)
+    const role = (x) => SPOUSE[facts?.[x.id]?.pronouns] ?? 'spouse'
+    lines.push(`${p.name} and ${s.name} are married (${s.name} is ${p.name}'s ${role(s)}, ${p.name} is ${s.name}'s ${role(p)}). When either of them says baby, bae, babe or my love, they mean each other, never you.`)
+  }
+  const unknown = people.filter((p) => !WHO[facts?.[p.id]?.pronouns]).map((p) => p.name)
+  if (unknown.length) lines.push(`You don't know whether ${unknown.join(' or ')} ${unknown.length > 1 ? 'are' : 'is'} a he or a she: call them by name, never guess.`)
+  return lines.length ? `Who's who: ${lines.join(' ')}` : ''
 }

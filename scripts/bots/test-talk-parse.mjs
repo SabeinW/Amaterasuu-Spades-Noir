@@ -1,6 +1,6 @@
 // How the AI players' answers are read and checked (no network).
 //   node scripts/bots/test-talk-parse.mjs
-import { contextPrompt, memoryText, readReply, readSummary, samey, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
+import { aboutText, contextPrompt, memoryText, readReply, readSummary, samey, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
 import { BOTS, BOT_EMOJI } from '../../supabase/functions/_shared/bots.js'
 import { EMOJI_GROUPS } from '../../src/data/taunts.js'
 
@@ -61,6 +61,16 @@ eq('a bot that is ahead is told it is WINNING', /Your team is WINNING by 50/.tes
 eq('its own lines are marked', /Nia \(you\): aww cute/.test(winning), true)
 eq('a line starting like its last one is caught', samey('nia', 'aww, still saying that?', [{ who: 'Nia', text: 'aww, still laughing?' }]), true)
 eq('…but not someone else\'s', samey('nia', 'aww, still saying that?', [{ who: 'Jaylen', text: 'aww, still laughing?' }]), false)
+
+// Who's who
+const couple = aboutText([{ id: 's', name: 'Sabe' }, { id: 't', name: 'Swizz' }, { id: 'm', name: 'Mom' }], { s: { pronouns: 'he', spouse_id: 't' }, t: { pronouns: 'she', spouse_id: 's' } })
+eq('pronouns are spelled out', /Sabe is a man \(he\/him\)\. Swizz is a woman \(she\/her\)\./.test(couple), true)
+eq('the couple is married, wife and husband', /Swizz is Sabe's wife, Sabe is Swizz's husband/.test(couple), true)
+eq('pet names between them are for each other', /baby, bae, babe or my love, they mean each other, never you/.test(couple), true)
+eq('anyone else is called by name, never guessed', /You don't know whether Mom is a he or a she: call them by name, never guess/.test(couple), true)
+eq('no facts: still told not to guess', /call them by name, never guess/.test(aboutText([{ id: 'x', name: 'X' }], {})), true)
+eq('who\'s who goes right after who\'s at the table', /the other team is .*\n\nWho's who: Sabe is a man/.test(contextPrompt('nia', 1, { players: [{ seat: 0, name: 'Sabe' }, { seat: 2, name: 'Swizz' }], game_state: {} }, [], 'x', '', couple)), true)
+eq('the rules say never guess man or woman', /Never guess whether someone is a man or a woman/.test(systemPrompt('jaylen')), true)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

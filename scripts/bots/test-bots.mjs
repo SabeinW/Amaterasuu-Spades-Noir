@@ -157,6 +157,15 @@ const capped = await me.bots({ roomId: r0.id, trigger: 'said', text: 'jaylen say
 check(capped.replies?.[0]?.ai === false && BOTS.jaylen.lines.includes(capped.replies[0].say), `past the daily cap Jaylen still talks, from his own lines (${JSON.stringify(capped.replies?.[0]?.say)})`)
 await admin.from('bot_usage').delete().neq('calls', -1)
 
+// --- who's who: a married couple, and "baby" ------------------------------------
+await admin.from('person_facts').upsert([
+  { person_id: me.id, pronouns: 'he', spouse_id: wife.id },
+  { person_id: wife.id, pronouns: 'she', spouse_id: me.id },
+])
+await sleep(2600)
+const baby = await me.bots({ roomId: r0.id, trigger: 'said', text: 'nia watch this. baby get him' })
+check(/knows it was for the spouse/.test(baby.replies?.[0]?.say ?? ''), `"baby get him" is known to be for his wife (${JSON.stringify(baby.replies?.[0]?.say)})`)
+
 // --- the boss couple ------------------------------------------------------------
 await wife.client.from('friends').insert({ user_id: wife.id, friend_id: botId('kaida'), status: 'pending' })
 const { room: b0 } = await wife.game({ action: 'create', name: wife.name, rules: {} })
