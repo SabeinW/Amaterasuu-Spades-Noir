@@ -170,12 +170,22 @@ function playOut(hands, s, rules) {
 
 // How good a finished round is for `seat`'s team: our points minus theirs,
 // bag penalties included, plus a big swing if it settles the game.
-function value(pub, tricks, bids, blind, seat) {
+// Bags left on the books cost later: every bagLimit of them is -100. So
+// beyond the point a bag scores now, each one still on the books is counted
+// at about -(100 / limit) x BAG_WEIGHT (a penalty paid this hand is already
+// in delta and clears them). Without this, extra books looked nearly free,
+// and the bots bid low and grabbed everything (bid 4, took 10).
+export const BAG_WEIGHT = 0.7
+const bagDebt = (bags, r, w) => (r.bagPenalty ? (bags * 100 * w) / r.bagLimit : 0)
+
+function value(pub, tricks, bids, blind, seat, bagW = BAG_WEIGHT) {
   const r = pub.rules
   const res = scoreRound({ rules: r, bids, blind, tricks, scores: pub.scores })
   const us = teamOf(seat)
   const them = us === 'A' ? 'B' : 'A'
   let v = res[us].delta - res[them].delta
+  v -= bagDebt(res[us].bags, r, bagW) - bagDebt(pub.scores[us].bags, r, bagW)
+  v += bagDebt(res[them].bags, r, bagW) - bagDebt(pub.scores[them].bags, r, bagW)
   const a = res[us].total
   const b = res[them].total
   if ((a >= r.winScore || b >= r.winScore || a <= r.losingScore || b <= r.losingScore) && a !== b) v += a > b ? GAME_SWING : -GAME_SWING
@@ -227,7 +237,7 @@ export function proCard(hand, seat, pub, rules, rng = Math.random, opts = {}) {
         const hands = [0, 1, 2, 3].map((s) => (s === seat ? hand.filter((c) => c !== card) : [...dealt[s]]))
         const s = { trick: [...pub.trick, { seat, card }], broken: pub.broken || effectiveSuit(card, jd) === 'S', bids: pub.bids, tricks: [...pub.tricks], turn: nextSeat(seat) }
         playOut(hands, s, rules)
-        totals[i] += w * value(pub, s.tricks, pub.bids, pub.blind, seat)
+        totals[i] += w * value(pub, s.tricks, pub.bids, pub.blind, seat, opts.bagWeight)
       })
     }
     if (!weightSum) return botPlan(hand, seat, pub, rules).card
@@ -281,7 +291,7 @@ export function proBid(hand, seat, pub, rules, rng = Math.random, opts = {}) {
         const hands = [0, 1, 2, 3].map((s) => (s === seat ? [...hand] : [...dealt[s]]))
         const s = { trick: [], broken: false, bids, tricks: [0, 0, 0, 0], turn: leader }
         playOut(hands, s, rules)
-        totals[i] += w * value(pub, s.tricks, bids, pub.blind, seat)
+        totals[i] += w * value(pub, s.tricks, bids, pub.blind, seat, opts.bagWeight)
       })
     }
     if (!weightSum) return botBid(hand, seat, pub, rules, rng)
