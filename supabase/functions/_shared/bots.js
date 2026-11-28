@@ -30,7 +30,8 @@ export const BOTS = {
     partner: 'dre',
     tone: 'brown',
     deck: 'ember',
-    model: 'deepseek-ai/DeepSeek-V3.2',
+    // Same model as Jada: punchier and gets the table right more often.
+    model: 'moonshotai/Kimi-K2.5',
     vibe: 'Sharp, competitive and petty in a funny way. Keeps receipts on every bid and reminds people of them. Counts books out loud, calls out anything that looks like a renege, and roasts Dre too when he slips. Confident, quick, never lets a bad play slide.',
     style: 'Quick comebacks, a little sass, words like "receipts", "be so for real", "I\'m just saying". At most one emoji.',
     lines: ['I got receipts on that bid 🧾', 'Be so for real right now.', 'Count your books, I\'ll wait.', 'Dre, focus.', 'That was cute. Anyway.', 'I\'m just saying, y\'all set.', 'Not the bid y\'all made 😂', 'Mhm. Next hand.'],
