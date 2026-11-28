@@ -7,6 +7,7 @@ import { BOARDS, fetchLeaderboard, fetchMyPlace, listFriends } from '../lib/soci
 import { rankForRating } from '../data/ranks'
 import { levelForXp } from '../data/levels'
 import LevelBadge from './ui/LevelBadge'
+import AiChip from './ui/AiChip'
 
 // Gold, silver and bronze medallions for the podium places.
 const MEDALS = {
@@ -95,6 +96,7 @@ function Row({ r, place, board, isMe, i }) {
         <p className="text-[14.5px] font-bold truncate flex items-center gap-1.5">
           <span className="truncate">{r.username ?? 'Player'}</span>
           <LevelBadge xp={r.xp} />
+          <AiChip id={r.id} />
           {isMe && <span className="text-[11px] font-semibold text-gold shrink-0">(You)</span>}
         </p>
         <p className="text-[11.5px] text-faint tabular-nums truncate">

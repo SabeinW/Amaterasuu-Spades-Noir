@@ -110,7 +110,9 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burs
   const size = compact ? 40 : 52
   const bidLabel = bid === null || bid === undefined ? null : bid === 0 ? (blind ? 'Blind Nil' : 'Nil') : bid
   const away = player?.left
-  const isBot = player?.isBot
+  // Plain table bots get the robot badge; AI players with their own accounts
+  // sit like anyone else.
+  const isBot = player?.isBot && !player?.persona
   const vertical = slot === 'left' || slot === 'right'
 
   return (
@@ -147,7 +149,7 @@ export default function Seat({ slot, player, avatarUrl, bid, blind, tricks, burs
           {emote &&
             (emote.kind === 'g' ? (
               <GifPop key={emote.id} slot={slot} emote={emote} />
-            ) : emote.kind === 'l' ? (
+            ) : emote.kind === 'l' || emote.kind === 't' ? (
               <LineBubble key={emote.id} slot={slot} emote={emote} />
             ) : (
               <EmojiPop key={emote.id} slot={slot} emoji={emote.emoji} />

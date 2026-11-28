@@ -8,8 +8,12 @@
 // hand with get_my_hand().
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as E from '../_shared/engine.js'
+import { PRO } from '../_shared/pro.js'
+import { BOTS } from '../_shared/bots.js'
 
-type Player = { id: string; name: string; seat: number; isBot?: boolean; left?: boolean }
+// An AI player with its own account (Big Dre, Keisha, …) sits as a real
+// profile id with isBot + persona, and plays with the pro brain.
+type Player = { id: string; name: string; seat: number; isBot?: boolean; persona?: string; left?: boolean }
 type Room = {
   id: string
   code: string
@@ -60,7 +64,8 @@ function cleanName(name: unknown, fallback: string) {
 function control(players: Player[]) {
   return [0, 1, 2, 3].map((seat) => {
     const p = players.find((x) => x.seat === seat)
-    if (!p || p.isBot) return 'bot'
+    if (!p) return 'bot'
+    if (p.isBot) return p.persona ? 'pro' : 'bot'
     if (p.left) return 'away'
     return 'human'
   })
@@ -68,6 +73,15 @@ function control(players: Player[]) {
 
 function isRealUser(p: Player) {
   return UUID.test(p.id)
+}
+
+// A person (not a table bot, not an AI player).
+function isHuman(p: Player) {
+  return isRealUser(p) && !p.isBot
+}
+
+function ctxFor(players: Player[]) {
+  return { now: Date.now(), rng, control: control(players), brains: { pro: PRO } }
 }
 
 async function loadRoom(roomId: string) {
@@ -108,7 +122,7 @@ function seatOf(room: Room, userId: string) {
 function refreshed(room: Room, hands: any[] | null) {
   if (room.status !== 'playing' || !hands || !room.game_state?.v) return { game_state: room.game_state, hands }
   const full = { pub: room.game_state, hands }
-  E.refresh(full, { now: Date.now(), rng, control: control(room.players) })
+  E.refresh(full, ctxFor(room.players))
   return { game_state: full.pub, hands: full.hands }
 }
 
@@ -237,11 +251,13 @@ async function handle(userId: string, body: any) {
       if (!me) return null
       if (room.status === 'waiting') {
         const rest = room.players.filter((p) => p.id !== userId)
-        if (!rest.length) return { patch: { status: 'closed', players: [], player_count: 0 } }
+        const people = rest.filter(isHuman)
+        // AI players don't keep a table open on their own.
+        if (!people.length) return { patch: { status: 'closed', players: [], player_count: 0 } }
         const patch: Partial<Room> & { player_count?: number } = { players: rest, player_count: rest.length }
         if (room.host_id === userId) {
-          patch.host_id = rest[0].id
-          patch.host_name = rest[0].name
+          patch.host_id = people[0].id
+          patch.host_name = people[0].name
         }
         return { patch }
       }
@@ -271,7 +287,7 @@ async function handle(userId: string, body: any) {
         }
       }
       const full = E.createMatch(room.settings, rng)
-      E.startMatch(full, { now: Date.now(), rng, control: control(players) })
+      E.startMatch(full, ctxFor(players))
       return { patch: { status: 'playing', players, player_count: 4, game_state: full.pub }, hands: full.hands }
     })
     return { room: res.room, hand: res.hands ? handFor(res.room, res.hands, userId) : null }
@@ -288,7 +304,7 @@ async function handle(userId: string, body: any) {
       if (reclaimed) room.players = room.players.map((p) => (p.id === userId ? { ...p, left: false, isBot: false } : p))
       const full = { pub: room.game_state, hands }
       const before = JSON.stringify(full.pub)
-      E.act(full, me.seat, move, { now: Date.now(), rng, control: control(room.players) })
+      E.act(full, me.seat, move, ctxFor(room.players))
       if (!reclaimed && JSON.stringify(full.pub) === before) return null
       return { patch: { players: room.players, game_state: full.pub }, hands: full.hands }
     })
@@ -296,6 +312,62 @@ async function handle(userId: string, body: any) {
       await recordResults(res.room)
     }
     return { room: res.room, hand: res.hands ? handFor(res.room, res.hands, userId) : null }
+  }
+
+  // Seat one of the AI players at a table that hasn't started. Anyone at
+  // the table may, if they're friends with that player or with its partner
+  // (the couples come as a pair). They take the other team's side from
+  // whoever invited them, across from their partner.
+  if (action === 'add_bot') {
+    const botId = String(body.botId ?? '')
+    if (!UUID.test(botId)) throw new HttpError(400, 'Missing player.')
+    const { data: all, error } = await admin.from('bot_accounts').select('id, persona, partner')
+    if (error) throw error
+    const bot = (all ?? []).find((b) => b.id === botId)
+    if (!bot || !BOTS[bot.persona as keyof typeof BOTS]) throw new HttpError(404, "That player isn't one of the AI players.")
+    const pair = (all ?? []).filter((b) => b.id === botId || b.persona === bot.partner).map((b) => b.id)
+    const list = pair.join(',')
+    const { data: friendship } = await admin
+      .from('friends')
+      .select('id')
+      .eq('status', 'accepted')
+      .or(`and(user_id.eq.${userId},friend_id.in.(${list})),and(friend_id.eq.${userId},user_id.in.(${list}))`)
+      .limit(1)
+    if (!friendship?.length) throw new HttpError(403, 'Add them as a friend first.')
+    const { data: profile } = await admin.from('profiles').select('username').eq('id', botId).maybeSingle()
+    const name = cleanName(profile?.username, BOTS[bot.persona as keyof typeof BOTS].name)
+    const res = await mutate(roomId, (room) => {
+      if (room.status !== 'waiting') throw new HttpError(409, 'The game already started.')
+      const me = seatOf(room, userId)
+      if (!me) throw new HttpError(403, "You're not at this table.")
+      if (room.players.some((p) => p.id === botId)) return null
+      if (room.players.length >= 4) throw new HttpError(409, 'The table is full.')
+      const taken = new Set(room.players.map((p) => p.seat))
+      const free = (s: number) => !taken.has(s)
+      const partnerSeat = room.players.find((p) => p.persona === bot.partner)?.seat
+      let seat: number | undefined
+      if (partnerSeat !== undefined && free((partnerSeat + 2) % 4)) seat = (partnerSeat + 2) % 4
+      if (seat === undefined) {
+        const theirs = [(me.seat + 1) % 4, (me.seat + 3) % 4].filter(free)
+        seat = theirs.find((s) => free((s + 2) % 4)) ?? theirs[0] ?? [0, 1, 2, 3].find(free)
+      }
+      if (seat === undefined) throw new HttpError(409, 'The table is full.')
+      room.players = [...room.players, { id: botId, name, seat, isBot: true, persona: bot.persona }]
+      return { patch: { players: room.players, player_count: room.players.length } }
+    })
+    return { room: res.room }
+  }
+
+  if (action === 'remove_bot') {
+    const botId = String(body.botId ?? '')
+    const res = await mutate(roomId, (room) => {
+      if (room.status !== 'waiting') throw new HttpError(409, 'The game already started.')
+      if (!seatOf(room, userId)) throw new HttpError(403, "You're not at this table.")
+      const rest = room.players.filter((p) => !(p.id === botId && p.persona))
+      if (rest.length === room.players.length) return null
+      return { patch: { players: rest, player_count: rest.length } }
+    })
+    return { room: res.room }
   }
 
   if (action === 'rename') {

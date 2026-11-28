@@ -8,6 +8,7 @@ import { AVATAR_EMOJIS, AVATAR_COLORS, ART_AVATARS, PROFILE_BORDERS, parseAvatar
 import { ACHIEVEMENTS, MILESTONES, TIER_STYLE, milestoneStatus, tierForCount } from '../data/achievements'
 import { levelProgress, levelColor } from '../data/levels'
 import LevelBadge from './ui/LevelBadge'
+import AiChip from './ui/AiChip'
 import { rankProgress } from '../data/ranks'
 import { updateProfile } from '../lib/auth'
 import {
@@ -100,6 +101,7 @@ function PersonRow({ person, dim = false, sub, children }) {
         <span className="flex items-center gap-1.5 min-w-0">
           <span className="text-[14.5px] font-semibold truncate">{person.username}</span>
           {person.xp != null && <LevelBadge xp={person.xp} />}
+          <AiChip id={person.id} />
         </span>
         {sub && <span className="block text-[11.5px] text-gold-hi truncate">{sub}</span>}
       </span>

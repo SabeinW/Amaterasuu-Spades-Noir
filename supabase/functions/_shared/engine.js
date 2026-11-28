@@ -389,7 +389,7 @@ function emit(pub, ev) {
   if (pub.events.length > MAX_EVENTS) pub.events.splice(0, pub.events.length - MAX_EVENTS)
 }
 
-// ctx = { now, rng, control: ['human'|'bot'|'away' x4] }
+// ctx = { now, rng, control: ['human'|'bot'|'pro'|'away' x4], brains? }
 // 'away' is a human who left mid-match: their seat keeps its cards and is
 // auto-played immediately (like a bot) until they rejoin.
 function isHumanTurn(ctx, seat) {
@@ -546,12 +546,23 @@ function endRound(full, ctx) {
   }
 }
 
+// A 'pro' seat (an AI player with its own account) thinks with the brain
+// the caller hands in as ctx.brains.pro (see pro.js); everyone else, and any
+// pro move that comes back unusable, uses the quick rules above. Either way
+// the brain only ever sees its own hand and the public table.
 function autoMove(full, seat, ctx) {
   const { pub } = full
+  const hand = full.hands[seat]
+  const brain = ctx.control[seat] === 'pro' ? ctx.brains?.pro : null
   if (pub.phase === 'bidding') {
-    applyBid(full, seat, botBid(full.hands[seat], seat, pub, pub.rules, ctx.rng), false, true, ctx)
+    let bid = brain ? brain.bid(hand, seat, pub, pub.rules, ctx.rng) : null
+    const ok = Number.isInteger(bid) && bid >= 0 && bid <= 13 && (bid === 0 ? canBidNil(pub, seat, pub.rules) : bid >= minimumBid(pub, seat, pub.rules))
+    if (!ok) bid = botBid(hand, seat, pub, pub.rules, ctx.rng)
+    applyBid(full, seat, bid, false, true, ctx)
   } else if (pub.phase === 'playing') {
-    applyPlay(full, seat, botCard(full.hands[seat], seat, pub, pub.rules), true, ctx)
+    let card = brain ? brain.card(hand, seat, pub, pub.rules, ctx.rng) : null
+    if (!card || !hand.includes(card) || !isPlayable(card, hand, pub.trick, pub.broken, pub.rules.jokers, pub.rules.spadesBreak)) card = botCard(hand, seat, pub, pub.rules)
+    applyPlay(full, seat, card, true, ctx)
   }
 }
 

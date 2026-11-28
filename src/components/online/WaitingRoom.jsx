@@ -4,27 +4,36 @@
 // mid-game by joining with the same code.
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Check, Copy, Crown, LogOut, Send, Share2, UserPlus } from 'lucide-react'
+import { Bot, Check, Copy, Crown, LogOut, Send, Share2, UserPlus, X } from 'lucide-react'
 import Avatar from '../ui/Avatar'
 import Sheet from '../ui/Sheet'
 import LevelBadge from '../ui/LevelBadge'
 import { listFriends } from '../../lib/social'
 import { sendInvite } from '../../lib/invites'
-import { fetchAvatars, fetchRoom, leaveTable, sitAt, startTable, subscribeRoom } from '../../lib/online'
+import { fetchAvatars, fetchRoom, leaveTable, openTableChannel, sitAt, startTable, subscribeRoom } from '../../lib/online'
+import { BOTS, addBotToTable, askBots, isAiSeat, loadBotAccounts, personaOf, playReplies, removeBotFromTable } from '../../lib/bots'
+import AiChip from '../ui/AiChip'
 import { ruleChips } from './Lobby'
 
 // Your friends, each with an Invite button: they get a pop-up with Join.
-function InviteFriends({ open, onClose, user, room, onShare, copied }) {
+// An AI player comes over by themselves (and brings their partner).
+function InviteFriends({ open, onClose, user, room, onShare, copied, onInviteBot, botState }) {
   const [friends, setFriends] = useState(null)
   const [sent, setSent] = useState({})
   const [error, setError] = useState(null)
+  const [, setBotsLoaded] = useState(0)
   useEffect(() => {
     if (open && user?.id) listFriends(user.id).then(({ friends: f }) => setFriends(f))
+    loadBotAccounts().then(() => setBotsLoaded((n) => n + 1))
   }, [open, user?.id])
   const seated = new Set(room.players.map((p) => p.id))
 
   async function invite(f) {
     setError(null)
+    if (personaOf(f.id)) {
+      onInviteBot(f.id).catch((e) => setError(e.message))
+      return
+    }
     setSent((s) => ({ ...s, [f.id]: 'sending' }))
     try {
       await sendInvite(user.id, f.id, room.code)
@@ -44,22 +53,30 @@ function InviteFriends({ open, onClose, user, room, onShare, copied }) {
       ) : (
         <ul className="flex flex-col gap-1.5">
           {friends.map((f) => {
-            const state = seated.has(f.id) ? 'seated' : sent[f.id]
+            const persona = personaOf(f.id)
+            const state = seated.has(f.id) ? 'seated' : persona ? botState[f.id] : sent[f.id]
+            const partner = persona ? BOTS[BOTS[persona]?.partner]?.name : null
             return (
               <li key={f.id} className="flex items-center gap-3 rounded-2xl pl-2.5 pr-1.5 py-1.5 min-h-[58px]" style={{ background: 'rgb(243 234 219 / 0.03)', border: '1px solid rgb(243 234 219 / 0.07)' }}>
                 <Avatar avatarUrl={f.avatar_url} name={f.username} size={40} />
-                <span className="flex-1 min-w-0 flex items-center gap-1.5">
-                  <span className="text-[14.5px] font-semibold truncate">{f.username}</span>
-                  <LevelBadge xp={f.xp} />
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[14.5px] font-semibold truncate">{f.username}</span>
+                    <LevelBadge xp={f.xp} />
+                    {persona && <AiChip />}
+                  </span>
+                  {partner && <span className="block text-[11.5px] text-faint">Comes with {partner}</span>}
                 </span>
                 {state === 'seated' ? (
                   <span className="chip mr-1.5">At the table</span>
+                ) : state === 'joining' ? (
+                  <span className="chip mr-1.5 !text-gold-hi">On the way…</span>
                 ) : state === 'sent' ? (
                   <span className="chip mr-1.5 !text-gold-hi">
                     <Check className="w-3.5 h-3.5" /> Invited
                   </span>
                 ) : (
-                  <button onClick={() => invite(f)} disabled={state === 'sending'} className="btn btn-gold !min-h-10 !px-3.5 !rounded-full text-[13px]">
+                  <button onClick={() => invite(f)} disabled={state === 'sending' || (persona && room.players.length >= 4)} className="btn btn-gold !min-h-10 !px-3.5 !rounded-full text-[13px]">
                     <Send className="w-4 h-4" /> {state === 'sending' ? 'Sending…' : 'Invite'}
                   </button>
                 )}
@@ -85,6 +102,9 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
   const [copied, setCopied] = useState(false)
   const [avatars, setAvatars] = useState({})
   const [inviting, setInviting] = useState(false)
+  const [botState, setBotState] = useState({})
+  const [bubbles, setBubbles] = useState({})
+  const channelRef = useRef(null)
   const versionRef = useRef(initial.version ?? 0)
   const startedRef = useRef(false)
 
@@ -111,13 +131,69 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
     if (room.status === 'closed') onLeave?.(true)
   }, [room, onStart, onLeave])
 
-  const ids = room.players.filter((p) => !p.isBot).map((p) => p.id).join(',')
+  const ids = room.players.filter((p) => !p.isBot || isAiSeat(p)).map((p) => p.id).join(',')
   useEffect(() => {
     if (ids) fetchAvatars(ids.split(',')).then(setAvatars)
   }, [ids])
 
   const me = room.players.find((p) => p.id === user?.id)
   const isHost = room.host_id === user?.id
+
+  // Table talk already works here, so AI players can say hi as they sit.
+  function bubble(seat, text) {
+    const id = Math.random()
+    setBubbles((b) => ({ ...b, [seat]: { id, text } }))
+    setTimeout(() => setBubbles((b) => (b[seat]?.id === id ? { ...b, [seat]: null } : b)), Math.min(5200, 2400 + text.length * 40))
+  }
+  useEffect(() => {
+    if (!user?.id) return
+    const ch = openTableChannel(initial.id, { id: user.id, name: me?.name ?? 'Player' }, { onChat: ({ text, seat }) => [0, 1, 2, 3].includes(seat) && text && bubble(seat, String(text).slice(0, 90)) })
+    channelRef.current = ch
+    return () => {
+      channelRef.current = null
+      ch.close()
+    }
+  }, [initial.id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const say = (replies) =>
+    playReplies(replies, {
+      show: { chat: (_author, text, seat) => bubble(seat, text), emote: () => {} },
+      send: (ev, payload) => channelRef.current?.send(ev, payload),
+      alive: () => !!channelRef.current,
+    })
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+
+  // An AI player "accepts" after a moment, sits down, says something, and
+  // then pulls their partner in a couple of seconds later.
+  async function inviteBot(botId) {
+    setBotState((s) => ({ ...s, [botId]: 'joining' }))
+    try {
+      await wait(1500 + Math.random() * 2000)
+      apply((await addBotToTable(initial.id, botId)).room)
+      const { replies, bring } = await askBots({ roomId: initial.id, trigger: 'joined', botId })
+      await say(replies)
+      if (bring) {
+        setBotState((s) => ({ ...s, [bring]: 'joining' }))
+        await wait(1800 + Math.random() * 1500)
+        apply((await addBotToTable(initial.id, bring)).room)
+        const second = await askBots({ roomId: initial.id, trigger: 'joined', botId: bring })
+        await say(second.replies)
+      }
+    } catch (e) {
+      throw new Error(e.message || 'They couldn’t sit down. Try again.')
+    } finally {
+      setBotState({})
+    }
+  }
+
+  async function removeBot(botId) {
+    setError(null)
+    try {
+      apply((await removeBotFromTable(initial.id, botId)).room)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
   const bySeat = (s) => room.players.find((p) => p.seat === s)
   const empty = 4 - room.players.length
   const link = `${window.location.origin}/?join=${room.code}`
@@ -231,6 +307,29 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
                       <div className="relative">
                         <Avatar avatarUrl={avatars[p.id]} name={p.name} size={56} />
                         {room.host_id === p.id && <Crown className="absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 text-gold-hi" />}
+                        {isAiSeat(p) && me && (
+                          <button
+                            onClick={() => removeBot(p.id)}
+                            aria-label={`Remove ${p.name}`}
+                            className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center bg-ink-3 border border-white/20"
+                          >
+                            <X className="w-3.5 h-3.5 text-muted" />
+                          </button>
+                        )}
+                        <AnimatePresence>
+                          {bubbles[seat] && (
+                            <motion.span
+                              key={bubbles[seat].id}
+                              className="absolute left-1/2 bottom-full mb-2 z-20 block w-max max-w-[150px] rounded-2xl px-2.5 py-1.5 text-[12px] font-bold leading-snug text-center"
+                              style={{ background: '#f6ecd6', color: '#1b1307', boxShadow: '0 10px 24px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(241 210 138 / 0.9)' }}
+                              initial={{ opacity: 0, scale: 0.6, x: '-50%', y: 6 }}
+                              animate={{ opacity: 1, scale: 1, x: '-50%', y: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, x: '-50%' }}
+                            >
+                              {bubbles[seat].text}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </div>
                       <p className="text-[12.5px] font-bold mt-1 truncate max-w-full">{isMe ? 'You' : p.name}</p>
                       <p className="text-[10px] uppercase tracking-[0.18em] font-bold" style={{ color: team === 'us' ? '#d4a64a' : '#ff8a72' }}>
@@ -274,7 +373,7 @@ export default function WaitingRoom({ room: initial, user, table, onStart, onLea
           <p className="text-[11.5px] text-faint text-center mt-2">Empty seats get AI players. A friend can still take one over later with the code.</p>
         </div>
       </div>
-      <InviteFriends open={inviting} onClose={() => setInviting(false)} user={user} room={room} onShare={share} copied={copied} />
+      <InviteFriends open={inviting} onClose={() => setInviting(false)} user={user} room={room} onShare={share} copied={copied} onInviteBot={inviteBot} botState={botState} />
     </div>
   )
 }

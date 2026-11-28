@@ -27,6 +27,7 @@ import CoachBubble from './CoachBubble'
 import { EmoteTray } from './EmotePicker'
 import { GifSheet } from './GifPicker'
 import { gifsEnabled } from '../../lib/giphy'
+import { askBots, isAiSeat, playReplies, tableHasAi } from '../../lib/bots'
 import { BOT_TALK, emotePayload, moodOf, pickFrom, readEmote, rememberPick } from '../../data/taunts'
 import { useSkinTone } from '../../lib/skinTone'
 import { SmilePlus } from 'lucide-react'
@@ -197,6 +198,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   const botTalkAtRef = useRef(0)
   const queuedTalkRef = useRef(null)
   const botEventRef = useRef(null)
+  const aiEventRef = useRef(null)
 
   const seatPlayer = useCallback((s) => players.find((p) => p.seat === s), [players])
 
@@ -204,6 +206,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   const onEvent = useCallback(
     (ev, next) => {
       botEventRef.current?.(ev, next)
+      aiEventRef.current?.(ev, next)
       switch (ev.t) {
         case 'deal':
           setDealInfo({ key: ev.seq, dealer: ev.dealer, startedAt: Date.now() })
@@ -301,7 +304,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   }, [hand, pending])
 
   // ── online extras: avatars, presence, chat, emotes ─────────────────────
-  const humanIds = players.filter((p) => !p.isBot && !p.id.startsWith('__')).map((p) => p.id).join(',')
+  const humanIds = players.filter((p) => (!p.isBot || isAiSeat(p)) && !p.id.startsWith('__')).map((p) => p.id).join(',')
   useEffect(() => {
     if (!online || !humanIds) return
     fetchAvatars(humanIds.split(',')).then(setAvatars)
@@ -322,10 +325,7 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
         const shown = readEmote(payload)
         if (shown) showEmote(seat, shown)
       },
-      onChat: ({ author, text }) => {
-        setMessages((m) => [...m, { author, text }])
-        setUnread((u) => u + 1)
-      },
+      onChat: ({ author, text, seat }) => heardChat(author, text, seat),
       onPresence: (ids) => setPresent(new Set(ids)),
     })
     channelRef.current = ch
@@ -338,8 +338,51 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
   function showEmote(seat, shown) {
     const id = Math.random()
     setEmotes((e) => ({ ...e, [seat]: { ...shown, id } }))
-    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), shown.kind === 'g' ? 4200 : shown.kind === 'l' ? 3000 : 1900)
+    const ms = shown.kind === 'g' ? 4200 : shown.kind === 'l' ? 3000 : shown.kind === 't' ? Math.min(5200, 2200 + shown.text.length * 40) : 1900
+    setTimeout(() => setEmotes((e) => (e[seat]?.id === id ? { ...e, [seat]: null } : e)), ms)
   }
+
+  // A chat line: into the chat, and for a moment over the seat that said it.
+  function heardChat(author, text, seat) {
+    const t = String(text ?? '').slice(0, 300)
+    if (!t) return
+    setMessages((m) => [...m, { author, text: t }])
+    setUnread((u) => u + 1)
+    if ([0, 1, 2, 3].includes(seat) && seatPlayer(seat)) showEmote(seat, { kind: 't', key: t, text: t.length > 90 ? `${t.slice(0, 88)}…` : t })
+  }
+
+  // ── AI players with their own accounts (online): they answer the table ──
+  const aiHere = online && tableHasAi(players)
+  function botsAnswer(body) {
+    if (!aiHere || !room?.id) return
+    askBots({ roomId: room.id, ...body }).then(({ replies }) =>
+      playReplies(replies, {
+        show: { chat: heardChat, emote: (payload) => { const shown = readEmote(payload); if (shown) showEmote(payload.seat, shown) } },
+        send: (ev, payload) => channelRef.current?.send(ev, payload),
+        alive: () => !!channelRef.current,
+      })
+    )
+  }
+  // Only one app at the table sets them off for a game moment: the person
+  // in the lowest seat who's here (the server also ignores repeats).
+  const leadHuman = players
+    .filter((p) => !p.isBot && !p.left && (!present || present.has(p.id)))
+    .sort((a, b) => a.seat - b.seat)[0]
+  aiEventRef.current = !aiHere || leadHuman?.id !== user?.id
+    ? null
+    : (ev, next) => {
+        if (ev.t === 'bid' && next.bids.every((b) => b !== null)) botsAnswer({ trigger: 'moment', event: { type: 'bids' } })
+        else if (ev.t === 'trick') {
+          const jd = next.rules?.jokers
+          const led = E.effectiveSuit(ev.cards[0].card, jd)
+          const won = ev.cards.find((c) => c.seat === ev.winner)?.card
+          if (led !== 'S' && won && E.effectiveSuit(won, jd) === 'S') {
+            const trick = next.tricks.reduce((a, b) => a + b, 0)
+            setTimeout(() => botsAnswer({ trigger: 'moment', event: { type: 'cut', seat: ev.winner, trick } }), T.sweep * 1000)
+          }
+        } else if (ev.t === 'round') setTimeout(() => botsAnswer({ trigger: 'moment', event: { type: 'round' } }), 1200)
+        else if (ev.t === 'game') setTimeout(() => botsAnswer({ trigger: 'moment', event: { type: 'won' } }), 1500)
+      }
 
   // Throw an emoji or a line. Six in ten seconds at most, so nobody floods the table.
   function sendEmote(pick) {
@@ -353,8 +396,10 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
     const payload = emotePayload(mySeat, pick, tone)
     showEmote(mySeat, readEmote(payload))
     rememberPick(pick)
-    if (online) channelRef.current?.send('EMOTE', payload)
-    else if (botsTalk) botReply(pick)
+    if (online) {
+      channelRef.current?.send('EMOTE', payload)
+      if (aiHere) botsAnswer({ trigger: 'threw', text: pick.kind === 'g' ? (pick.sticker ? 'a sticker' : 'a GIF') : pick.kind === 'l' ? `the line "${readEmote(payload)?.text ?? ''}"` : payload.emoji })
+    } else if (botsTalk) botReply(pick)
     return true
   }
 
@@ -858,7 +903,9 @@ export default function GameTable({ game, mode, coached = false, deck, table, us
           onSend={(text) => {
             const author = players.find((p) => p.id === user?.id)?.name ?? 'You'
             setMessages((m) => [...m, { author, text, mine: true }])
-            channelRef.current?.send('CHAT', { author, text })
+            showEmote(mySeat, { kind: 't', key: text, text: text.length > 90 ? `${text.slice(0, 88)}…` : text })
+            channelRef.current?.send('CHAT', { author, text, seat: mySeat })
+            botsAnswer({ trigger: 'said', text })
           }}
           onEmote={(pick) => {
             if (sendEmote(pick)) setMenu(null)
