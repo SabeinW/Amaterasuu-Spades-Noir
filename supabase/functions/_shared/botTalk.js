@@ -33,6 +33,8 @@ export function systemPrompt(id) {
     `How you type: ${b.style}`,
     'Those phrases only show your voice. Make up a fresh line every time: never reuse them word for word, and never repeat anything already said at the table. Be specific about what just happened (who said what, the bids, the books, the score) and call people by name.',
     'You are a strong player and a funny trash talker. Keep it playful, never truly mean.',
+    `Always talk in the first person (I, me, my, we, us). Never say your own name ("${b.name}") or talk about yourself like you're someone else.`,
+    `${partner.name} is your partner and on your side: hype ${partner.name} up and have their back. A light joke at ${partner.name} now and then is fine, but aim your trash talk at the other team.`,
     'Table rules, never break them: no swearing at all, not even mild words, and no innuendo. Nothing about drinking, drugs, smoking, betting money, flirting or dating, religion or politics. Never joke about anyone\'s looks, race, weight or family. Never say what cards you hold or what you will play. Never guess whether someone is a man or a woman: go by what you are told, otherwise call them by name. You never bid Nil; with a weak hand you bid what the board needs. If someone sincerely asks whether you are a bot, an AI or a real person, say you are an AI player, still in character.',
     'Answer with ONLY a JSON object like {"say": "", "emoji": "", "gif": ""}:',
     '- "say": what you type in the table chat, under 90 characters, or "" to stay quiet.',
@@ -54,7 +56,7 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '', about
   const opps = [(seat + 1) % 4, (seat + 3) % 4]
   const usTeam = seat % 2 === 0 ? 'A' : 'B'
   const themTeam = usTeam === 'A' ? 'B' : 'A'
-  const out = [`Who's at the table: your partner ${name(partner)}; the other team is ${name(opps[0])} and ${name(opps[1])}.`]
+  const out = [`Who's at the table: you are ${BOTS[id].name}; your partner (your teammate) is ${name(partner)}; the other team, the ones to trash talk, is ${name(opps[0])} and ${name(opps[1])}.`]
   if (about) out.push(about)
   if (pub.scores) {
     // Spelled out, winner first, so no model gets it backwards.
@@ -67,7 +69,7 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '', about
     )
   }
   if (pub.bids?.some((b) => b !== null && b !== undefined)) {
-    const row = (s) => `${s === seat ? 'you' : name(s)} bid ${pub.bids[s] ?? '?'}, has ${pub.tricks?.[s] ?? 0} books`
+    const row = (s) => (s === seat ? `you bid ${pub.bids[s] ?? '?'} and have ${pub.tricks?.[s] ?? 0} books` : `${name(s)} bid ${pub.bids[s] ?? '?'} and has ${pub.tricks?.[s] ?? 0} books`)
     out.push(`This hand: ${[seat, partner, ...opps].map(row).join('; ')}.`)
     const need = (team) => TEAM_WORD[team].reduce((n, s) => n + (pub.bids[s] || 0), 0)
     const took = (team) => TEAM_WORD[team].reduce((n, s) => n + (pub.tricks?.[s] ?? 0), 0)
@@ -221,23 +223,31 @@ export function readSummary(text, names) {
 
 // The first two words of a line, for spotting a bot saying the same thing
 // the same way again.
-export const opening = (text) =>
+const words = (text) =>
   String(text ?? '')
     .toLowerCase()
-    .replace(/[^a-z0-9' ]/g, ' ')
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
-    .slice(0, 2)
-    .join(' ')
+export const opening = (text) => words(text).slice(0, 2).join(' ')
+
+// Mostly the same words as another line (Jada said "Malik didn't leash me,
+// he signed up to WIN…" twice, once without the apostrophe).
+function sameWords(a, b) {
+  const x = new Set(words(a))
+  const y = new Set(words(b))
+  if (x.size < 3 || y.size < 3) return false
+  let both = 0
+  for (const w of x) if (y.has(w)) both++
+  return both / Math.min(x.size, y.size) >= 0.7
+}
 
 // Starts like one of this bot's last few lines?
 export function samey(id, say, talk) {
   const o = opening(say)
-  if (!o || o.split(' ').length < 2) return false
-  return (talk ?? [])
-    .filter((l) => l.who === BOTS[id].name)
-    .slice(-5)
-    .some((l) => opening(l.text) === o)
+  const mine = (talk ?? []).filter((l) => l.who === BOTS[id].name).slice(-5)
+  return mine.some((l) => (o.split(' ').length >= 2 && opening(l.text) === o) || sameWords(l.text, say))
 }
 
 // ------------------------------------------------------------ who's who ---

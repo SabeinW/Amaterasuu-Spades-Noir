@@ -37,7 +37,7 @@ for (const [id, b] of Object.entries(BOTS)) {
   eq(`${b.name}'s instructions say no Nil and AI if asked`, /never bid Nil/.test(sys) && /AI player/.test(sys), true)
 }
 const ctx = contextPrompt('nia', 3, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Jaylen' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Nia' }], game_state: {} }, [], 'test')
-eq('the table is described from her seat', /partner Jaylen; the other team is Raheem and Wife/.test(ctx), true)
+eq('the table is described from her seat', /you are Nia; your partner \(your teammate\) is Jaylen; the other team, the ones to trash talk, is Raheem and Wife/.test(ctx), true)
 
 // Memory
 const sum = readSummary('```json\n{"raheem": ["called Dre \\"lil bro\\" 😂", "said damn", "a", "b", "c", "d", "e"], "Wife": ["said they practiced all week"], "Big Dre": ["x"]}\n```', ['Raheem', 'Wife'])
@@ -69,8 +69,12 @@ eq('the couple is married, wife and husband', /Swizz is Sabe's wife, Sabe is Swi
 eq('pet names between them are for each other', /baby, bae, babe or my love, they mean each other, never you/.test(couple), true)
 eq('anyone else is called by name, never guessed', /You don't know whether Mom is a he or a she: call them by name, never guess/.test(couple), true)
 eq('no facts: still told not to guess', /call them by name, never guess/.test(aboutText([{ id: 'x', name: 'X' }], {})), true)
-eq('who\'s who goes right after who\'s at the table', /the other team is .*\n\nWho's who: Sabe is a man/.test(contextPrompt('nia', 1, { players: [{ seat: 0, name: 'Sabe' }, { seat: 2, name: 'Swizz' }], game_state: {} }, [], 'x', '', couple)), true)
+eq('who\'s who goes right after who\'s at the table', /the ones to trash talk, is .*\n\nWho's who: Sabe is a man/.test(contextPrompt('nia', 1, { players: [{ seat: 0, name: 'Sabe' }, { seat: 2, name: 'Swizz' }], game_state: {} }, [], 'x', '', couple)), true)
 eq('the rules say never guess man or woman', /Never guess whether someone is a man or a woman/.test(systemPrompt('jaylen')), true)
+
+eq('they talk in the first person', /Always talk in the first person/.test(systemPrompt('malik')) && /Never say your own name \("Malik"\)/.test(systemPrompt('malik')), true)
+eq('their partner is on their side', /Jada is your partner and on your side: hype Jada up/.test(systemPrompt('malik')), true)
+eq('a repeat without the apostrophe is caught', samey('jada', "Malik didn't leash me he signed up to WIN, something y'all wouldn't know about", [{ who: 'Jada', text: 'malik didnt sign up to leash me he signed up to WIN, something yall wouldnt know about' }]), true)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)
