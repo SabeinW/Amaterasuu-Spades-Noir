@@ -117,6 +117,9 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
   }
   const botTeam = (b: Player) => (b.seat % 2 === 0 ? 'A' : 'B')
   const trigger = String(body.trigger ?? '')
+  // The boss couple talks more: they gloat about everything.
+  const isBoss = (b: Player) => !!(BOTS[b.persona as keyof typeof BOTS] as { boss?: boolean })?.boss
+  const loud = bots.some(isBoss)
 
   if (trigger === 'joined') {
     const bot = bots.find((b) => b.id === body.botId)
@@ -141,7 +144,7 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
     const named = bots.filter((b) => nameIn(text, b.name))
     let who: Player[] = []
     if (named.length) who = [named[0], ...(named[1] && chance(0.5) ? [named[1]] : [])]
-    else if (chance(trigger === 'said' ? 0.75 : 0.45)) {
+    else if (chance(trigger === 'said' ? (loud ? 0.85 : 0.75) : loud ? 0.6 : 0.45)) {
       const first = pick(bots)
       who = [first]
       const partner = bots.find((b) => b.persona === BOTS[first.persona as keyof typeof BOTS].partner)
@@ -161,9 +164,9 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
       const cutter = players.find((p) => p.seat === seat)
       const bot = bots.find((b) => b.seat === seat)
       const key = `${round}:${ev.trick ?? ''}:cut`
-      if (bot) return chance(0.55) ? { happened: `You just cut the trick with a spade and took the book.`, who: [bot], bring: false, line: null, key } : null
+      if (bot) return chance(isBoss(bot) ? 0.85 : 0.55) ? { happened: `You just cut the trick with a spade and took the book.`, who: [bot], bring: false, line: null, key } : null
       const victim = bots.find((b) => b.seat % 2 !== seat % 2)
-      if (!victim || !chance(0.35)) return null
+      if (!victim || !chance(isBoss(victim) ? 0.6 : 0.35)) return null
       return { happened: `${cutter?.name ?? 'Someone'} just cut with a spade and took the book from your team.`, who: [victim], bring: false, line: null, key }
     }
     if (type === 'bids') {
@@ -184,8 +187,8 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
       }
       const botsSet = bots.some((b) => r[botTeam(b)].made === false)
       const humansSet = bots.some((b) => r[botTeam(b) === 'A' ? 'B' : 'A'].made === false)
-      if (!botsSet && !humansSet && !chance(0.3)) return null
-      if (!chance(0.85)) return null
+      if (!botsSet && !humansSet && !chance(loud ? 0.6 : 0.3)) return null
+      if (!chance(loud ? 0.95 : 0.85)) return null
       const bot = pick(bots)
       return { happened: `The hand just ended. ${lines.join(' ')} Scores now: ${teamName('A')} ${r.A.total}, ${teamName('B')} ${r.B.total}.`, who: [bot], bring: false, line: null, key }
     }
@@ -194,8 +197,13 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
       if (!winner) return null
       const key = `${pub.round}:won`
       const [first, second] = [...bots].sort(() => Math.random() - 0.5)
-      const say = (b: Player) => (botTeam(b) === winner ? 'Your team just WON the game. Celebrate and talk trash.' : 'Your team just lost the game. Be a good sport but salty and funny, ask for a rematch.')
-      return { happened: `The game is over: ${teamName(winner)} won, ${pub.scores?.A?.total ?? ''} to ${pub.scores?.B?.total ?? ''}. ${say(first)}`, who: second && chance(0.6) ? [first, second] : [first], bring: false, line: null, key, eachSays: say }
+      const say = (b: Player) => {
+        const persona = BOTS[b.persona as keyof typeof BOTS] as { onWin?: string; onLose?: string }
+        return botTeam(b) === winner
+          ? persona.onWin ?? 'Your team just WON the game. Celebrate and talk trash.'
+          : persona.onLose ?? 'Your team just lost the game. Be a good sport but salty and funny, ask for a rematch.'
+      }
+      return { happened: `The game is over: ${teamName(winner)} won, ${pub.scores?.A?.total ?? ''} to ${pub.scores?.B?.total ?? ''}. ${say(first)}`, who: second && chance(loud ? 0.9 : 0.6) ? [first, second] : [first], bring: false, line: null, key, eachSays: say }
     }
   }
   return null

@@ -59,7 +59,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const { data: botRows } = await admin.from('bot_accounts').select('id, persona, partner')
 const botId = (persona) => botRows.find((b) => b.persona === persona)?.id
-check(botRows.length === 6, `six AI players exist (${botRows.length})`)
+check(botRows.length === 8, `eight AI players exist (${botRows.length})`)
 await admin.from('bot_usage').delete().neq('calls', -1)
 
 const [me, wife, stranger] = await Promise.all(['husband', 'wife', 'stranger'].map(makePlayer))
@@ -156,6 +156,20 @@ await sleep(2600)
 const capped = await me.bots({ roomId: r0.id, trigger: 'said', text: 'jaylen say something' })
 check(capped.replies?.[0]?.ai === false && BOTS.jaylen.lines.includes(capped.replies[0].say), `past the daily cap Jaylen still talks, from his own lines (${JSON.stringify(capped.replies?.[0]?.say)})`)
 await admin.from('bot_usage').delete().neq('calls', -1)
+
+// --- the boss couple ------------------------------------------------------------
+await wife.client.from('friends').insert({ user_id: wife.id, friend_id: botId('kaida'), status: 'pending' })
+const { room: b0 } = await wife.game({ action: 'create', name: wife.name, rules: {} })
+await wife.game({ action: 'add_bot', roomId: b0.id, botId: botId('kaida') })
+const bossHi = await wife.bots({ roomId: b0.id, trigger: 'joined', botId: botId('kaida') })
+check(bossHi.bring === botId('tatsu'), 'Kaida brings Tatsu')
+const boss = (await wife.game({ action: 'add_bot', roomId: b0.id, botId: bossHi.bring })).room
+const [kaida, tatsu] = ['kaida', 'tatsu'].map((p) => boss.players.find((x) => x.persona === p))
+check(kaida && tatsu && tatsu.seat === (kaida.seat + 2) % 4 && kaida.seat % 2 !== 0, `the boss couple sits together against her (${kaida?.seat}, ${tatsu?.seat})`)
+await wife.game({ action: 'start', roomId: b0.id })
+const bossGame = (await admin.from('rooms').select('game_state').eq('id', b0.id).single()).data.game_state
+check(bossGame.phase === 'bidding' || bossGame.phase === 'playing', `their game runs (${bossGame.phase})`)
+await wife.game({ action: 'leave', roomId: b0.id })
 
 // --- waiting room: remove, and leaving --------------------------------------------
 const { room: w0 } = await me.game({ action: 'create', name: me.name, rules: {} })

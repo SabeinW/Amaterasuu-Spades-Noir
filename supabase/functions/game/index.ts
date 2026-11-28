@@ -8,7 +8,7 @@
 // hand with get_my_hand().
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import * as E from '../_shared/engine.js'
-import { PRO } from '../_shared/pro.js'
+import { BOSS, PRO } from '../_shared/pro.js'
 import { BOTS } from '../_shared/bots.js'
 
 // An AI player with its own account (Big Dre, Keisha, …) sits as a real
@@ -65,7 +65,7 @@ function control(players: Player[]) {
   return [0, 1, 2, 3].map((seat) => {
     const p = players.find((x) => x.seat === seat)
     if (!p) return 'bot'
-    if (p.isBot) return p.persona ? 'pro' : 'bot'
+    if (p.isBot) return p.persona ? (BOTS[p.persona as keyof typeof BOTS]?.boss ? 'boss' : 'pro') : 'bot'
     if (p.left) return 'away'
     return 'human'
   })
@@ -80,8 +80,30 @@ function isHuman(p: Player) {
   return isRealUser(p) && !p.isBot
 }
 
-function ctxFor(players: Player[]) {
-  return { now: Date.now(), rng, control: control(players), brains: { pro: PRO } }
+// The AI players' thinking is slow next to the quick rules, and a request
+// only gets about 2 s of CPU on Supabase. So each request has a thinking
+// budget shared by every pro/boss move it makes (several, if a few AI
+// players move in a row or a conflict makes it run again); once it's spent
+// they move by the quick rules for the rest of that request.
+type Budget = { ms: number }
+const THINK_MS = 700
+function budgeted(brain: typeof PRO, budget: Budget) {
+  const run = <T,>(fn: () => T): T | null => {
+    if (budget.ms >= THINK_MS) return null
+    const t = performance.now()
+    try {
+      return fn()
+    } finally {
+      budget.ms += performance.now() - t
+    }
+  }
+  return {
+    bid: (...a: Parameters<typeof PRO.bid>) => run(() => brain.bid(...a)),
+    card: (...a: Parameters<typeof PRO.card>) => run(() => brain.card(...a)),
+  }
+}
+function ctxFor(players: Player[], budget: Budget) {
+  return { now: Date.now(), rng, control: control(players), brains: { pro: budgeted(PRO, budget), boss: budgeted(BOSS, budget) } }
 }
 
 async function loadRoom(roomId: string) {
@@ -119,10 +141,10 @@ function seatOf(room: Room, userId: string) {
 }
 
 // Recompute automation after seat control changed (join, leave, bot swap).
-function refreshed(room: Room, hands: any[] | null) {
+function refreshed(room: Room, hands: any[] | null, budget: Budget) {
   if (room.status !== 'playing' || !hands || !room.game_state?.v) return { game_state: room.game_state, hands }
   const full = { pub: room.game_state, hands }
-  E.refresh(full, ctxFor(room.players))
+  E.refresh(full, ctxFor(room.players, budget))
   return { game_state: full.pub, hands: full.hands }
 }
 
@@ -159,6 +181,7 @@ async function sweepStaleRooms() {
 
 async function handle(userId: string, body: any) {
   const action = String(body?.action ?? '')
+  const budget: Budget = { ms: 0 }
 
   if (action === 'create') {
     sweepStaleRooms().catch(() => {})
@@ -206,7 +229,7 @@ async function handle(userId: string, body: any) {
       if (me) {
         if (!me.left && !me.isBot && me.name === name) return null
         room.players = room.players.map((p) => (p.id === userId ? { ...p, name, left: false, isBot: false } : p))
-        const r = refreshed(room, hands)
+        const r = refreshed(room, hands, budget)
         return { patch: { players: room.players, game_state: r.game_state }, hands: r.hands }
       }
       if (room.status === 'waiting') {
@@ -221,7 +244,7 @@ async function handle(userId: string, body: any) {
       const botSeat = room.players.find((p) => p.isBot && !isRealUser(p))
       if (!botSeat) throw new HttpError(409, 'That game is full.')
       room.players = room.players.map((p) => (p === botSeat ? { id: userId, name, seat: p.seat } : p))
-      const r = refreshed(room, hands)
+      const r = refreshed(room, hands, budget)
       return { patch: { players: room.players, game_state: r.game_state }, hands: r.hands }
     })
     return { room: res.room, hand: res.hands ? handFor(res.room, res.hands, userId) : null }
@@ -265,7 +288,7 @@ async function handle(userId: string, body: any) {
       room.players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p))
       const anyoneHere = room.players.some((p) => isRealUser(p) && !p.left && !p.isBot)
       if (!anyoneHere && room.game_state?.phase === 'game_over') return { patch: { players: room.players, status: 'closed' } }
-      const r = refreshed(room, hands)
+      const r = refreshed(room, hands, budget)
       return { patch: { players: room.players, game_state: r.game_state }, hands: r.hands }
     })
     return { room: res.room }
@@ -287,7 +310,7 @@ async function handle(userId: string, body: any) {
         }
       }
       const full = E.createMatch(room.settings, rng)
-      E.startMatch(full, ctxFor(players))
+      E.startMatch(full, ctxFor(players, budget))
       return { patch: { status: 'playing', players, player_count: 4, game_state: full.pub }, hands: full.hands }
     })
     return { room: res.room, hand: res.hands ? handFor(res.room, res.hands, userId) : null }
@@ -304,7 +327,7 @@ async function handle(userId: string, body: any) {
       if (reclaimed) room.players = room.players.map((p) => (p.id === userId ? { ...p, left: false, isBot: false } : p))
       const full = { pub: room.game_state, hands }
       const before = JSON.stringify(full.pub)
-      E.act(full, me.seat, move, ctxFor(room.players))
+      E.act(full, me.seat, move, ctxFor(room.players, budget))
       if (!reclaimed && JSON.stringify(full.pub) === before) return null
       return { patch: { players: room.players, game_state: full.pub }, hands: full.hands }
     })

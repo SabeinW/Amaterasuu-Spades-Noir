@@ -294,3 +294,10 @@ export function proBid(hand, seat, pub, rules, rng = Math.random, opts = {}) {
 }
 
 export const PRO = { bid: proBid, card: proCard }
+
+// The boss couple (Tatsu & Kaida) think about two and a half times as hard:
+// more imagined deals per decision, so fewer lucky guesses.
+export const BOSS = {
+  bid: (hand, seat, pub, rules, rng) => proBid(hand, seat, pub, rules, rng, { ms: 320, samples: 160 }),
+  card: (hand, seat, pub, rules, rng) => proCard(hand, seat, pub, rules, rng, { ms: 260, samples: 240 }),
+}

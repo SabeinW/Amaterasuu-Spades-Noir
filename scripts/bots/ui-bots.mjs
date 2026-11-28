@@ -29,6 +29,7 @@ await c.from('profiles').insert({ id: data.user.id, email, username: usernameFor
 const { data: bots } = await c.from('bot_accounts').select('id, persona')
 const jaylenId = bots.find((b) => b.persona === 'jaylen').id
 await c.from('friends').insert({ user_id: data.user.id, friend_id: jaylenId, status: 'pending' })
+await c.from('friends').insert({ user_id: data.user.id, friend_id: bots.find((b) => b.persona === 'tatsu').id, status: 'pending' })
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? '/usr/bin/google-chrome', headless: true })
 const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
@@ -50,6 +51,7 @@ const row = page.locator('li', { hasText: 'Jaylen' })
 await row.waitFor({ timeout: 8000 })
 ok('Jaylen is in your friends with an AI tag', await row.getByText('AI', { exact: true }).isVisible())
 ok('…and it says he comes with Nia', await row.getByText('Comes with Nia').isVisible())
+ok('Tatsu is marked as the boss level', await page.locator('li', { hasText: 'Tatsu' }).getByText('Boss level').isVisible())
 await page.screenshot({ path: `${out}/01-invite-friends.png` })
 await row.getByRole('button', { name: /Invite/ }).click()
 ok('he’s on the way', await row.getByText('On the way…').waitFor({ timeout: 3000 }).then(() => true, () => false))

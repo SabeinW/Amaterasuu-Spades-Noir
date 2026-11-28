@@ -65,7 +65,12 @@ function InviteFriends({ open, onClose, user, room, onShare, copied, onInviteBot
                     <LevelBadge xp={f.xp} />
                     {persona && <AiChip />}
                   </span>
-                  {partner && <span className="block text-[11.5px] text-faint">Comes with {partner}</span>}
+                  {partner && (
+                    <span className="block text-[11.5px] text-faint">
+                      Comes with {partner}
+                      {BOTS[persona]?.boss && <span className="font-bold text-verm-hi"> · Boss level</span>}
+                    </span>
+                  )}
                 </span>
                 {state === 'seated' ? (
                   <span className="chip mr-1.5">At the table</span>
