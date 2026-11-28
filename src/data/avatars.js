@@ -26,7 +26,7 @@ export const DEFAULT_AVATAR = { kind: 'emoji', emoji: '🎩', color: '#a78bfa', 
 // Ink-and-gold animal medallions painted in Qalam (public/art/avatars).
 export const ART_AVATARS = [
   'owl', 'kestrel', 'lion', 'crane', 'wolf', 'hare', 'tiger', 'fox',
-  'koi', 'dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'monkey', 'deer',
+  'koi', 'dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'deer',
 ].map((id) => ({ id, src: `/art/avatars/${id}.webp`, label: id[0].toUpperCase() + id.slice(1) }))
 
 const BOT_ART = { nyx: 'owl', kestrel: 'kestrel', osiris: 'lion', sora: 'crane', noctis: 'wolf', sakura: 'hare', kenji: 'tiger', hoshi: 'fox', ren: 'koi' }
@@ -49,7 +49,8 @@ export function botAvatar(name) {
 // Players who never picked an avatar get a medallion chosen from their name.
 export function defaultArtAvatar(name) {
   const { hash } = nameHash(name)
-  const pool = ['dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'monkey', 'deer', 'crane', 'koi', 'fox']
+  // No monkey medallion here or in the picker: never a default for a person.
+  const pool = ['dragon', 'tortoise', 'sparrow', 'horse', 'panda', 'owl', 'deer', 'crane', 'koi', 'fox']
   return { kind: 'art', src: `/art/avatars/${pool[hash % pool.length]}.webp`, border: null }
 }
 
