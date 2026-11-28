@@ -12,7 +12,7 @@ const eq = (label, got, want) => {
 }
 const say = (id, text) => readReply(id, text).say
 
-eq('plain JSON', readReply('dre', '{"say": "RUN ME MY BOOKS", "emoji": "🔥", "gif": "mic drop"}'), { say: 'RUN ME MY BOOKS', emoji: '🔥', gif: 'mic drop', broke: false })
+eq('plain JSON', readReply('dre', '{"say": "RUN ME MY BOOKS", "emoji": "🔥", "gif": "mic drop"}'), { say: 'RUN ME MY BOOKS', emoji: '🔥', gif: 'mic drop', broke: false, foreign: false })
 eq('JSON in a code block', say('jada', '```json\n{"say": "BYE 😂", "emoji": "", "gif": ""}\n```'), 'BYE 😂')
 eq('thinking before the JSON', say('nia', '<think>hmm what to say</think>{"say": "aww cute"}'), 'aww cute')
 eq('broken JSON still gives the line', say('dre', '{"say: AI player, COMMISSIONER SAID SO", "emoji": "", "gif": ""}'), 'AI player, COMMISSIONER SAID SO')
@@ -79,6 +79,12 @@ eq('a repeat without the apostrophe is caught', samey('jada', "Malik didn't leas
 eq('a word leaned on twice lately is caught', samey('malik', 'Predictable move.', [{ who: 'Malik', text: 'Predictable.' }, { who: 'Malik', text: 'Zero books again. Predictable.' }]), true)
 eq('the same short line again is caught', samey('malik', 'Cold.', [{ who: 'Malik', text: 'cold' }]), true)
 eq('a fresh line is fine', samey('malik', 'You led that heart like you were asking for help.', [{ who: 'Malik', text: 'Predictable.' }, { who: 'Malik', text: 'Cold.' }]), false)
+
+eq('a line slipping into Chinese is flagged', readReply('keisha', '{"say": "I said 1 cuz I believe in安静地干活"}').foreign, true)
+eq('an English line with emoji is fine', readReply('keisha', '{"say": "be so for real 😂🧾"}').foreign, false)
+const labelled = contextPrompt('keisha', 3, { players: [{ seat: 0, name: 'Sabe' }, { seat: 1, name: 'Big Dre' }, { seat: 2, name: 'Swizz' }, { seat: 3, name: 'Keisha' }], game_state: {} }, [{ who: 'Sabe', text: 'not Dre with all the Aces lmao' }, { who: 'Big Dre', text: 'WHERE MY BOOKS AT' }, { who: 'Keisha', text: 'mhm' }], 'x')
+eq('talk lines say whose side they came from', /Sabe \(other team\): not Dre[\s\S]*Big Dre \(your partner\): WHERE MY BOOKS AT[\s\S]*Keisha \(you\): mhm/.test(labelled), true)
+eq('and they are told to check the name before quoting', /Check the name on a line before you quote it/.test(labelled), true)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

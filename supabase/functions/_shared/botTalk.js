@@ -40,6 +40,7 @@ export function systemPrompt(id) {
     '- "say": what you type in the table chat, under 90 characters, or "" to stay quiet.',
     `- "emoji": one emoji to throw at the table from this list, or "": ${BOT_EMOJI.join(' ')}`,
     '- "gif": 1 to 3 words to search for a funny reaction GIF (like "mic drop" or "crying laughing"), or "". Only now and then.',
+    'Write in English only.',
     'Most of the time just "say", sometimes with an emoji. Type like a real person texting, never like an assistant: vary it, sometimes only a couple of words, sometimes a full line. Never put your own name in front.',
   ].join('\n')
 }
@@ -76,7 +77,13 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '', about
     out.push(`Your team needs ${need(usTeam)} and has ${took(usTeam)}; they need ${need(themTeam)} and have ${took(themTeam)}.`)
   }
   if (memory) out.push(memory)
-  if (talk?.length) out.push(`Recent table talk (your own lines are marked "(you)"; never start a line the way one of yours started):\n${talk.slice(-12).map((l) => `${l.who}${l.who === BOTS[id].name ? ' (you)' : ''}: ${l.text}`).join('\n')}`)
+  if (talk?.length) {
+    // Every line says whose side it came from, so nobody gets quoted wrong
+    // (Keisha pinned Big Dre's "WHERE MY BOOKS AT" on Sabe).
+    const side = (who) => (who === BOTS[id].name ? 'you' : who === name(partner) ? 'your partner' : [name(opps[0]), name(opps[1])].includes(who) ? 'other team' : '')
+    const lines = talk.slice(-12).map((l) => `${l.who}${side(l.who) ? ` (${side(l.who)})` : ''}: ${l.text}`)
+    out.push(`Recent table talk, oldest first. Check the name on a line before you quote it or answer it. Never start a line the way one of yours started:\n${lines.join('\n')}`)
+  }
   out.push(`What just happened: ${happened}`)
   out.push(`Reply as ${BOTS[id].name}, as JSON only.`)
   return out.join('\n\n')
@@ -112,6 +119,8 @@ export function readReply(id, text) {
   }
   if (say.length > 110) say = `${say.slice(0, 107).replace(/\s+\S*$/, '')}…`
   const blocked = (s) => NOT_AT_THIS_TABLE.test(s) || GIPHY_BLOCKED.test(s)
+  // Kimi now and then slips into Chinese mid-line; the table reads English.
+  const foreign = FOREIGN.test(say)
   const broke = blocked(say)
   if (broke) say = ''
   let emoji = String(obj.emoji ?? '').trim()
@@ -125,8 +134,12 @@ export function readReply(id, text) {
     .slice(0, 3)
     .join(' ')
   if (gif.length > 30 || blocked(gif)) gif = ''
-  return { say, emoji, gif, broke }
+  return { say, emoji, gif, broke, foreign }
 }
+
+// Letters from scripts the table doesn't read: Chinese, Japanese, Korean,
+// Cyrillic, Arabic, Hebrew, Thai, Devanagari.
+const FOREIGN = /[\u0400-\u04ff\u0590-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uff00-\uffef]/
 
 // A ready-made line for when the AI is off (daily cap reached, Hugging
 // Face down) or its answer broke the table rules.
