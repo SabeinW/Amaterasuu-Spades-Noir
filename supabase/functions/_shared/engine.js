@@ -555,8 +555,9 @@ function autoMove(full, seat, ctx) {
   const { pub } = full
   const hand = full.hands[seat]
   const c = ctx.control[seat]
-  // Nobody left at the table to play against: finish quickly.
-  const watched = ctx.control.includes('human')
+  // Nobody left at the table to play against: finish quickly (tests that
+  // pit the brains against each other pass ctx.think to keep them on).
+  const watched = ctx.think || ctx.control.includes('human')
   const brain = !watched ? null : c === 'boss' ? ctx.brains?.boss ?? ctx.brains?.pro : c === 'pro' ? ctx.brains?.pro : null
   if (pub.phase === 'bidding') {
     let bid = brain ? brain.bid(hand, seat, pub, pub.rules, ctx.rng) : null

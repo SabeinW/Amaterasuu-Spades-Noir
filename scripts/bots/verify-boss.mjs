@@ -6,7 +6,7 @@ import { BOSS, PRO } from '../../supabase/functions/_shared/pro.js'
 
 const MATCHES = Number(process.argv[2] ?? 30)
 const JOKERS = process.argv.includes('jokers')
-let seed = 77001
+let seed = Number(process.env.SEED ?? 77001)
 const rng = () => {
   seed = (seed * 1664525 + 1013904223) >>> 0
   return seed / 2 ** 32
@@ -37,7 +37,7 @@ for (let m = 0; m < MATCHES; m++) {
   const bossTeam = m % 2 === 0 ? 'A' : 'B'
   const control = [0, 1, 2, 3].map((s) => (E.teamOf(s) === bossTeam ? 'boss' : 'pro'))
   const full = E.createMatch({ jokers: JOKERS, nil: false, timers: false, winScore: 500 }, rng)
-  const ctx = () => ({ now: 0, rng, control, brains: { pro: PRO, boss: timedBoss } })
+  const ctx = () => ({ now: 0, rng, control, think: true, brains: { pro: PRO, boss: timedBoss } })
   E.startMatch(full, ctx())
   for (let guard = 0; full.pub.phase === 'round_over' && guard < 60; guard++) {
     const r = full.pub.round_result

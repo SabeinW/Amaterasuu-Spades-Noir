@@ -44,7 +44,7 @@ for (let m = 0; m < MATCHES; m++) {
   const proTeam = m % 2 === 0 ? 'A' : 'B'
   const control = [0, 1, 2, 3].map((s) => (E.teamOf(s) === proTeam ? 'pro' : 'bot'))
   const full = E.createMatch({ jokers: JOKERS, nil: NIL, timers: false, winScore: 500 }, rng)
-  const ctx = () => ({ now: 0, rng, control, brains: { pro: timed } })
+  const ctx = () => ({ now: 0, rng, control, think: true, brains: { pro: timed } })
   E.startMatch(full, ctx())
   let guard = 0
   while (full.pub.phase !== 'game_over' && guard++ < 60) {
