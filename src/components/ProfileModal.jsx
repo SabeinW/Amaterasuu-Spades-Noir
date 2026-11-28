@@ -208,16 +208,30 @@ export default function ProfileModal({ user, profile, initialTab = 'Overview', o
     }
   }
 
+  // A search runs on every keystroke and answers can come back out of
+  // order, so only the newest search may fill the list.
+  const searchSeq = useRef(0)
   async function runSearch(q) {
     setQuery(q)
+    const n = ++searchSeq.current
     if (!q.trim()) {
       setResults([])
+      setSearching(false)
       return
     }
     setSearching(true)
     const found = await searchProfiles(q, user.id)
+    if (n !== searchSeq.current) return
     setResults(found)
     setSearching(false)
+  }
+
+  // Where you already stand with someone who turns up in a search.
+  const standing = (id) => {
+    if (friendsData.friends.some((f) => f.id === id)) return { kind: 'friend' }
+    if (friendsData.outgoing.some((f) => f.id === id)) return { kind: 'sent' }
+    const asked = friendsData.incoming.find((f) => f.id === id)
+    return asked ? { kind: 'asked', rowId: asked.rowId } : { kind: 'none' }
   }
 
   async function refreshFriends() {
@@ -674,13 +688,28 @@ export default function ProfileModal({ user, profile, initialTab = 'Overview', o
                 {searching && <p className="text-[12px] text-faint mt-2 px-1">Searching…</p>}
                 {results.length > 0 && (
                   <ul className="mt-2 flex flex-col gap-1.5">
-                    {results.map((r) => (
-                      <PersonRow key={r.id} person={r}>
-                        <button onClick={() => handleAddFriend(r.id)} className="btn btn-ghost !min-h-11 !px-3.5 !rounded-full text-[13px] !text-gold-hi">
-                          <UserPlus className="w-4 h-4" /> Add
-                        </button>
-                      </PersonRow>
-                    ))}
+                    {results.map((r) => {
+                      const st = standing(r.id)
+                      return (
+                        <PersonRow key={r.id} person={r}>
+                          {st.kind === 'friend' ? (
+                            <span className="chip mr-1.5 !text-gold-hi">
+                              <Check className="w-3.5 h-3.5" /> Friends
+                            </span>
+                          ) : st.kind === 'sent' ? (
+                            <span className="chip mr-1.5">Pending</span>
+                          ) : st.kind === 'asked' ? (
+                            <button onClick={() => handleRespond(st.rowId, true)} className="btn btn-gold !min-h-11 !px-3.5 !rounded-full text-[13px]">
+                              <UserCheck className="w-4 h-4" /> Accept
+                            </button>
+                          ) : (
+                            <button onClick={() => handleAddFriend(r.id)} className="btn btn-ghost !min-h-11 !px-3.5 !rounded-full text-[13px] !text-gold-hi">
+                              <UserPlus className="w-4 h-4" /> Add
+                            </button>
+                          )}
+                        </PersonRow>
+                      )
+                    })}
                   </ul>
                 )}
               </div>
