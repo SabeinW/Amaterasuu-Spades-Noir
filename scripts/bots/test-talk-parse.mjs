@@ -55,9 +55,9 @@ eq('the note-taker is told not to make things up', /Never make anything up/.test
 
 // The score, spelled out from the bot's side
 const losing = contextPrompt('jaylen', 3, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Nia' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Jaylen' }], game_state: { scores: { A: { total: 133, bags: 3 }, B: { total: 12, bags: 2 } }, round: 3, rules: { winScore: 500 } } }, [], 'x')
-eq('a bot that is behind is told it is LOSING, by how much', /you and Nia have 12 points .*Raheem and Wife have 133 points .*Your team is LOSING by 121/.test(losing), true)
+eq('a bot that is behind is told it is LOSING, by how much', /you and Nia have 12 points .*Raheem and Wife have 133 points .*Your team is LOSING: Raheem and Wife are AHEAD of you by 121/.test(losing), true)
 const winning = contextPrompt('nia', 1, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Nia' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Jaylen' }], game_state: { scores: { A: { total: 40, bags: 0 }, B: { total: 90, bags: 1 } }, round: 2, rules: { winScore: 500 } } }, [{ who: 'Nia', text: 'aww cute' }], 'x')
-eq('a bot that is ahead is told it is WINNING', /Your team is WINNING by 50/.test(winning), true)
+eq('a bot that is ahead is told it is WINNING', /Your team is WINNING: you're ahead of Wife and Raheem by 50/.test(winning), true)
 eq('its own lines are marked', /Nia \(you\): aww cute/.test(winning), true)
 eq('a line starting like its last one is caught', samey('nia', 'aww, still saying that?', [{ who: 'Nia', text: 'aww, still laughing?' }]), true)
 eq('…but not someone else\'s', samey('nia', 'aww, still saying that?', [{ who: 'Jaylen', text: 'aww, still laughing?' }]), false)
@@ -85,6 +85,9 @@ eq('an English line with emoji is fine', readReply('keisha', '{"say": "be so for
 const labelled = contextPrompt('keisha', 3, { players: [{ seat: 0, name: 'Sabe' }, { seat: 1, name: 'Big Dre' }, { seat: 2, name: 'Swizz' }, { seat: 3, name: 'Keisha' }], game_state: {} }, [{ who: 'Sabe', text: 'not Dre with all the Aces lmao' }, { who: 'Big Dre', text: 'WHERE MY BOOKS AT' }, { who: 'Keisha', text: 'mhm' }], 'x')
 eq('talk lines say whose side they came from', /Sabe \(other team\): not Dre[\s\S]*Big Dre \(your partner\): WHERE MY BOOKS AT[\s\S]*Keisha \(you\): mhm/.test(labelled), true)
 eq('and they are told to check the name before quoting', /Check the name on a line before you quote it/.test(labelled), true)
+
+eq('the same joke in new words is caught', samey('tatsu', 'You still think those GIFs are gonna save you Sabe?', [{ who: 'Tatsu', text: 'Sabe, you keep throwing GIFs like that\'s gonna save you from losing this hand' }]), true)
+eq('a different joke about the same person is fine', samey('tatsu', 'Sabe bid three with that hand? Write that down.', [{ who: 'Tatsu', text: 'Sabe, you keep throwing GIFs like that\'s gonna save you from losing this hand' }]), false)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

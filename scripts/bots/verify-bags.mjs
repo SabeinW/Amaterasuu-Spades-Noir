@@ -13,7 +13,12 @@ const rng = () => {
   seed = (seed * 1664525 + 1013904223) >>> 0
   return seed / 2 ** 32
 }
-const OLD = { bid: (...a) => proBid(...a.slice(0, 5), { bagWeight: 0 }), card: (...a) => proCard(...a.slice(0, 5), { bagWeight: 0, margin: -1e9 }) }
+// OLD_BID_MARGIN=0 compares against bidding purely by the play-outs (before
+// the natural-bid rule); unset, against the brain before today's bag fixes.
+const OLD =
+  process.env.OLD_BID_MARGIN !== undefined
+    ? { bid: (...a) => proBid(...a.slice(0, 5), { bidMargin: Number(process.env.OLD_BID_MARGIN), naturalBoost: Number(process.env.OLD_BOOST ?? 1.15) }), card: (...a) => proCard(...a.slice(0, 5)) }
+    : { bid: (...a) => proBid(...a.slice(0, 5), { bagWeight: 0, bidMargin: -1e9 }), card: (...a) => proCard(...a.slice(0, 5), { bagWeight: 0, margin: -1e9 }) }
 const NEW = { bid: (...a) => proBid(...a.slice(0, 5)), card: (...a) => proCard(...a.slice(0, 5)) }
 
 const tally = { new: { wins: 0, pts: 0, bags: 0, over: 0, sets: 0 }, old: { wins: 0, pts: 0, bags: 0, over: 0, sets: 0 } }

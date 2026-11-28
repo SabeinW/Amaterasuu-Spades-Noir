@@ -64,7 +64,12 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '', about
     const us = pub.scores[usTeam].total
     const them = pub.scores[themTeam].total
     const diff = us - them
-    const lead = diff > 0 ? `Your team is WINNING by ${diff}.` : diff < 0 ? `Your team is LOSING by ${-diff}, so don't talk like you're ahead.` : 'The game is tied.'
+    const lead =
+      diff > 0
+        ? `Your team is WINNING: you're ahead of ${name(opps[0])} and ${name(opps[1])} by ${diff}. They're the ones behind.`
+        : diff < 0
+          ? `Your team is LOSING: ${name(opps[0])} and ${name(opps[1])} are AHEAD of you by ${-diff}. You're the ones behind, so never say they're behind or losing.`
+          : 'The game is tied.'
     out.push(
       `Score: you and ${name(partner)} have ${us} points (${pub.scores[usTeam].bags} bags); ${name(opps[0])} and ${name(opps[1])} have ${them} points (${pub.scores[themTeam].bags} bags). ${lead} First to ${pub.rules?.winScore ?? 500} wins. Round ${pub.round ?? 1}. Ten bags costs a team 100 points.`,
     )
@@ -245,15 +250,18 @@ const words = (text) =>
     .filter(Boolean)
 export const opening = (text) => words(text).slice(0, 2).join(' ')
 
-// Mostly the same words as another line (Jada said "Malik didn't leash me,
-// he signed up to WIN…" twice, once without the apostrophe).
+// Mostly the same words as another line, small words aside: Jada said
+// "Malik didn't leash me, he signed up to WIN…" twice, and Tatsu ran the
+// same joke three times ("throwing GIFs like that's gonna save you").
+const SMALL = new Set('a an the to of and or but so is are was be been am im i you your youre yall we us our me my he she they them it its in on at for with this that thats just like gonna got get not no yes do dont does did all up out what how who when why if then than too still really'.split(' '))
+const content = (text) => new Set(words(text).filter((w) => !SMALL.has(w)))
 function sameWords(a, b) {
-  const x = new Set(words(a))
-  const y = new Set(words(b))
-  if (x.size < 3 || y.size < 3) return false
+  const x = content(a)
+  const y = content(b)
+  if (x.size < 2 || y.size < 2) return false
   let both = 0
   for (const w of x) if (y.has(w)) both++
-  return both / Math.min(x.size, y.size) >= 0.7
+  return both >= 2 && both / Math.min(x.size, y.size) >= 0.55
 }
 
 // Starts like one of this bot's last few lines?

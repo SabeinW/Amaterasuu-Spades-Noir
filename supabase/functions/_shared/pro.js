@@ -47,6 +47,8 @@ const GAME_SWING = 250
 // before the bot plays it. Below that it's noise, and noise made the bots
 // throw away a King or a Joker for half a point.
 const MARGIN = 2.5
+export const BID_MARGIN = 15
+export const NATURAL_BOOST = 1 // 1.15 (counting higher) lost 9 of 24 to 1.0
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
@@ -276,9 +278,14 @@ export function proBid(hand, seat, pub, rules, rng = Math.random, opts = {}) {
     const p = pub.bids[partnerOf(seat)]
     const cap = p !== null && p !== undefined && p > 0 ? Math.max(floor, 13 - p) : 13
     const base = estimateBid(hand, jd)
+    // What the hand is worth, inside the board rules. The simple count was
+    // tuned for the plain table bots; these players take more books with
+    // the same cards, so they count a little higher.
+    const worth = Math.max(1, Math.min(13, Math.round(trickEstimate(hand, jd) * (jd ? BID_TUNING.kJD : BID_TUNING.k) * (opts.naturalBoost ?? NATURAL_BOOST))))
+    const natural = Math.min(Math.max(floor, worth), Math.max(floor, cap))
     const candidates = []
     for (let b = Math.max(floor, base - 2); b <= Math.min(cap, base + 2); b++) candidates.push(b)
-    if (!candidates.length) candidates.push(Math.min(13, Math.max(floor, base)))
+    if (!candidates.includes(natural)) candidates.push(natural)
     if (candidates.length === 1) return candidates[0]
 
     const mine = new Set(hand.map((c) => c.id))
@@ -313,8 +320,15 @@ export function proBid(hand, seat, pub, rules, rng = Math.random, opts = {}) {
       })
     }
     if (!weightSum) return botBid(hand, seat, pub, rules, rng)
+    if (opts.debug) opts.debug.push(Object.fromEntries(candidates.map((b, i) => [b, +(totals[i] / weightSum).toFixed(1)])))
     let best = 0
     for (let i = 1; i < candidates.length; i++) if (totals[i] > totals[best]) best = i
+    // Bid what the hand is worth unless another bid is clearly better. The
+    // imagined play-outs run everyone on the quick rules, which undersell a
+    // strong hand, so on their own they bid low and eat bags (7 of the 8 big
+    // cards, bid 2 + 2, took 7).
+    const n = candidates.indexOf(natural)
+    if ((totals[best] - totals[n]) / weightSum < (opts.bidMargin ?? BID_MARGIN)) return natural
     return candidates[best]
   } catch {
     return botBid(hand, seat, pub, rules, rng)
