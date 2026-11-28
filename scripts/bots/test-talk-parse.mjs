@@ -76,5 +76,9 @@ eq('they talk in the first person', /Always talk in the first person/.test(syste
 eq('their partner is on their side', /Jada is your partner and on your side: hype Jada up/.test(systemPrompt('malik')), true)
 eq('a repeat without the apostrophe is caught', samey('jada', "Malik didn't leash me he signed up to WIN, something y'all wouldn't know about", [{ who: 'Jada', text: 'malik didnt sign up to leash me he signed up to WIN, something yall wouldnt know about' }]), true)
 
+eq('a word leaned on twice lately is caught', samey('malik', 'Predictable move.', [{ who: 'Malik', text: 'Predictable.' }, { who: 'Malik', text: 'Zero books again. Predictable.' }]), true)
+eq('the same short line again is caught', samey('malik', 'Cold.', [{ who: 'Malik', text: 'cold' }]), true)
+eq('a fresh line is fine', samey('malik', 'You led that heart like you were asking for help.', [{ who: 'Malik', text: 'Predictable.' }, { who: 'Malik', text: 'Cold.' }]), false)
+
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

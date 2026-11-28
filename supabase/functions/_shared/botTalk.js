@@ -247,7 +247,12 @@ function sameWords(a, b) {
 export function samey(id, say, talk) {
   const o = opening(say)
   const mine = (talk ?? []).filter((l) => l.who === BOTS[id].name).slice(-5)
-  return mine.some((l) => (o.split(' ').length >= 2 && opening(l.text) === o) || sameWords(l.text, say))
+  if (mine.some((l) => (o.split(' ').length >= 2 && opening(l.text) === o) || sameWords(l.text, say) || words(l.text).join(' ') === words(say).join(' '))) return true
+  // A pet word: a longer word they've already leaned on twice lately
+  // (Malik's "Predictable." three times in a row).
+  const counts = {}
+  for (const l of mine) for (const w of new Set(words(l.text))) if (w.length >= 6) counts[w] = (counts[w] ?? 0) + 1
+  return words(say).some((w) => w.length >= 6 && (counts[w] ?? 0) >= 2)
 }
 
 // ------------------------------------------------------------ who's who ---
