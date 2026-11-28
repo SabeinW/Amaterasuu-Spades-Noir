@@ -15,7 +15,7 @@
 // ready-made lines and no AI is called until tomorrow.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { BOTS } from '../_shared/bots.js'
-import { aboutText, cannedLine, contextPrompt, costOf, FALLBACK_MODEL, memoryText, opening, readReply, readSummary, samey, SUMMARY_MODEL, summaryMessages, systemPrompt } from '../_shared/botTalk.js'
+import { aboutText, bidsMoment, cannedLine, contextPrompt, costOf, FALLBACK_MODEL, memoryText, opening, readReply, readSummary, samey, SUMMARY_MODEL, summaryMessages, systemPrompt } from '../_shared/botTalk.js'
 
 type Player = { id: string; name: string; seat: number; isBot?: boolean; persona?: string; left?: boolean }
 type Line = { who: string; text: string; at: number }
@@ -98,12 +98,13 @@ async function lineFrom(persona: string, seat: number, room: any, talk: Line[], 
       if (r.broke) break
       // Same opening as one of its last few lines, or not in English: ask
       // once for something new.
-      if (r.say && (r.foreign || samey(persona, r.say, talk))) {
+      const names = (room.players ?? []).map((p: Player) => p.name)
+      if (r.say && (r.foreign || samey(persona, r.say, talk, names))) {
         const note = r.foreign ? 'Write that again in English only, as JSON.' : `You started with "${opening(r.say)}" again. Say something new that starts a different way, as JSON.`
         const again = await askModel(m, [...messages, { role: 'assistant', content: out.text }, { role: 'user', content: note }])
         const r2 = again ? readReply(persona, again.text) : null
         if (again) await admin.rpc('bot_spend_add', { p_cost: costOf(m, again.usage), p_in: again.usage?.prompt_tokens ?? 0, p_out: again.usage?.completion_tokens ?? 0, p_fallback: false })
-        r = r2 && !r2.broke && !r2.foreign && r2.say && !samey(persona, r2.say, talk) ? r2 : { ...r, say: '' }
+        r = r2 && !r2.broke && !r2.foreign && r2.say && !samey(persona, r2.say, talk, names) ? r2 : { ...r, say: '' }
       }
       if (r.say || r.emoji || r.gif) return { ...r, ai: true }
     }
@@ -179,9 +180,14 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
       return { happened: `${cutter?.name ?? 'Someone'} just cut with a spade and took the book from your team.`, who: [victim], bring: false, line: null, key }
     }
     if (type === 'bids') {
-      if (!chance(0.35)) return null
-      const bot = pick(bots)
-      return { happened: 'Everyone just finished bidding for this hand. React to the bids.', who: [bot], bring: false, line: null, key: `${round}:bids` }
+      // Most hands someone has something to say about the bids, now and then
+      // both of them, each time from a different angle (see bidsMoment).
+      if (!chance(loud ? 0.9 : 0.8)) return null
+      const m = bidsMoment(pub, players)
+      if (!m) return null
+      const first = pick(bots)
+      const partner = bots.find((b) => b.persona === BOTS[first.persona as keyof typeof BOTS].partner)
+      return { happened: m.happened, who: partner && chance(0.3) ? [first, partner] : [first], bring: false, line: null, key: `${round}:bids` }
     }
     if (type === 'round') {
       const r = pub.round_result
@@ -356,7 +362,7 @@ async function handle(userId: string, body: any) {
     const happened = 'eachSays' in p! && p!.eachSays ? p!.happened.replace(/Your team just .*$/, p!.eachSays(bot)) : p!.happened
     const r = await lineFrom(bot.persona!, bot.seat, room, talk, replies.length ? `${happened}\n${replies.map((x) => `${x.name} just said: "${x.say || x.emoji || x.gif}"`).join('\n')}` : happened, aiOn, memoryFor(bot), about)
     delay += replies.length ? 1400 + Math.random() * 1800 : 300 + Math.random() * 700
-    const say = clip(r.say, 110)
+    const say = clip(r.say, 160)
     replies.push({ botId: bot.id, persona: bot.persona!, seat: bot.seat, name: bot.name, say, emoji: r.emoji, gif: r.gif, delay: Math.round(delay), ai: r.ai })
     talk = [...talk, { who: bot.name, text: say || (r.gif ? `[threw a GIF: ${r.gif}]` : `[threw ${r.emoji}]`), at: Date.now() }].slice(-16)
     recent.push(Date.now())

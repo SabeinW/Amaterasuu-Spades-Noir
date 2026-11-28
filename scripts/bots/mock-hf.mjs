@@ -9,6 +9,11 @@ import http from 'node:http'
 const host = process.argv[2] ?? '172.17.0.1'
 const port = Number(process.argv[3] ?? 8799)
 let calls = 0
+// A few random words per line, so the stand-in's lines differ the way real
+// ones do (the bots redo a line that's mostly the same words as their last).
+// Short words only: a longer word used twice reads as a pet word.
+const WORDS = 'amber basil dune ember fern kelp onyx river umber acorn birch cedar delta echo hazel iris jade koi lotus maple oak pine reed sage teal vine wren yew zinc bay cove elm fig gem hue ivy lark moss nook opal'.split(' ')
+const tail = () => Array.from({ length: 3 }, () => WORDS[Math.floor(Math.random() * WORDS.length)]).join(' ')
 
 http
   .createServer((req, res) => {
@@ -42,7 +47,7 @@ http
       const bad = /SAYBAD/.test(what)
       const reply = bad
         ? { say: 'damn that was a bad play', emoji: '', gif: '' }
-        : { say: `${['yo', 'ok', 'nah', 'lol', 'bruh', 'hm', 'wow'][calls % 7]} ${who} heard: ${what.slice(0, /You remember: |Last game|is talking to/.test(user) ? 10 : 50)}${/You remember: /.test(user) ? ` (remembers ${user.match(/You remember: ([^;.\n]*)/)[1].slice(0, 30)})` : ''}${/Last game/.test(user) ? ' (knows the last game)' : ''}${/is talking to (his|her) (wife|husband)/.test(user) ? ' (knows it was for the spouse)' : ''}`, emoji: '😂', gif: /GIF|joined|sat down/i.test(what) ? 'mic drop' : '' }
+        : { say: `${['yo', 'ok', 'nah', 'lol', 'bruh', 'hm', 'wow'][calls % 7]} ${tail()} ${who} heard: ${what.slice(0, /You remember: |Last game|is talking to/.test(user) ? 10 : 50)}${/You remember: /.test(user) ? ` (mem ${user.match(/You remember: ([^;.\n]*)/)[1].slice(0, 30)})` : ''}${/Last game/.test(user) ? ' (knows the last game)' : ''}${/is talking to (his|her) (wife|husband)/.test(user) ? ' (knows: his wife)' : ''}`, emoji: '😂', gif: /GIF|joined|sat down/i.test(what) ? 'mic drop' : '' }
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify({ model: j.model, choices: [{ message: { content: JSON.stringify(reply) } }], usage: { prompt_tokens: 700, completion_tokens: 30 } }))
     })

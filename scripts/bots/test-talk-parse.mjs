@@ -1,6 +1,6 @@
 // How the AI players' answers are read and checked (no network).
 //   node scripts/bots/test-talk-parse.mjs
-import { aboutText, contextPrompt, memoryText, readReply, readSummary, samey, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
+import { aboutText, contextPrompt, memoryText, trimLine, readReply, readSummary, samey, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
 import { BOTS, BOT_EMOJI } from '../../supabase/functions/_shared/bots.js'
 import { EMOJI_GROUPS } from '../../src/data/taunts.js'
 
@@ -19,7 +19,7 @@ eq('broken JSON still gives the line', say('dre', '{"say: AI player, COMMISSIONE
 eq('broken JSON with nothing readable shows nothing', say('dre', '{"emoji": "🔥", oops'), '')
 eq('no JSON at all: the text itself', say('malik', 'Predictable.'), 'Predictable.')
 eq('own name in front is dropped', say('dre', '{"say": "Big Dre: y\'all done"}'), "y'all done")
-eq('long lines are cut', say('jaylen', `{"say": "${'no cap '.repeat(30)}"}`).length <= 110, true)
+eq('long lines are cut', say('jaylen', `{"say": "${'no cap '.repeat(30)}"}`).length <= 140, true)
 eq('swearing is dropped', readReply('keisha', '{"say": "damn y\'all bad"}').broke, true)
 eq('innuendo is dropped', readReply('keisha', '{"say": "they need a safe word"}').broke, true)
 eq('apes never get through', readReply('jaylen', '{"say": "playing like apes"}').broke, true)
@@ -88,6 +88,12 @@ eq('and they are told to check the name before quoting', /Check the name on a li
 
 eq('the same joke in new words is caught', samey('tatsu', 'You still think those GIFs are gonna save you Sabe?', [{ who: 'Tatsu', text: 'Sabe, you keep throwing GIFs like that\'s gonna save you from losing this hand' }]), true)
 eq('a different joke about the same person is fine', samey('tatsu', 'Sabe bid three with that hand? Write that down.', [{ who: 'Tatsu', text: 'Sabe, you keep throwing GIFs like that\'s gonna save you from losing this hand' }]), false)
+
+eq('a long line ends at a full sentence', trimLine('Sabe overbid by 2 last hand now yall want 5? Kaida we owe these folks a lesson after that set and I mean a real lesson, write that down for the record'), 'Sabe overbid by 2 last hand now yall want 5?')
+eq('a short line is left alone', trimLine('Bags comin, I can smell it'), 'Bags comin, I can smell it')
+
+eq('a name said twice is not a pet word', samey('kaida', 'TSwizzle cutting again, cute', [{ who: 'Kaida', text: 'TSwizzle really thought' }, { who: 'Kaida', text: 'ok TSwizzle we see you' }], ['TSwizzle', 'Sabe.Of.Spades']), false)
+eq('nor is spades', samey('kaida', 'all those spades and still set', [{ who: 'Kaida', text: 'nine spades and no books?' }, { who: 'Kaida', text: 'spades everywhere lol' }], ['TSwizzle']), false)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

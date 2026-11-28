@@ -100,7 +100,7 @@ const { room: next } = await me.game({ action: 'create', name: me.name, rules: {
 await me.game({ action: 'add_bot', roomId: next.id, botId: malik })
 const back = await me.bots({ roomId: next.id, trigger: 'said', text: 'malik you remember me?' })
 const line = back.replies?.[0]?.say ?? ''
-check(/remembers said/.test(line), `Malik's reply had his notes on me in mind (${JSON.stringify(line)})`)
+check(/mem said/.test(line), `Malik's reply had his notes on me in mind (${JSON.stringify(line)})`)
 check(/knows the last game/.test(line), '…and the last game we played')
 await me.game({ action: 'leave', roomId: next.id })
 

@@ -148,6 +148,14 @@ check((m1.replies?.length ?? 0) + (m2.replies?.length ?? 0) <= 2 && !(m1.replies
 
 check((await status(stranger.bots({ roomId: r0.id, trigger: 'said', text: 'hi' }))) === 403, "someone who isn't at the table can't make them talk")
 
+await sleep(2600)
+const b1 = await me.bots({ roomId: r0.id, trigger: 'moment', event: { type: 'bids' } })
+const b2 = await wife.bots({ roomId: r0.id, trigger: 'moment', event: { type: 'bids' } })
+const bidTalk = [...(b1.replies ?? []), ...(b2.replies ?? [])]
+check(!(b1.replies?.length && b2.replies?.length), 'the bids moment sets the bots off once')
+check(bidTalk.every((r) => /Everyone j/.test(r.say)), `after the bids they talk about the bids (${JSON.stringify(bidTalk[0]?.say ?? "quiet this time")})`)
+if (process.env.DEBUG) console.log(JSON.stringify(bidTalk), JSON.stringify((await admin.from("bot_room_talk").select("lines").eq("room_id", r0.id).single()).data.lines.slice(-8)))
+
 // The daily cap: past it, they talk from their own lines and no AI is called.
 const { data: usage } = await admin.from('bot_usage').select('*')
 check(usage?.[0]?.calls >= 4 && Number(usage?.[0]?.cost_usd) > 0, `AI calls are counted (${usage?.[0]?.calls} calls, $${usage?.[0]?.cost_usd})`)
@@ -164,7 +172,7 @@ await admin.from('person_facts').upsert([
 ])
 await sleep(2600)
 const baby = await me.bots({ roomId: r0.id, trigger: 'said', text: 'nia watch this. baby get him' })
-check(/knows it was for the spouse/.test(baby.replies?.[0]?.say ?? ''), `"baby get him" is known to be for his wife (${JSON.stringify(baby.replies?.[0]?.say)})`)
+check(/knows: his wife/.test(baby.replies?.[0]?.say ?? ''), `"baby get him" is known to be for his wife (${JSON.stringify(baby.replies?.[0]?.say)})`)
 
 // --- the boss couple ------------------------------------------------------------
 await wife.client.from('friends').insert({ user_id: wife.id, friend_id: botId('kaida'), status: 'pending' })

@@ -37,7 +37,7 @@ export function systemPrompt(id) {
     `${partner.name} is your partner and on your side: hype ${partner.name} up and have their back. A light joke at ${partner.name} now and then is fine, but aim your trash talk at the other team.`,
     'Table rules, never break them: no swearing at all, not even mild words, and no innuendo. Nothing about drinking, drugs, smoking, betting money, flirting or dating, religion or politics. Never joke about anyone\'s looks, race, weight or family. Never say what cards you hold or what you will play. Never guess whether someone is a man or a woman: go by what you are told, otherwise call them by name. You never bid Nil; with a weak hand you bid what the board needs. If someone sincerely asks whether you are a bot, an AI or a real person, say you are an AI player, still in character.',
     'Answer with ONLY a JSON object like {"say": "", "emoji": "", "gif": ""}:',
-    '- "say": what you type in the table chat, under 90 characters, or "" to stay quiet.',
+    '- "say": what you type in the table chat, under 100 characters (one or two short sentences), or "" to stay quiet.',
     `- "emoji": one emoji to throw at the table from this list, or "": ${BOT_EMOJI.join(' ')}`,
     '- "gif": 1 to 3 words to search for a funny reaction GIF (like "mic drop" or "crying laughing"), or "". Only now and then.',
     'Write in English only.',
@@ -94,6 +94,21 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '', about
   return out.join('\n\n')
 }
 
+// A long line ends at a full sentence where it can (then a comma, then a
+// word) instead of mid-thought: the Kimi bots run long.
+export const LINE_MAX = 140
+export function trimLine(say) {
+  if (say.length <= LINE_MAX) return say
+  const head = say.slice(0, LINE_MAX)
+  const sentence = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '), head.lastIndexOf('?? '))
+  if (sentence >= 40) return head.slice(0, sentence + 1).trim()
+  const end = head.search(/[.!?][^.!?]*$/)
+  if (end >= 40 && /[.!?]/.test(head[end])) return head.slice(0, end + 1).trim()
+  const comma = head.lastIndexOf(', ')
+  if (comma >= 60) return head.slice(0, comma).trim()
+  return `${head.slice(0, LINE_MAX - 1).replace(/\s+\S*$/, '')}…`
+}
+
 // The model's answer → { say, emoji, gif }, cleaned for the table. Anything
 // that breaks the table rules is dropped; an empty result means stay quiet.
 export function readReply(id, text) {
@@ -122,7 +137,7 @@ export function readReply(id, text) {
     const prefix = new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*`, 'i')
     say = say.replace(prefix, '')
   }
-  if (say.length > 110) say = `${say.slice(0, 107).replace(/\s+\S*$/, '')}…`
+  say = trimLine(say)
   const blocked = (s) => NOT_AT_THIS_TABLE.test(s) || GIPHY_BLOCKED.test(s)
   // Kimi now and then slips into Chinese mid-line; the table reads English.
   const foreign = FOREIGN.test(say)
@@ -264,16 +279,23 @@ function sameWords(a, b) {
   return both >= 2 && both / Math.min(x.size, y.size) >= 0.55
 }
 
+// Words that come up all the time at a Spades table and people's names:
+// never a pet word (a bot saying "TSwizzle" or "spades" twice is normal).
+const TABLE_WORDS = new Set('spade spades heart hearts diamond diamonds club clubs book books bid bids bag bags trick tricks joker jokers deuce deuces board round rounds hand hands partner score points game cards card nil blind set sets cut cuts trump trumps ace aces king kings queen queens jack jacks little big'.split(' '))
+
 // Starts like one of this bot's last few lines?
-export function samey(id, say, talk) {
+//   names: everyone at the table (their names are never pet words)
+export function samey(id, say, talk, names = []) {
   const o = opening(say)
   const mine = (talk ?? []).filter((l) => l.who === BOTS[id].name).slice(-5)
   if (mine.some((l) => (o.split(' ').length >= 2 && opening(l.text) === o) || sameWords(l.text, say) || words(l.text).join(' ') === words(say).join(' '))) return true
   // A pet word: a longer word they've already leaned on twice lately
   // (Malik's "Predictable." three times in a row).
+  const skip = new Set([...TABLE_WORDS, ...[...names, ...(talk ?? []).map((l) => l.who), ...Object.values(BOTS).map((b) => b.name)].flatMap((n) => words(n))])
+  const pet = (w) => w.length >= 6 && !skip.has(w)
   const counts = {}
-  for (const l of mine) for (const w of new Set(words(l.text))) if (w.length >= 6) counts[w] = (counts[w] ?? 0) + 1
-  return words(say).some((w) => w.length >= 6 && (counts[w] ?? 0) >= 2)
+  for (const l of mine) for (const w of new Set(words(l.text))) if (pet(w)) counts[w] = (counts[w] ?? 0) + 1
+  return words(say).some((w) => pet(w) && (counts[w] ?? 0) >= 2)
 }
 
 // ------------------------------------------------------------ who's who ---
@@ -303,4 +325,43 @@ export function aboutText(people, facts) {
   const unknown = people.filter((p) => !WHO[facts?.[p.id]?.pronouns]).map((p) => p.name)
   if (unknown.length) lines.push(`You don't know whether ${unknown.join(' or ')} ${unknown.length > 1 ? 'are' : 'is'} a he or a she: call them by name, never guess.`)
   return lines.length ? `Who's who: ${lines.join(' ')}` : ''
+}
+
+// ------------------------------------------------------- after the bids ---
+
+// What a bot is told once everyone has bid: the bids, the team totals, how
+// many of the 13 books are spoken for, last hand's bids and books (from the
+// public play-by-play), and one angle picked at random so the talk changes
+// from hand to hand.
+//   pub: the table's public state   players: [{ seat, name }]
+export function bidsMoment(pub, players, rng = Math.random) {
+  const bids = pub.bids ?? []
+  if (bids.length !== 4 || bids.some((b) => b === null || b === undefined)) return null
+  const name = (s) => players.find((p) => p.seat === s)?.name ?? `Seat ${s + 1}`
+  const team = (t) => (t === 'A' ? `${name(0)} and ${name(2)}` : `${name(1)} and ${name(3)}`)
+  const say = (b) => (b === 0 ? 'Nil' : String(b))
+  const total = bids.reduce((a, b) => a + b, 0)
+  const left = 13 - total
+  const facts = [
+    `Everyone just bid for hand ${pub.round ?? 1}: ${[0, 1, 2, 3].map((s) => `${name(s)} ${say(bids[s])}`).join(', ')}.`,
+    `${team('A')} bid ${bids[0] + bids[2]} together; ${team('B')} bid ${bids[1] + bids[3]}. That's ${total} of 13 books bid${
+      left > 0 ? `, so ${left} extra book${left > 1 ? 's' : ''} will end up as somebody's bags` : left < 0 ? ', more books than there are, so somebody is getting set' : ', every book spoken for'
+    }.`,
+  ]
+  const last = [...(pub.events ?? [])].reverse().find((e) => e.t === 'round' && e.round === (pub.round ?? 1) - 1)
+  const seats = last?.result?.seats
+  if (seats?.length === 4) {
+    const set = ['A', 'B'].filter((t) => last.result[t]?.made === false).map((t) => ` ${team(t)} got set.`)
+    facts.push(`Last hand: ${[0, 1, 2, 3].map((s) => `${name(s)} bid ${say(seats[s].bid)} and took ${seats[s].taken}`).join('; ')}.${set.join('')}`)
+  }
+  const angles = [
+    "Roast the other team's bid: too scared, too greedy, or it doesn't add up.",
+    "Hype your own team's bid and promise the books.",
+    'Call out the one bid that stands out the most.',
+    'Talk about the books left over: bags coming, or a set coming.',
+    'Predict how this hand is going to go.',
+    ...(seats?.length === 4 ? ['Compare somebody\'s bid now with what they bid and took last hand.', 'Bring up how last hand went and what it means for this one.'] : []),
+  ]
+  const angle = angles[Math.floor(rng() * angles.length)]
+  return { happened: `${facts.join(' ')} React to the bids. This time: ${angle}`, angle }
 }
