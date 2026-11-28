@@ -1,5 +1,6 @@
-// The bag fix: the pro brain counting bags' long-run cost (BAG_WEIGHT) vs
-// the old one that counted an extra book as +1. Whole matches, no Nil,
+// Today's fixes (bags' long-run cost, and the natural play unless a move is
+// clearly better) vs the brain before them, which
+// counted an extra book as +1 and took any move a hair ahead. Whole matches, no Nil,
 // switching sides; reports wins, points and bags a hand, and sets.
 //   SEED=1 node scripts/bots/verify-bags.mjs [matches] [jokers]
 import * as E from '../../supabase/functions/_shared/engine.js'
@@ -12,7 +13,7 @@ const rng = () => {
   seed = (seed * 1664525 + 1013904223) >>> 0
   return seed / 2 ** 32
 }
-const OLD = { bid: (...a) => proBid(...a.slice(0, 5), { bagWeight: 0 }), card: (...a) => proCard(...a.slice(0, 5), { bagWeight: 0 }) }
+const OLD = { bid: (...a) => proBid(...a.slice(0, 5), { bagWeight: 0 }), card: (...a) => proCard(...a.slice(0, 5), { bagWeight: 0, margin: -1e9 }) }
 const NEW = { bid: (...a) => proBid(...a.slice(0, 5)), card: (...a) => proCard(...a.slice(0, 5)) }
 
 const tally = { new: { wins: 0, pts: 0, bags: 0, over: 0, sets: 0 }, old: { wins: 0, pts: 0, bags: 0, over: 0, sets: 0 } }

@@ -42,6 +42,11 @@ const MAX_PLAY_SAMPLES = 90
 const MAX_BID_SAMPLES = 60
 const MIN_SAMPLES = 10
 const GAME_SWING = 250
+// How much better (in points, on average) a thought-out move has to be than
+// the natural one (what the quick rules would play: keep winners, throw low)
+// before the bot plays it. Below that it's noise, and noise made the bots
+// throw away a King or a Joker for half a point.
+const MARGIN = 2.5
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
 
@@ -170,22 +175,30 @@ function playOut(hands, s, rules) {
 
 // How good a finished round is for `seat`'s team: our points minus theirs,
 // bag penalties included, plus a big swing if it settles the game.
-// Bags left on the books cost later: every bagLimit of them is -100. So
-// beyond the point a bag scores now, each one still on the books is counted
-// at about -(100 / limit) x BAG_WEIGHT (a penalty paid this hand is already
-// in delta and clears them). Without this, extra books looked nearly free,
-// and the bots bid low and grabbed everything (bid 4, took 10).
-export const BAG_WEIGHT = 0.7
-const bagDebt = (bags, r, w) => (r.bagPenalty ? (bags * 100 * w) / r.bagLimit : 0)
+// Bags left on the books cost later: every bagLimit of them is -100.
+//  - Our own: each one still on the books counts about -(100 / limit) x
+//    OWN_BAG_WEIGHT beyond the point it scores now. Without this, extra books
+//    looked free and the bots bid low and grabbed everything (bid 4, took 10).
+//  - Theirs: only once they're near the limit (the last few before the
+//    penalty), the way real players "bag" a team that's close. Counting all
+//    of them made the bots, once set, throw away winners (a Joker, a King)
+//    just to hand a team on 3 bags more books.
+// A penalty paid this hand is already in delta and clears the bags.
+// `scale` (opts.bagWeight) turns it all down; 0 is the old behaviour.
+export const OWN_BAG_WEIGHT = 0.5
+export const THEIR_BAG_WEIGHT = 0.6
+const NEAR = 4
+const ownDebt = (bags, r, k) => (r.bagPenalty ? (bags * 100 * OWN_BAG_WEIGHT * k) / r.bagLimit : 0)
+const theirDebt = (bags, r, k) => (r.bagPenalty ? (Math.max(0, bags - (r.bagLimit - NEAR)) * 100 * THEIR_BAG_WEIGHT * k) / r.bagLimit : 0)
 
-function value(pub, tricks, bids, blind, seat, bagW = BAG_WEIGHT) {
+function value(pub, tricks, bids, blind, seat, scale = 1) {
   const r = pub.rules
   const res = scoreRound({ rules: r, bids, blind, tricks, scores: pub.scores })
   const us = teamOf(seat)
   const them = us === 'A' ? 'B' : 'A'
   let v = res[us].delta - res[them].delta
-  v -= bagDebt(res[us].bags, r, bagW) - bagDebt(pub.scores[us].bags, r, bagW)
-  v += bagDebt(res[them].bags, r, bagW) - bagDebt(pub.scores[them].bags, r, bagW)
+  v -= ownDebt(res[us].bags, r, scale) - ownDebt(pub.scores[us].bags, r, scale)
+  v += theirDebt(res[them].bags, r, scale) - theirDebt(pub.scores[them].bags, r, scale)
   const a = res[us].total
   const b = res[them].total
   if ((a >= r.winScore || b >= r.winScore || a <= r.losingScore || b <= r.losingScore) && a !== b) v += a > b ? GAME_SWING : -GAME_SWING
@@ -221,7 +234,9 @@ export function proCard(hand, seat, pub, rules, rng = Math.random, opts = {}) {
     const seen = new Set([...hand, ...played.flat()].map((c) => c.id))
     const unknown = (jd ? buildDeckJD() : buildDeck()).filter((c) => !seen.has(c.id))
     const others = [0, 1, 2, 3].filter((s) => s !== seat)
+    const natural = botPlan(hand, seat, pub, rules).card
     const choices = distinctChoices(legal, unknown, pub.trick.map((t) => t.card), jd)
+    if (!choices.includes(natural)) choices.push(natural)
     if (choices.length === 1) return choices[0]
     const totals = choices.map(() => 0)
     let weightSum = 0
@@ -241,8 +256,11 @@ export function proCard(hand, seat, pub, rules, rng = Math.random, opts = {}) {
       })
     }
     if (!weightSum) return botPlan(hand, seat, pub, rules).card
+    if (opts.debug) opts.debug.push(Object.fromEntries(choices.map((card, i) => [card.id, +(totals[i] / weightSum).toFixed(2)])))
     let best = 0
     for (let i = 1; i < choices.length; i++) if (totals[i] > totals[best]) best = i
+    const n = choices.indexOf(natural)
+    if ((totals[best] - totals[n]) / weightSum < (opts.margin ?? MARGIN)) return natural
     return choices[best]
   } catch {
     return botPlan(hand, seat, pub, rules).card
