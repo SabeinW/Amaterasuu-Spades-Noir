@@ -133,7 +133,7 @@ check([jaylen.seat, nia.seat].every((s) => (roundBids[s]?.bid ?? 0) >= 1), `Jayl
 await sleep(2600)
 const said = await me.bots({ roomId: r0.id, trigger: 'said', text: 'nia you not ready for this' })
 check(said.replies?.[0]?.name === 'Nia', `naming Nia gets Nia to answer (${said.replies?.map((x) => x.name)})`)
-check(/nia you not ready/.test(said.replies?.[0]?.say ?? ''), '…about what was said')
+check(/nia you not ready/.test(said.replies?.[0]?.say ?? ''), `…about what was said (${JSON.stringify(said.replies?.[0]?.say)})`)
 const again = await me.bots({ roomId: r0.id, trigger: 'said', text: 'nia??' })
 check(again.replies?.length === 0, 'no answer to a second line straight after (they don’t spam)')
 

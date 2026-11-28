@@ -10,7 +10,7 @@ const GIPHY_BLOCKED = /\b(monkeys?|apes?|gorillas?|chimps?|chimpanzees?|baboons?
 export const PRICE = {
   'meta-llama/Llama-3.3-70B-Instruct': [0.72, 2.25],
   'deepseek-ai/DeepSeek-V3.2': [0.9, 1.6],
-  'google/gemma-3-27b-it': [0.1, 0.45],
+  'google/gemma-4-31B-it': [0.75, 1],
   'Qwen/Qwen3-235B-A22B-Instruct-2507': [0.15, 0.8],
   'openai/gpt-oss-120b': [0.35, 0.95],
   'moonshotai/Kimi-K2.5': [0.6, 3],
@@ -56,7 +56,14 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '') {
   const themTeam = usTeam === 'A' ? 'B' : 'A'
   const out = [`Who's at the table: your partner ${name(partner)}; the other team is ${name(opps[0])} and ${name(opps[1])}.`]
   if (pub.scores) {
-    out.push(`Score: your team ${pub.scores[usTeam].total} (${pub.scores[usTeam].bags} bags), their team ${pub.scores[themTeam].total} (${pub.scores[themTeam].bags} bags). Game to ${pub.rules?.winScore ?? 500}. Round ${pub.round ?? 1}.`)
+    // Spelled out, winner first, so no model gets it backwards.
+    const us = pub.scores[usTeam].total
+    const them = pub.scores[themTeam].total
+    const diff = us - them
+    const lead = diff > 0 ? `Your team is WINNING by ${diff}.` : diff < 0 ? `Your team is LOSING by ${-diff}, so don't talk like you're ahead.` : 'The game is tied.'
+    out.push(
+      `Score: you and ${name(partner)} have ${us} points (${pub.scores[usTeam].bags} bags); ${name(opps[0])} and ${name(opps[1])} have ${them} points (${pub.scores[themTeam].bags} bags). ${lead} First to ${pub.rules?.winScore ?? 500} wins. Round ${pub.round ?? 1}. Ten bags costs a team 100 points.`,
+    )
   }
   if (pub.bids?.some((b) => b !== null && b !== undefined)) {
     const row = (s) => `${s === seat ? 'you' : name(s)} bid ${pub.bids[s] ?? '?'}, has ${pub.tricks?.[s] ?? 0} books`
@@ -66,7 +73,7 @@ export function contextPrompt(id, seat, room, talk, happened, memory = '') {
     out.push(`Your team needs ${need(usTeam)} and has ${took(usTeam)}; they need ${need(themTeam)} and have ${took(themTeam)}.`)
   }
   if (memory) out.push(memory)
-  if (talk?.length) out.push(`Recent table talk:\n${talk.slice(-12).map((l) => `${l.who}: ${l.text}`).join('\n')}`)
+  if (talk?.length) out.push(`Recent table talk (your own lines are marked "(you)"; never start a line the way one of yours started):\n${talk.slice(-12).map((l) => `${l.who}${l.who === BOTS[id].name ? ' (you)' : ''}: ${l.text}`).join('\n')}`)
   out.push(`What just happened: ${happened}`)
   out.push(`Reply as ${BOTS[id].name}, as JSON only.`)
   return out.join('\n\n')
@@ -209,4 +216,25 @@ export function readSummary(text, names) {
       .slice(0, MAX_NOTES)
   }
   return out
+}
+
+// The first two words of a line, for spotting a bot saying the same thing
+// the same way again.
+export const opening = (text) =>
+  String(text ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9' ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ')
+
+// Starts like one of this bot's last few lines?
+export function samey(id, say, talk) {
+  const o = opening(say)
+  if (!o || o.split(' ').length < 2) return false
+  return (talk ?? [])
+    .filter((l) => l.who === BOTS[id].name)
+    .slice(-5)
+    .some((l) => opening(l.text) === o)
 }

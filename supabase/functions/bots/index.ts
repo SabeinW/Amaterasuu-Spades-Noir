@@ -15,7 +15,7 @@
 // ready-made lines and no AI is called until tomorrow.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { BOTS } from '../_shared/bots.js'
-import { cannedLine, contextPrompt, costOf, FALLBACK_MODEL, memoryText, readReply, readSummary, SUMMARY_MODEL, summaryMessages, systemPrompt } from '../_shared/botTalk.js'
+import { cannedLine, contextPrompt, costOf, FALLBACK_MODEL, memoryText, opening, readReply, readSummary, samey, SUMMARY_MODEL, summaryMessages, systemPrompt } from '../_shared/botTalk.js'
 
 type Player = { id: string; name: string; seat: number; isBot?: boolean; persona?: string; left?: boolean }
 type Line = { who: string; text: string; at: number }
@@ -94,8 +94,15 @@ async function lineFrom(persona: string, seat: number, room: any, talk: Line[], 
       const out = await askModel(m, messages)
       if (!out) continue
       await admin.rpc('bot_spend_add', { p_cost: costOf(m, out.usage), p_in: out.usage?.prompt_tokens ?? 0, p_out: out.usage?.completion_tokens ?? 0, p_fallback: false })
-      const r = readReply(persona, out.text)
+      let r = readReply(persona, out.text)
       if (r.broke) break
+      // Same opening as one of its last few lines: ask once for something new.
+      if (r.say && samey(persona, r.say, talk)) {
+        const again = await askModel(m, [...messages, { role: 'assistant', content: out.text }, { role: 'user', content: `You started with "${opening(r.say)}" again. Say something new that starts a different way, as JSON.` }])
+        const r2 = again ? readReply(persona, again.text) : null
+        if (again) await admin.rpc('bot_spend_add', { p_cost: costOf(m, again.usage), p_in: again.usage?.prompt_tokens ?? 0, p_out: again.usage?.completion_tokens ?? 0, p_fallback: false })
+        r = r2 && !r2.broke && r2.say && !samey(persona, r2.say, talk) ? r2 : { ...r, say: '' }
+      }
       if (r.say || r.emoji || r.gif) return { ...r, ai: true }
     }
   }

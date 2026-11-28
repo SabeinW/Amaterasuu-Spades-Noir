@@ -1,6 +1,6 @@
 // How the AI players' answers are read and checked (no network).
 //   node scripts/bots/test-talk-parse.mjs
-import { contextPrompt, memoryText, readReply, readSummary, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
+import { contextPrompt, memoryText, readReply, readSummary, samey, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
 import { BOTS, BOT_EMOJI } from '../../supabase/functions/_shared/bots.js'
 import { EMOJI_GROUPS } from '../../src/data/taunts.js'
 
@@ -52,6 +52,15 @@ eq('no people, no memory', memoryText([], [], {}), '')
 const sm = summaryMessages(['Big Dre', 'Keisha'], [{ name: 'Raheem', notes: ['old note'] }], [{ who: 'Raheem', text: 'hi' }], 'They won.')
 eq('the note-taker sees old notes, the talk and how it went', /old note/.test(sm[1].content) && /Raheem: hi/.test(sm[1].content) && /They won/.test(sm[1].content), true)
 eq('the note-taker is told not to make things up', /Never make anything up/.test(sm[0].content), true)
+
+// The score, spelled out from the bot's side
+const losing = contextPrompt('jaylen', 3, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Nia' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Jaylen' }], game_state: { scores: { A: { total: 133, bags: 3 }, B: { total: 12, bags: 2 } }, round: 3, rules: { winScore: 500 } } }, [], 'x')
+eq('a bot that is behind is told it is LOSING, by how much', /you and Nia have 12 points .*Raheem and Wife have 133 points .*Your team is LOSING by 121/.test(losing), true)
+const winning = contextPrompt('nia', 1, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Nia' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Jaylen' }], game_state: { scores: { A: { total: 40, bags: 0 }, B: { total: 90, bags: 1 } }, round: 2, rules: { winScore: 500 } } }, [{ who: 'Nia', text: 'aww cute' }], 'x')
+eq('a bot that is ahead is told it is WINNING', /Your team is WINNING by 50/.test(winning), true)
+eq('its own lines are marked', /Nia \(you\): aww cute/.test(winning), true)
+eq('a line starting like its last one is caught', samey('nia', 'aww, still saying that?', [{ who: 'Nia', text: 'aww, still laughing?' }]), true)
+eq('…but not someone else\'s', samey('nia', 'aww, still saying that?', [{ who: 'Jaylen', text: 'aww, still laughing?' }]), false)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

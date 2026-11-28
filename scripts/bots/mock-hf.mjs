@@ -42,7 +42,7 @@ http
       const bad = /SAYBAD/.test(user)
       const reply = bad
         ? { say: 'damn that was a bad play', emoji: '', gif: '' }
-        : { say: `${who} heard: ${what.slice(0, /You remember: |Last game/.test(user) ? 24 : 50)}${/You remember: /.test(user) ? ` (remembers ${user.match(/You remember: ([^;.\n]*)/)[1].slice(0, 40)})` : ''}${/Last game/.test(user) ? ' (knows the last game)' : ''}`, emoji: '😂', gif: /GIF|joined|sat down/i.test(what) ? 'mic drop' : '' }
+        : { say: `${['yo', 'ok', 'nah', 'lol', 'bruh', 'hm', 'wow'][calls % 7]} ${who} heard: ${what.slice(0, /You remember: |Last game/.test(user) ? 10 : 50)}${/You remember: /.test(user) ? ` (remembers ${user.match(/You remember: ([^;.\n]*)/)[1].slice(0, 30)})` : ''}${/Last game/.test(user) ? ' (knows the last game)' : ''}`, emoji: '😂', gif: /GIF|joined|sat down/i.test(what) ? 'mic drop' : '' }
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify({ model: j.model, choices: [{ message: { content: JSON.stringify(reply) } }], usage: { prompt_tokens: 700, completion_tokens: 30 } }))
     })
