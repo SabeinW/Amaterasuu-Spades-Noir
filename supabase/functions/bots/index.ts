@@ -15,7 +15,7 @@
 // ready-made lines and no AI is called until tomorrow.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { BOTS } from '../_shared/bots.js'
-import { cannedLine, contextPrompt, costOf, FALLBACK_MODEL, readReply, systemPrompt } from '../_shared/botTalk.js'
+import { cannedLine, contextPrompt, costOf, FALLBACK_MODEL, memoryText, readReply, readSummary, SUMMARY_MODEL, summaryMessages, systemPrompt } from '../_shared/botTalk.js'
 
 type Player = { id: string; name: string; seat: number; isBot?: boolean; persona?: string; left?: boolean }
 type Line = { who: string; text: string; at: number }
@@ -51,7 +51,7 @@ const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)]
 
 // ------------------------------------------------------------- the model ---
 
-async function askModel(model: string, messages: unknown[]) {
+async function askModel(model: string, messages: unknown[], maxTokens = 160) {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), 9000)
   try {
@@ -63,7 +63,7 @@ async function askModel(model: string, messages: unknown[]) {
         model,
         messages,
         temperature: 0.95,
-        max_tokens: model.includes('gpt-oss') ? 320 : 160,
+        max_tokens: model.includes('gpt-oss') ? maxTokens * 2 : maxTokens,
         ...(model.includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       }),
     })
@@ -83,11 +83,11 @@ async function askModel(model: string, messages: unknown[]) {
 
 // One line from one bot: its own model first, the fallback model if that
 // fails, its ready-made lines if the AI is off or the answer broke the rules.
-async function lineFrom(persona: string, seat: number, room: any, talk: Line[], happened: string, aiOn: boolean) {
+async function lineFrom(persona: string, seat: number, room: any, talk: Line[], happened: string, aiOn: boolean, memory = '') {
   if (aiOn && HF_TOKEN) {
     const messages = [
       { role: 'system', content: systemPrompt(persona) },
-      { role: 'user', content: contextPrompt(persona, seat, room, talk, happened) },
+      { role: 'user', content: contextPrompt(persona, seat, room, talk, happened, memory) },
     ]
     const model = BOTS[persona as keyof typeof BOTS].model
     for (const m of model === FALLBACK_MODEL ? [model] : [model, FALLBACK_MODEL]) {
@@ -131,8 +131,8 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
     const bring = !partnerHere && !room4 && room.status === 'waiting'
     const others = players.filter((p) => !p.isBot).map((p) => p.name).join(' and ')
     const happened = bring
-      ? `You just sat down at the table with ${others}. Say hi with some trash talk, and say you're bringing your partner ${partnerName} in.`
-      : `You just sat down at the table with ${others}${partnerHere ? `, next to your partner ${partnerName}` : ''}. Say hi with some trash talk.`
+      ? `You just sat down at the table with ${others}. Say hi to them with some trash talk (if you remember them, bring up something from last time), and say you're bringing your partner ${partnerName} in.`
+      : `You just sat down at the table with ${others}${partnerHere ? `, next to your partner ${partnerName}` : ''}. Say hi to them with some trash talk; if you remember them, bring up something from last time.`
     return { happened, who: [bot], bring, line: null as Line | null, key: null as string | null }
   }
 
@@ -209,6 +209,60 @@ function plan(body: any, room: any, me: Player, bots: Player[]) {
   return null
 }
 
+// ---------------------------------------------------------------- memory ---
+
+const people = (room: any): Player[] => (room.players ?? []).filter((p: Player) => !p.isBot && UUID.test(p.id))
+
+// What each bot at the table remembers about the people here.
+async function loadMemory(room: any, bots: Player[]) {
+  const ids = people(room).map((p) => p.id)
+  const botIds = bots.map((b) => b.id)
+  if (!ids.length) return () => ''
+  const [{ data: notes }, { data: games }] = await Promise.all([
+    admin.from('bot_memories').select('bot_id, person_id, notes').in('bot_id', botIds).in('person_id', ids),
+    admin.from('bot_games').select('bot_id, won, us, them, people, played_at').in('bot_id', botIds).order('played_at', { ascending: false }).limit(300),
+  ])
+  return (bot: Player) =>
+    memoryText(
+      people(room).map((p) => ({ id: p.id, name: p.name, side: p.seat % 2 === bot.seat % 2 ? 'partner' : 'opponent' })),
+      (games ?? []).filter((g) => g.bot_id === bot.id),
+      Object.fromEntries((notes ?? []).filter((n) => n.bot_id === bot.id).map((n) => [n.person_id, n.notes ?? []])),
+    )
+}
+
+// Boils the recent talk into notes about each person, merged with what the
+// bots at the table already remembered, and saves them for every one of
+// those bots. Runs after the reply has gone back, so it never slows them.
+async function summarize(room: any, bots: Player[], talk: Line[], outcome: string) {
+  const folks = people(room)
+  if (!folks.length || !talk.length) return
+  if (Number((await admin.rpc('bot_spend_today')).data ?? 0) >= DAILY_CAP) return
+  const { data: had } = await admin.from('bot_memories').select('person_id, notes').in('bot_id', bots.map((b) => b.id)).in('person_id', folks.map((p) => p.id))
+  const old = folks.map((p) => ({ name: p.name, notes: [...new Set((had ?? []).filter((m) => m.person_id === p.id).flatMap((m) => m.notes ?? []))].slice(0, 8) as string[] }))
+  const messages = summaryMessages(bots.map((b) => b.name), old, talk.slice(-16), outcome)
+  for (const model of [SUMMARY_MODEL, FALLBACK_MODEL]) {
+    const out = await askModel(model, messages, 500)
+    if (!out) continue
+    await admin.rpc('bot_spend_add', { p_cost: costOf(model, out.usage), p_in: out.usage?.prompt_tokens ?? 0, p_out: out.usage?.completion_tokens ?? 0, p_fallback: false })
+    const fresh = readSummary(out.text, folks.map((p) => p.name))
+    if (!fresh) continue
+    const now = new Date().toISOString()
+    const rows = bots.flatMap((b) => folks.map((p, i) => ({ bot_id: b.id, person_id: p.id, notes: fresh[p.name]?.length ? fresh[p.name] : old[i].notes, updated_at: now })))
+    const { error } = await admin.from('bot_memories').upsert(rows)
+    if (error) console.error('bot_memories', error.message)
+    return
+  }
+}
+
+function inBackground(job: Promise<unknown>) {
+  const done = job.catch((e) => console.error('background', String(e)))
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime
+  if (rt?.waitUntil) rt.waitUntil(done)
+  else return done
+}
+
+const SUMMARY_EVERY = 12
+
 async function handle(userId: string, body: any) {
   const roomId = String(body.roomId ?? '')
   if (!UUID.test(roomId)) throw new HttpError(400, 'Missing room.')
@@ -229,8 +283,21 @@ async function handle(userId: string, body: any) {
   const recent: number[] = (row?.recent_replies ?? []).filter((t: number) => now - t < WINDOW_MS)
   const lastAt = row?.last_reply_at ? Date.parse(row.last_reply_at) : 0
 
+  let since = (row?.since_summary ?? 0) + (p?.line ? 1 : 0)
   const remember = async (extra: Record<string, unknown> = {}) => {
-    await admin.from('bot_room_talk').upsert({ room_id: roomId, lines: talk, recent_replies: recent, updated_at: new Date().toISOString(), ...extra })
+    await admin.from('bot_room_talk').upsert({ room_id: roomId, lines: talk, recent_replies: recent, since_summary: since, updated_at: new Date().toISOString(), ...extra })
+  }
+  // Boil the talk into notes every so often, at the end of a hand if there's
+  // been a fair bit of it, and always when the game ends.
+  const moment = body.trigger === 'moment' ? String(body.event?.type ?? '') : ''
+  const pub = room.game_state ?? {}
+  const outcome = moment === 'won' && pub.winner ? `The game ended. Final score ${pub.scores?.A?.total} to ${pub.scores?.B?.total}.` : ''
+  const maybeSummarize = async () => {
+    if (since >= SUMMARY_EVERY || (moment === 'round' && since >= 6) || (moment === 'won' && since > 0)) {
+      since = 0
+      await remember()
+      await inBackground(summarize(room, bots, talk, outcome))
+    }
   }
 
   let answer = !!p?.who.length
@@ -243,23 +310,28 @@ async function handle(userId: string, body: any) {
   }
   if (!answer) {
     if (p?.line) await remember()
+    // A hand's or game's end is summed up by whichever app got the moment.
+    if (moment !== 'round' && moment !== 'won') await maybeSummarize()
     return { replies: [] }
   }
 
   const spent = Number((await admin.rpc('bot_spend_today')).data ?? 0)
   const aiOn = spent < DAILY_CAP
+  const memoryFor = aiOn ? await loadMemory(room, bots) : () => ''
   const replies: Reply[] = []
   let delay = 0
   for (const bot of p!.who) {
     const happened = 'eachSays' in p! && p!.eachSays ? p!.happened.replace(/Your team just .*$/, p!.eachSays(bot)) : p!.happened
-    const r = await lineFrom(bot.persona!, bot.seat, room, talk, replies.length ? `${happened}\n${replies.map((x) => `${x.name} just said: "${x.say || x.emoji || x.gif}"`).join('\n')}` : happened, aiOn)
+    const r = await lineFrom(bot.persona!, bot.seat, room, talk, replies.length ? `${happened}\n${replies.map((x) => `${x.name} just said: "${x.say || x.emoji || x.gif}"`).join('\n')}` : happened, aiOn, memoryFor(bot))
     delay += replies.length ? 1400 + Math.random() * 1800 : 300 + Math.random() * 700
     const say = clip(r.say, 110)
     replies.push({ botId: bot.id, persona: bot.persona!, seat: bot.seat, name: bot.name, say, emoji: r.emoji, gif: r.gif, delay: Math.round(delay), ai: r.ai })
     talk = [...talk, { who: bot.name, text: say || (r.gif ? `[threw a GIF: ${r.gif}]` : `[threw ${r.emoji}]`), at: Date.now() }].slice(-16)
     recent.push(Date.now())
+    since++
   }
   await remember({ last_reply_at: new Date().toISOString() })
+  await maybeSummarize()
 
   let bring: string | null = null
   if (p!.bring) {

@@ -38,7 +38,7 @@ export function systemPrompt(id) {
     '- "say": what you type in the table chat, under 90 characters, or "" to stay quiet.',
     `- "emoji": one emoji to throw at the table from this list, or "": ${BOT_EMOJI.join(' ')}`,
     '- "gif": 1 to 3 words to search for a funny reaction GIF (like "mic drop" or "crying laughing"), or "". Only now and then.',
-    'Most of the time just "say", sometimes with an emoji. Type like a real person texting, never like an assistant. Never put your own name in front.',
+    'Most of the time just "say", sometimes with an emoji. Type like a real person texting, never like an assistant: vary it, sometimes only a couple of words, sometimes a full line. Never put your own name in front.',
   ].join('\n')
 }
 
@@ -46,7 +46,7 @@ const TEAM_WORD = { A: [0, 2], B: [1, 3] }
 
 // Everything the bot is told about the table: who's who, the score, this
 // hand's bids and books, the recent talk, and what just happened.
-export function contextPrompt(id, seat, room, talk, happened) {
+export function contextPrompt(id, seat, room, talk, happened, memory = '') {
   const pub = room.game_state ?? {}
   const players = room.players ?? []
   const name = (s) => players.find((p) => p.seat === s)?.name ?? `Seat ${s + 1}`
@@ -65,6 +65,7 @@ export function contextPrompt(id, seat, room, talk, happened) {
     const took = (team) => TEAM_WORD[team].reduce((n, s) => n + (pub.tricks?.[s] ?? 0), 0)
     out.push(`Your team needs ${need(usTeam)} and has ${took(usTeam)}; they need ${need(themTeam)} and have ${took(themTeam)}.`)
   }
+  if (memory) out.push(memory)
   if (talk?.length) out.push(`Recent table talk:\n${talk.slice(-12).map((l) => `${l.who}: ${l.text}`).join('\n')}`)
   out.push(`What just happened: ${happened}`)
   out.push(`Reply as ${BOTS[id].name}, as JSON only.`)
@@ -122,4 +123,90 @@ export function readReply(id, text) {
 export function cannedLine(id, rng = Math.random) {
   const lines = BOTS[id].lines
   return lines[Math.floor(rng() * lines.length)]
+}
+
+// ---------------------------------------------------------------- memory ---
+
+const ago = (iso, now = Date.now()) => {
+  const days = Math.floor((now - Date.parse(iso)) / 86400000)
+  return days <= 0 ? 'earlier today' : days === 1 ? 'yesterday' : days < 14 ? `${days} days ago` : days < 60 ? `${Math.round(days / 7)} weeks ago` : 'a while back'
+}
+
+// What a bot remembers about the people at the table: its record against
+// (or with) each of them, the last game, and its notes on them.
+//   people: [{ id, name, side: 'partner' | 'opponent' }] relative to the bot
+//   games:  this bot's bot_games rows, newest first
+//   notes:  { [personId]: ['note', …] }
+export function memoryText(people, games, notes, now = Date.now()) {
+  const lines = []
+  for (const p of people) {
+    const together = (games ?? []).filter((g) => (g.people ?? []).some((x) => x.id === p.id))
+    const parts = []
+    if (!together.length) parts.push('first time playing together')
+    else {
+      const vs = together.filter((g) => g.people.find((x) => x.id === p.id)?.side === 'opponent')
+      const w = vs.filter((g) => g.won).length
+      if (vs.length) parts.push(`you've played ${vs.length} game${vs.length > 1 ? 's' : ''} against them and won ${w}`)
+      const last = together[0]
+      parts.push(`last game ${ago(last.played_at, now)} you ${last.won ? 'won' : 'lost'} ${last.us} to ${last.them}`)
+    }
+    const n = notes?.[p.id] ?? []
+    if (n.length) parts.push(`you remember: ${n.join('; ')}`)
+    const said = parts.map((x) => x[0].toUpperCase() + x.slice(1)).join('. ')
+    lines.push(`- ${p.name} (${p.side === 'partner' ? 'your partner' : 'other team'}): ${said}.`)
+  }
+  if (!lines.length) return ''
+  return `What you remember about the people here. Use it like a friend who remembers: now and then bring up one thing that fits (an old win or loss, something they said or promised). Never list it:\n${lines.join('\n')}`
+}
+
+export const SUMMARY_MODEL = 'Qwen/Qwen3-235B-A22B-Instruct-2507'
+const MAX_NOTES = 5
+
+// Asks for updated notes on each person from what was just said at the
+// table plus what the bots already remembered.
+//   people: [{ name, notes: [] }]   lines: [{ who, text }]   bots: names
+export function summaryMessages(bots, people, lines, outcome = '') {
+  const old = people.map((p) => `- ${p.name}: ${p.notes.length ? p.notes.join('; ') : '(nothing yet)'}`).join('\n')
+  return [
+    {
+      role: 'system',
+      content: [
+        `You keep the memory of the AI card players ${bots.join(' and ')} in a family Spades app.`,
+        'From the table talk and what they already remember, keep short notes about each PERSON listed (never about the AI players) that are worth bringing up next time:',
+        'how they talk (their actual slang, catchphrases and emojis), trash talk or jokes they made, promises or challenges (like saying they\'d win next time), and anything notable that happened to them in the game.',
+        'Only write what is really in the talk or the old notes, with their real words in quotes where you can. Never make anything up, never flatter, and never put one person\'s words under someone else\'s name: check who said each line.',
+        'Write each note as a short sentence about what they did, so whoever reads it knows it was them, like: called Dre "lil bro" for bidding 6 😂 / said they practiced all week / promised to beat Dre next time.',
+        `Merge with the old notes and drop stale ones. At most ${MAX_NOTES} notes per person, fewer is fine, each under 90 characters. Family-clean: no swearing, nothing about looks, race or family.`,
+        'Answer with ONLY a JSON object: {"<person name>": ["note", ...], ...}',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: `People: ${people.map((p) => p.name).join(', ')}\n\nWhat they already remember:\n${old}\n\nTable talk:\n${lines.map((l) => `${l.who}: ${l.text}`).join('\n')}${outcome ? `\n\nHow it went: ${outcome}` : ''}`,
+    },
+  ]
+}
+
+// The answer → { [person name]: ['note', …] }, cleaned for the table.
+export function readSummary(text, names) {
+  const raw = String(text ?? '').replace(/<think>[\s\S]*?<\/think>/gi, '')
+  const m = raw.match(/\{[\s\S]*\}/)
+  let obj = null
+  try {
+    obj = m ? JSON.parse(m[0]) : null
+  } catch {
+    obj = null
+  }
+  if (!obj || typeof obj !== 'object') return null
+  const out = {}
+  for (const name of names) {
+    const key = Object.keys(obj).find((k) => k.trim().toLowerCase() === name.trim().toLowerCase())
+    const list = Array.isArray(obj[key]) ? obj[key] : []
+    out[name] = list
+      .map((n) => String(n ?? '').replace(/\s+/g, ' ').trim())
+      .filter((n) => n && !NOT_AT_THIS_TABLE.test(n) && !GIPHY_BLOCKED.test(n))
+      .map((n) => (n.length > 100 ? `${n.slice(0, 97).replace(/\s+\S*$/, '')}…` : n))
+      .slice(0, MAX_NOTES)
+  }
+  return out
 }

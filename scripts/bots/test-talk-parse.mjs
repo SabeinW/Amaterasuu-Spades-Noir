@@ -1,6 +1,6 @@
 // How the AI players' answers are read and checked (no network).
 //   node scripts/bots/test-talk-parse.mjs
-import { readReply, systemPrompt, contextPrompt } from '../../supabase/functions/_shared/botTalk.js'
+import { contextPrompt, memoryText, readReply, readSummary, summaryMessages, systemPrompt } from '../../supabase/functions/_shared/botTalk.js'
 import { BOTS, BOT_EMOJI } from '../../supabase/functions/_shared/bots.js'
 import { EMOJI_GROUPS } from '../../src/data/taunts.js'
 
@@ -38,6 +38,20 @@ for (const [id, b] of Object.entries(BOTS)) {
 }
 const ctx = contextPrompt('nia', 3, { players: [{ seat: 0, name: 'Raheem' }, { seat: 1, name: 'Jaylen' }, { seat: 2, name: 'Wife' }, { seat: 3, name: 'Nia' }], game_state: {} }, [], 'test')
 eq('the table is described from her seat', /partner Jaylen; the other team is Raheem and Wife/.test(ctx), true)
+
+// Memory
+const sum = readSummary('```json\n{"raheem": ["called Dre \\"lil bro\\" 😂", "said damn", "a", "b", "c", "d", "e"], "Wife": ["said they practiced all week"], "Big Dre": ["x"]}\n```', ['Raheem', 'Wife'])
+eq('notes are matched to people whatever the case', Object.keys(sum), ['Raheem', 'Wife'])
+eq('notes that break the table rules are dropped, five at most', sum.Raheem, ['called Dre "lil bro" 😂', 'a', 'b', 'c', 'd'])
+eq('a note about an AI player is ignored', sum['Big Dre'], undefined)
+eq('an answer that isn\'t JSON gives nothing', readSummary('sorry, I cannot', ['Raheem']), null)
+const mem = memoryText([{ id: 'r', name: 'Raheem', side: 'opponent' }, { id: 'w', name: 'Wife', side: 'partner' }], [{ won: false, us: 380, them: 510, played_at: new Date(Date.now() - 864e5).toISOString(), people: [{ id: 'r', side: 'opponent' }] }], { r: ['called Dre "lil bro"'] })
+eq('memory has the record and the last game', /Raheem \(other team\): You've played 1 game against them and won 0\. Last game yesterday you lost 380 to 510\. You remember: called Dre "lil bro"/.test(mem), true)
+eq('someone new is a first time', /Wife \(your partner\): First time playing together\./.test(mem), true)
+eq('no people, no memory', memoryText([], [], {}), '')
+const sm = summaryMessages(['Big Dre', 'Keisha'], [{ name: 'Raheem', notes: ['old note'] }], [{ who: 'Raheem', text: 'hi' }], 'They won.')
+eq('the note-taker sees old notes, the talk and how it went', /old note/.test(sm[1].content) && /Raheem: hi/.test(sm[1].content) && /They won/.test(sm[1].content), true)
+eq('the note-taker is told not to make things up', /Never make anything up/.test(sm[0].content), true)
 
 console.log(failed ? `${failed} FAILED` : 'all passed')
 process.exit(failed ? 1 : 0)

@@ -163,6 +163,26 @@ async function recordResults(room: Room) {
       p_rounds: pub.round,
     })
   }
+  // The AI players remember every game they finish (the `bots` function
+  // reads these back so they can bring up old wins and losses).
+  const ai = room.players.filter((p) => p.isBot && p.persona && isRealUser(p))
+  if (ai.length) {
+    const rows = ai.map((b) => {
+      const team = E.teamOf(b.seat)
+      const other = team === 'A' ? 'B' : 'A'
+      return {
+        bot_id: b.id,
+        room_id: room.id,
+        won: pub.winner === team,
+        us: pub.scores[team].total,
+        them: pub.scores[other].total,
+        rounds: pub.round,
+        people: room.players.filter(isHuman).map((p) => ({ id: p.id, name: p.name, side: E.teamOf(p.seat) === team ? 'partner' : 'opponent' })),
+      }
+    })
+    const { error } = await admin.from('bot_games').insert(rows)
+    if (error) console.error('bot_games', error.message)
+  }
 }
 
 async function sweepStaleRooms() {
