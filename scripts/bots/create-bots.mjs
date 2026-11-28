@@ -18,9 +18,9 @@ const env = process.env.SUPABASE_SERVICE_ROLE_KEY ? { url: process.env.SUPABASE_
 if (!env.url || !env.key) throw new Error('Missing the Supabase URL or service key.')
 const admin = createClient(env.url, env.key, { auth: { persistSession: false, autoRefreshToken: false } })
 
-// Until their own portraits are painted they wear one of the table's
-// ink-and-gold medallions, none of them one a plain table bot wears.
-const AVATAR = { dre: 'lion', keisha: 'owl', jaylen: 'kestrel', nia: 'deer', malik: 'dragon', jada: 'sparrow' }
+// Their own portraits, painted in Qalam in the same ink-and-gold style as
+// the table's medallions (public/art/avatars/ai-<persona>.webp).
+const AVATAR = Object.fromEntries(Object.keys(BOTS).map((p) => [p, `ai-${p}`]))
 
 const { data: existing, error: listError } = await admin.from('bot_accounts').select('id, persona')
 if (listError) throw listError
